@@ -1,257 +1,0 @@
-diff --git a/public/sw.js b/public/sw.js
-index c5d4414..3f8e6e9 100644
---- a/public/sw.js
-+++ b/public/sw.js
-@@ -1,9 +1,9 @@
- // Offline shell for Shadow Village. Ninja portraits are external PNG assets,
- // so pre-cache the complete 80-character art library as well as the app shell.
--const CACHE = "shadow-village-v5-raiders10-field";
-+const CACHE = "shadow-village-v6-rank-exams";
- const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);
- const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
--const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
-+const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/bg-exam-arena.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
- 
- self.addEventListener("install", (e) => {
-   self.skipWaiting();
-diff --git a/src/App.tsx b/src/App.tsx
-index c58aaff..dc76120 100644
---- a/src/App.tsx
-+++ b/src/App.tsx
-@@ -98,6 +98,11 @@ export default function App() {
-           fx.burst(window.innerWidth * 0.5, window.innerHeight * 0.3, "star", 26);
-           floater(50, 34, `${e.kanji} ${e.name} ‚Üí ${RANK_META[e.rank as keyof typeof RANK_META].name.toUpperCase()}`, "great");
-           break;
-+        case "exam_failed":
-+          audio.fail();
-+          fx.shake(8);
-+          floater(50, 34, `EXAM FAILED ¬∑ RETRY ${e.nextCost} GOLD`, "bad");
-+          break;
-         case "trained":
-           audio.level();
-           floater(50, 46, `${SKILL_META[e.skill as Skill].name} +${e.gain}`, "good");
-@@ -354,8 +359,10 @@ export default function App() {
-   const doPromote = (ninjaId: number, r?: DOMRect) => {
-     const evs: Ev[] = [];
-     if (eng.promote(sRef.current, ninjaId, evs)) {
-+      setDetailFor(null);
-       const rect = r ?? fallbackRect();
--      fx.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, "star", 22);
-+      fx.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, "star", 12);
-+      audio.dispatch();
-     } else {
-       audio.click();
-       fx.shake(2);
-diff --git a/src/components/BattleScreen.tsx b/src/components/BattleScreen.tsx
-index 0eb3e88..8d1bf6d 100644
---- a/src/components/BattleScreen.tsx
-+++ b/src/components/BattleScreen.tsx
-@@ -41,6 +41,7 @@ export default function BattleScreen({
-   const [pending, setPending] = useState<BAction | null>(null);
-   const logRef = useRef<HTMLDivElement>(null);
-   const over = b.state === "won" || b.state === "lost";
-+  const isExam = b.mode === "exam";
- 
-   useEffect(() => {
-     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: "smooth" });
-@@ -94,7 +95,7 @@ export default function BattleScreen({
-     <div className="fixed inset-0 z-50 flex flex-col bg-[#0b0c16]">
-       {/* battlefield backdrop */}
-       <div className="absolute inset-0">
--        <img src="/bg-raid-field.jpg" alt="" className="h-full w-full object-cover opacity-50" draggable={false} />
-+        <img src={isExam ? "/bg-exam-arena.jpg" : "/bg-raid-field.jpg"} alt="" className="h-full w-full object-cover opacity-50" draggable={false} />
-         <div className="absolute inset-0 bg-gradient-to-b from-[#1a0d18]/85 via-[#0b0c16]/55 to-[#0b0c16]" />
-         <div className="vignette-raid absolute inset-0 opacity-60" />
-       </div>
-@@ -102,15 +103,15 @@ export default function BattleScreen({
-       <div className="relative flex h-full flex-col p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:p-3">
-         {/* header */}
-         <div className="flex shrink-0 items-center gap-2 rounded-xl bg-black/45 px-3 py-1.5 ring-1 ring-white/10 backdrop-blur">
--          <span className="font-display text-[15px] font-black text-vermil">Ë•≤</span>
-+          <span className="font-display text-[15px] font-black text-vermil">{isExam ? "Ë©¶" : "Ë•≤"}</span>
-           <div className="min-w-0 flex-1">
-             <p className="truncate text-[12px] font-black tracking-wide text-paper">{b.clan}</p>
--            <p className="text-[9.5px] font-bold tracking-[0.2em] text-paper/45">RAID ON THE VILLAGE</p>
-+            <p className="text-[9.5px] font-bold tracking-[0.2em] text-paper/45">{isExam ? "RANK-UP EXAM ¬∑ 1V1 DUEL" : "RAID ON THE VILLAGE"}</p>
-           </div>
-           <div className="hidden items-center gap-1.5 text-[9px] font-black tabular-nums sm:flex">
--            <span className="rounded-md bg-black/40 px-2 py-1 text-jade">HOME {homePower.toLocaleString()}</span>
-+            <span className="rounded-md bg-black/40 px-2 py-1 text-jade">{isExam ? "YOU" : "HOME"} {homePower.toLocaleString()}</span>
-             <span className="text-paper/25">VS</span>
--            <span className="rounded-md bg-black/40 px-2 py-1 text-[#ff7a5c]">RAID {raidPower.toLocaleString()}</span>
-+            <span className="rounded-md bg-black/40 px-2 py-1 text-[#ff7a5c]">{isExam ? "RIVAL" : "RAID"} {raidPower.toLocaleString()}</span>
-           </div>
-           <span className="rounded-md bg-black/40 px-2 py-1 text-[10px] font-black tabular-nums text-gold">ROUND {b.round}</span>
-         </div>
-@@ -137,7 +138,15 @@ export default function BattleScreen({
-                 )}
-               >
-                 <div className={cn("relative", hit && flash?.n && "unit-hit", !u.alive && "unit-down")} key={`${u.uid}-${flash?.n ?? 0}`}>
--                  <EnemyArt kind={u.kind} h={74} dead={!u.alive} />
-+                  {u.look ? (
-+                    <NinjaSprite
-+                      n={{ id: 900000 + Number(u.uid.replace(/\D/g, "") || 0), look: u.look, nature: u.nature ?? "fire", level: u.level, rank: u.rank ?? "genin", legend: u.legend }}
-+                      h={74}
-+                      grey={!u.alive}
-+                    />
-+                  ) : (
-+                    <EnemyArt kind={u.kind} h={74} dead={!u.alive} />
-+                  )}
-                   {hit && (
-                     <span className={cn("dmg-pop absolute left-1/2 top-2 font-display text-[19px] font-black", flash.kind === "heal" ? "text-jade" : flash.kind === "crit" ? "text-gold" : "text-[#ff6a6f]")}>
-                       {flash.kind === "heal" ? "+" : "‚àí"}{flash.amount}
-@@ -222,10 +231,14 @@ export default function BattleScreen({
-             <div className="flex items-center gap-3">
-               <div className="min-w-0 flex-1">
-                 <p className={cn("font-display text-[17px] font-black tracking-wider", b.state === "won" ? "text-jade" : "text-vermil")}>
--                  {b.state === "won" ? "ÂãùÂà© ‚Äî VILLAGE HELD" : "ÊïóÂåó ‚Äî THE WALLS BREAK"}
-+                  {isExam
-+                    ? (b.state === "won" ? "ÂêàÊ†º ‚Äî EXAM PASSED" : "‰∏çÂêàÊ†º ‚Äî EXAM FAILED")
-+                    : (b.state === "won" ? "ÂãùÂà© ‚Äî VILLAGE HELD" : "ÊïóÂåó ‚Äî THE WALLS BREAK")}
-                 </p>
-                 <p className="truncate text-[10.5px] text-paper/55">
--                  {b.state === "won" ? `+${b.gold} gold ¬∑ +${b.score} score` : "The village takes damage."}
-+                  {isExam
-+                    ? (b.state === "won" ? "Promotion earned ¬∑ +3 SP ¬∑ stronger permanent skill boost" : "No promotion ¬∑ the next gold entry fee is reduced")
-+                    : (b.state === "won" ? `+${b.gold} gold ¬∑ +${b.score} score` : "The village takes damage."}z
-                </p>
-              </div>
-diff --git a/src/components/NinjaDetail.tsx b/src/components/NinjaDetail.tsx
-index a5b7540..909ac54 100644
---- a/src/components/NinjaDetail.tsx
-+++ b/src/components/NinjaDetail.tsx
-@@ -124,7 +124,7 @@ export default function NinjaDetail({
-                   <Req ok={promo.okLevel} label={`Lv ${n.level}/${nextMeta.level}`} />
-                   <Req ok={promo.okMissions} label={`${n.wins}/${nextMeta.missions} wins`} />
-                   <Req ok={promo.okGold} label={`${nextMeta.gold} gold`} />
--                  <Req ok={promo.okGold} label={`${nextMeta.gold} gold`} />
-+                  <Req ok={promo.okGold} label={`${promo.cost} gold`} />
-                   <Req ok={promo.okAp} label="1 action" />
-                 </div>
-              </div>
-              <button
-@@ -131,14 +131,13 @@ export default function NinjaDetaiY]Z[
-¬à\ÿXõY^»\õ€[ÀúôXY_Bà€ê€X⁄œ^ JHOà€îõ€[›JKò›\úô[ù\ôŸ]ôŸ]õ›[ô[ô–€Y[ùôX›
-
-J_Bà€\‹”ò[YOHòùã\ö[X\ûHõ^NH⁄ö[öÀL][\ÀXŸ[ù\àÿ\LHõ›[ôY[»LãçH^VÃLHõ€ùXõX⁄»òX⁄⁄[ôÀ]⁄Y\àÇàÇàô[ô[ô’\⁄^ôO^ÃLüHœàì”S’Bä»ô[ô[ô’\⁄^ôO^ÃLüHœàR—HVSBàÿù]€èÇàŸ]èÇãH‹õ€[ÀúôXYH	âà
-ãH€\‹”ò[YOHõ]LKçH^VŒKç\H^Y€€ŒèÇãH‹ò[ù»
-Ãà‘H\õX[ô[ù⁄⁄[õ€‹›[ôXÿŸ\‹»»Y⁄\ãY‹òYH€€ùòX›ÀÇãH‹ÇãH
-_Bä»€\‹”ò[YOHõ]LKçH^VŒKç\H^Y€€ŒèÇä»HàHY[0≠»ÿ[YK\ò[ö»ö]ò[0Ì»]ô[0¨LKà⁄[à»õ€[›H⁄]
-Ã»‘[ôH›õ€ôŸ\à\õX[ô[ù⁄⁄[õ€‹›Çä»‹õ€[ÀôòZ[\ô\»à	âà‹[à€\‹”ò[YOHõ[LH^ZòYHèîô]ûH\ÿ€›[ùX›]ôNà‹õ€[ÀôòZ[\ô\»OOHH»åçIHààçL	HüHŸôãè‹‹[èüBä»‹ÇàŸ]èÇà
-_Bà»[ô^Y]H	âà
-ôYôàKY⁄]K‹‹òÀŸÿ[YKÿò]Kù»ã‹‹òÀŸÿ[YKÿò]Kù¬ö[ô^XôòÃLçãôôôòLŸXàLçãKKHK‹‹òÀŸÿ[YKÿò]Kù¬ä  »ã‹‹òÀŸÿ[YKÿò]Kù¬êLåMà
-ÃåMŒ^‹ùù[ò›[€à›\ùò]JŒàÿ[YT›]KYô[ô\úŒàö[öòV◊JNàò]H¬àX›[ôŒàù[ä»[ŸNàúòZYãä»^[U\ôŸ]ò[öŒàù[àN¬àõ€‹ô\äãÀòãù›Ÿ\ãùYJN¬àô]\õàé¬àBä¬äÀ äà›\ùHõ€[›[€à^[Nà^X›H€ôHÿ[ôY]Hô\ú›\»€ôHŸ[ô\ò]Yö]ò[à
-ã¬äŸ^‹ùù[ò›[€à›\ù^[Pò]JŒàÿ[YT›]Kÿ[ôY]Nàö[öòKö]ò[àö[öòK\ôŸ]ò[öŒàö[öòV»úò[ö»óJNàò]H¬ä»€€ú›[HH[ö]úõ€Sö[öòJÿ[ôY]JN¬ä»€€ú›õŸHH[ö]úõ€Sö[öòJö]ò[
-N¬ä»õŸKùZYHôLé¬ä»õŸKôõŸHHùYN¬ä»õŸKõö[öòRYHù[¬ä»õŸKö⁄[ôHô^[W‹ö]ò[é¬ä»õŸKõò[YHHö]ò[õò[YKú‹]
-àäVÃN¬ä¬ä»€€ú›\ôŸ]HêSí◊”QUV›\ôŸ]ò[ö◊N¬ä»€€ú›éàò]HH¬ä»õ›[ôàKä»[ö]Œàÿ[KõŸWKä»‹ô\éà◊Kä»Yàä»›]Nàò⁄€‹ŸHãä»ŸŒàﬁ»à	ÿÿ[ôY]Kõò[YKú‹]
-àäVÃ_HòXŸ\»	ŸõŸKõò[Y_H[àH	›\ôŸ]õò[Y_H^[Kò⁄[ôàö[ôõ»àWKä»€[éà	›\ôŸ]õò[Y_HVSXä»€€àä»ÿ€‹ôNàä»õ\⁄àù[ä»X›[ôŒàù[ä»[ŸNàô^[Hãä»^[U\ôŸ]ò[öŒà\ôŸ]ò[öÀàN¬àõ€‹ô\äãÀòãù›Ÿ\ãùYJN¬àô]\õàé¬êMLåãà
-ÕMMH^‹ùù[ò›[€àö[ö\⁄ò]JŒàÿ[YT›]K]éà»\Nà›ö[ôŒ»⁄Œà›ö[ô◊Nà[ö€ÇàYà
-XäHô]\õé¬à€€ú›€€àHãú›]HOOHù€€àé¬àä»À»õ€[›[€à^[\»\ôHŸ[ãX€€ùZ[ôYY[Œàõ»ö[YŸH[XYŸKòZYô]ÿ\ô»‹Çä»À»[öù\ûH›]KàöX›‹ûH\Y\»Hõ€[›[€é»YôX]›‹ô\»H⁄X\\àô]ûKÇä»Yà
-ãõ[ŸHOOHô^[HäH¬ä»€€ú›[HHãù[ö]Àôö[ô
-
-JHOà]KôõŸH	âàKõö[öòRYOHù[
-N¬ä»€€ú›àH[OÀõö[öòRYOHù[»ù[àÀõö[öò\Àôö[ô
-
-
-HOàöYOOH[Kõö[öòRY
-N¬ä»€€ú›\ôŸ]ò[ö»Hãô^[U\ôŸ]ò[ö»œ»ù[¬ä»Yà
-à	âà\ôŸ]ò[ö H¬ä»ãôò]Y›YHHX]õZ[äLãôò]Y›YH
-»LäN¬ä»€€ú›ô\HHêSí◊”QUV›\ôŸ]ò[ö◊N¬ä»Yà
-€€äH¬ä»ãúò[ö»H\ôŸ]ò[öŒ¬ä»ãô^[QòZ[»H¬ä»ãú‹
-œHŒ¬ä»À»^[\»XZŸHõ€[›[€àH›Xú›[ùX[\õX[ô[ùù[\\‹X⁄X[H[àBä»À»ö[öòI‹»›õ€ôŸ\›‹õ››\ôX\ÀÇä»õ‹à
-€€ú›»Ÿà““S H¬ä»ãú÷⁄◊H
-œHX]õX^
-KX]úõ›[ô
-ô\Kòõ€‹›
-àKåÕH
-à
-ãô‹õ››⁄◊H»Kç
-JJN¬ä»Bä»Àú›]Àúõ€[‹  Œ¬ä»Àúÿ€‹ôH
-œHÕH
-à
-ò[ö“[ô^
-\ôŸ]ò[ö H
-»JN¬ä»]ãú\⁄
-»\Nàúõ€[›Yãò[YNàãõò[YKò[öŒà\ôŸ]ò[öÀÿ[ööNàô\Köÿ[ööHJN¬ä»ÀõŸÀú\⁄
-»à	€ãõò[Y_H\‹ŸYH	‹ô\Kõò[Y_H^[H[ôX\õôYõ€[›[€àX⁄[ôàô‹ôX]ãYà]Kõõ› 
-HJN¬ä»H[ŸH¬ä»ãô^[QòZ[»H
-ãô^[QòZ[»œ»
-H
-»N¬ä»€€ú›][Hãô^[QòZ[»OOHH»çÕHàçN¬ä»€€ú›ô^€‹›HX]úõ›[ô
-ô\Kô€€
-à][
-N¬ä»]ãú\⁄
-»\Nàô^[WŸòZ[Yãò[YNàãõò[YKò[öŒà\ôŸ]ò[öÀô^€‹›JN¬ä»ÀõŸÀú\⁄
-»à	€ãõò[Y_HòZ[YH	‹ô\Kõò[Y_H^[H8†%ô]ûH€‹›ôYXŸY»	€ô^€‹›H€€ò⁄[ôàòòYãYà]Kõõ› 
-HJN¬ä»Bä»Bä»Àòò]HHù[¬ä»Àú\ŸHHú^Z[ô»é¬ä»ô]\õé¬ä»Bä¬àõ‹à
-€€ú›HŸàãù[ö] H¬àYà
-KôõŸHKõö[öòRYOHù[
-H€€ù[ùYN¬à€€ú›àHÀõö[öò\Àôö[ô
-
-
-HOàöYOOHKõö[öòRY
-N¬ôYôàKY⁄]K‹‹òÀŸÿ[YKŸ[ô⁄[ôKù»ã‹‹òÀŸÿ[YKŸ[ô⁄[ôKù¬ö[ô^ÕôçMôòããçLòNNHLçãKKHK‹‹òÀŸÿ[YKŸ[ô⁄[ôKù¬ä  »ã‹‹òÀŸÿ[YKŸ[ô⁄[ôKù¬êMÀ»
-ÕÀ»[\‹ù¬àëPU‘Tó—VKêRU“QÀêRU”QUKô^ò[öÀò[ö“[ô^àHúõ€Hããÿ€€ù[ùé¬à[\‹ù\H»ò]\ôKô\‹ù[ôKô\‹ùHúõ€Hãã›\\»é¬ãZ[\‹ù»›\ùò]HHúõ€Hããÿò]Hé¬ä⁄[\‹ù»›\ùò]K›\ù^[Pò]HHúõ€Hããÿò]Hé¬à[\‹ù»Q—SëÀQ—Së“QÀ[ô[ô‘\ö‹À\ö–ûRY\ö—ûHúõ€Hãã‹\ö‹»é¬àà€€ú›öHH
-Z[éàù[Xô\ãX^àù[Xô\äHOàZ[à
-»X]ôõ€‹äX]úò[ô€J
-H
-à
-X^HZ[à
-»JJN¬êMãN
-ÕãéH^‹ù[ù\ôòXŸHõ€[“[ôõ»¬à⁄—€€àõ€€X[é¬à⁄–\àõ€€X[é¬àôXYNàõ€€X[é¬ä»€‹›àù[Xô\é¬ä»òZ[\ô\Œàù[Xô\é¬àôYYà»]ô[àù[Xô\é»Z\‹⁄[€úŒàù[Xô\é»€€àù[Xô\àHù[¬àBàäŸù[ò›[€à^[Q€€€‹›
-éàö[öòKô^àö[îò[ö Nàù[Xô\à¬ä»€€ú›ò\ŸHHêSí◊”QUV€ô^Kô€€¬ä»€€ú›òZ[\ô\»Hãô^[QòZ[»œ»¬ä»€€ú›][HòZ[\ô\»H»HàòZ[\ô\»OOHH»çÕHàçN¬ä»ô]\õàX]úõ›[ô
-ò\ŸH
-à][
-N¬äﬂBä¬à^‹ùù[ò›[€àõ€[“[ôõ Œàÿ[YT›]Kéàö[öòJNàõ€[“[ôõ»¬à€€ú›ô^Hô^ò[ö ãúò[ö N¬ãHYà
-[ô^
-Hô]\õà»ô^àù[⁄”]ô[àò[ŸK⁄”Z\‹⁄[€úŒàò[ŸK⁄—€€àò[ŸK⁄–\àò[ŸKôXYNàò[ŸKôYYàù[N¬ä»Yà
-[ô^
-Hô]\õà»ô^àù[⁄”]ô[àò[ŸK⁄”Z\‹⁄[€úŒàò[ŸK⁄—€€àò[ŸK⁄–\àò[ŸKôXYNàò[ŸK€‹›àòZ[\ô\ŒàôYYàù[N¬à€€ú›ô\HHêSí◊”QUV€ô^N¬ä»€€ú›€‹›H^[Q€€€‹›
-ãô^
-N¬ä»€€ú›òZ[\ô\»Hãô^[QòZ[»œ»¬àÀ»€õH€ôHÿYŸHX^H€ŸôöXŸBà€€ú›ÿYŸUZŸ[àHô^OOHöÿYŸHà	âàÀõö[öò\Àú€€YJ
- HOàÀúò[ö»OOHöÿYŸHäN¬à€€ú›⁄”]ô[Hãõ]ô[èHô\Kõ]ô[¬à€€ú›⁄”Z\‹⁄[€ú»Hãù⁄[ú»èHô\KõZ\‹⁄[€úŒ¬ãH€€ú›⁄—€€HÀô€€èHô\Kô€€¬ä»€€ú›⁄—€€HÀô€€èH€‹›¬à€€ú›⁄–\HÀò\èHN¬àô]\õà¬àô^êMçãçà
-ÕÕÀŒH^‹ùù[ò›[€àõ€[“[ôõ Œàÿ[YT›]Kéàö[öòJNàõ€[“[ôõ»¬à⁄—€€à⁄–\àôXYNà⁄”]ô[	âà⁄”Z\‹⁄[€ú»	âà⁄—€€	âà⁄–\	âàZÿYŸUZŸ[à	âàãú›]\»OOHúôXYHããHôYYà»]ô[àô\Kõ]ô[Z\‹⁄[€úŒàô\KõZ\‹⁄[€úÀ€€àô\Kô€€Kä»€‹›ä»òZ[\ô\Àä»ôYYà»]ô[àô\Kõ]ô[Z\‹⁄[€úŒàô\KõZ\‹⁄[€úÀ€€à€‹›KàN¬àBàãY^‹ùù[ò›[€àõ€[›JŒàÿ[YT›]Kö[öòRYàù[Xô\ã]éà]ñ◊JNàõ€€X[à¬äŸù[ò›[€àXZŸQ^[Tö]ò[
-Œàÿ[YT›]Kÿ[ôY]Nàö[öòJNàö[öòH¬ä»€€ú›ö]ò[HXZŸSö[öòJ N¬ä»ö]ò[úò[ö»Hÿ[ôY]Kúò[öŒ¬ä»ö]ò[õ]ô[HX]õX^
-Kÿ[ôY]Kõ]ô[
-»öJLKJJN¬ä»ö]ò[õYŸ[ôHù[¬ä»ö]ò[ù]HHë^[Hö]ò[é¬ä»ö]ò[ú\ö‹»H◊N¬ä»À»ŸY\HY[€‹ŸNàÿ[YK\ò[öÀ⁄[Z[\ã[]ô[ö]ò[⁄]Húô\⁄ò[ô€Bä»À»Y[ù]H[ôH€Y⁄H⁄YôõYô\ú⁄[€àŸàHÿ[ôY]I‹»€€Xò]õŸö[KÇä»õ‹à
-€€ú›»Ÿà““S H¬ä»ö]ò[ú÷⁄◊HHX]õX^
-KX]úõ›[ô
-ÿ[ôY]Kú÷⁄◊H
-à
-éL
-»X]úò[ô€J
-H
-àåN
-H
-»öJLKJJJN¬ä»Bä»ô]\õàö]ò[¬äﬂBä¬äÀ äà^Hõ‹à[ôôY⁄[àHõ€[›[€à^[Kàõ€[›[€à]Ÿ[àÿÿ›\ú»€õH€àöX›‹ûKà
-ã¬äŸ^‹ùù[ò›[€àõ€[›JŒàÿ[YT›]Kö[öòRYàù[Xô\ãŸ]éà]ñ◊JNàõ€€X[à¬à€€ú›àHÀõö[öò\Àôö[ô
-
-
-HOàöYOOHö[öòRY
-N¬àYà
-[äHô]\õàò[ŸN¬à€€ú›[ôõ»Hõ€[“[ôõ ÀäN¬àYà
-Z[ôõÀúôXYHZ[ôõÀõô^
-Hô]\õàò[ŸN¬ãH€€ú›ô\HHêSí◊”QUV⁄[ôõÀõô^N¬ãHÀô€€OHô\Kô€€¬ä»Àô€€OH[ôõÀò€‹›¬àÀò\OHN¬ãHãúò[ö»H[ôõÀõô^¬ãHãú‹
-œHé¬ãHÀ»H^[H⁄\ú[ú»]ô\û][ôÀô\›⁄⁄[»[‹›Ÿà[ãHõ‹à
-€€ú›»Ÿà““S Hãú÷⁄◊H
-œHX]õX^
-KX]úõ›[ô
-ô\Kòõ€‹›
-à
-ãô‹õ››⁄◊H»Kç
-JJN¬ãHÀú›]Àúõ€[‹  Œ¬ãHÀúÿ€‹ôH
-œHå
-à
-ò[ö“[ô^
-[ôõÀõô^
-H
-»JN¬ãH]ãú\⁄
-»\Nàúõ€[›Yãò[YNàãõò[YKò[öŒà[ôõÀõô^ÿ[ööNàô\Köÿ[ööHJN¬ãH\⁄Ÿ À	€ãõò[Y_Hõ€[›Y»	‹ô\Kõò[Y_HXô‹ôX]äN¬ä»€€ú›ö]ò[HXZŸQ^[Tö]ò[
-ÀäN¬ä»Àòò]HH›\ù^[Pò]JÀãö]ò[[ôõÀõô^
-N¬ä»Àú\ŸHHòò]Hé¬ä»\⁄Ÿ À	€ãõò[Y_H[ù\ú»H	‘êSí◊”QUV⁄[ôõÀõô^Kõò[Y_H^[HYÿZ[ú›	‹ö]ò[õò[Y_Kòö[ôõ»äN¬àô]\õàùYN¬àBàôYôàKY⁄]K‹‹òÀŸÿ[YK›\\Àù»ã‹‹òÀŸÿ[YK›\\Àù¬ö[ô^òôLåéãçŒLŸÃàLçãKKHK‹‹òÀŸÿ[YK›\\Àù¬ä  »ã‹‹òÀŸÿ[YK›\\Àù¬êMÀà
-ÕÀ^‹ù[ù\ôòXŸHö[öòH¬à äàYŸ[ô\ûH\ò⁄]\HYYà\»\»H[ö\]YH⁄[õÿöH
-ã¬àYŸ[ôà›ö[ô»ù[¬à]Nà›ö[ô»ù[¬ä» äàòZ[Y][\»]H›\úô[ùõ€[›[€à^[N»ô\Ÿ]»€àõ€[›[€à
-ã¬ä»^[QòZ[œŒàù[Xô\é¬àBàà àKKKKKKKKKKKKKKKHZ\‹⁄[€àöY[ô\‹ùKKKKKKKKKKKKKKKH
-ã¬êLMMãà
-ÃMNH^‹ù[ù\ôòXŸHò]H¬àÿ€‹ôNàù[Xô\é¬àõ\⁄à»ZYà›ö[ôŒ»[[›[ùàù[Xô\é»⁄[ôà›ö[ôŒ»éàù[Xô\àHù[¬àX›[ôŒà›ö[ô»ù[¬ä» äàò]Hô\Ÿ[ù][€à»ô\€€][€à€€ù^
-ã¬ä»[ŸOŒàúòZYàô^[Hé¬ä»^[U\ôŸ]ò[öœŒàö[îò[ö»ù[¬àBàà^‹ù[ù\ôòXŸH›]»¬
