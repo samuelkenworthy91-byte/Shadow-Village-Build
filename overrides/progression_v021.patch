@@ -1,0 +1,11 @@
+--- a/src/game/engine.ts	2026-08-29 18:00:00.698519508 +0000
++++ b/src/game/engine.ts	2026-08-29 18:00:00.191696302 +0000
+@@ -504,7 +504,7 @@
+ /* ---------------- day advance ---------------- */
+ 
+ function gainXp(s: GameState, n: Ninja, amount: number, ev: Ev[]): void {
+-  const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) * (hasTrait(n, "perfectmemory") ? 1.25 : 1) * perkFx(n).xp;
++  const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) * perkFx(n).xp;
+   n.xp += amount * mult;
+   while (n.xp >= xpNext(n.level)) {
+     n.xp -= xpNext(n.level);
