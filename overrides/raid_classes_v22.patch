@@ -1,0 +1,212 @@
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -9,6 +9,7 @@
+ import NinjaDetail from "./components/NinjaDetail";
+ import ScoutModal from "./components/ScoutModal";
+ import BattleScreen from "./components/BattleScreen";
++import RaidDefenseModal from "./components/RaidDefenseModal";
+ import ReportModal from "./components/ReportModal";
+ import { GameOverOverlay, PauseOverlay, StartOverlay } from "./components/Overlays";
+ import * as eng from "./game/engine";
+@@ -442,6 +443,18 @@
+     playerAct(action, target);
+   };
+ 
++  const defendRaid = (ids: number[]) => {
++    const st = sRef.current;
++    if (!eng.beginRaidBattle(st, ids)) {
++      audio.click();
++      fx.shake(3);
++      return;
++    }
++    audio.dispatch();
++    fx.shake(8);
++    force();
++  };
++
+   const battleFinish = () => {
+     const evs: Ev[] = [];
+     bat.finishBattle(sRef.current, evs);
+@@ -653,6 +666,9 @@
+       {s.reports.length > 0 && (
+         <ReportModal s={s} report={s.reports[0]} remaining={s.reports.length - 1} onNext={dismissReport} />
+       )}
++      {s.phase === "raid_select" && (
++        <RaidDefenseModal s={s} onDefend={defendRaid} />
++      )}
+       {s.phase === "battle" && s.battle && (
+         <BattleScreen s={s} b={s.battle} onAction={playerAct} onAuto={battleAuto} onFinish={battleFinish} />
+       )}
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -1,4 +1,4 @@
+-export type Phase = "menu" | "playing" | "paused" | "over" | "battle";
++export type Phase = "menu" | "playing" | "paused" | "over" | "raid_select" | "battle";
+ export type Rank = "D" | "C" | "B" | "A" | "S";
+ export type NinRank = "genin" | "chunin" | "jonin" | "anbu" | "kage";
+ export type Bld = "hall" | "farm" | "tea" | "dojo" | "tower" | "shrine";
+--- a/src/game/content.ts
++++ b/src/game/content.ts
+@@ -217,11 +217,34 @@
+   "Iron Cicada Clan", "Jagged Fang Clan", "Pale Viper Cabal",
+ ];
+ 
+-export const ENEMY_KINDS: Record<string, { name: string; color: string; hp: number; atk: number; spd: number }> = {
+-  grunt: { name: "Rogue Genin", color: "#7a6a9e", hp: 0.8, atk: 0.85, spd: 1 },
+-  brute: { name: "Oni Brawler", color: "#c0533a", hp: 1.45, atk: 1.15, spd: 0.7 },
+-  shadow: { name: "Mist Assassin", color: "#4f7f9d", hp: 0.75, atk: 1.15, spd: 1.35 },
+-  boss: { name: "Clan Captain", color: "#d4b03c", hp: 1.9, atk: 1.3, spd: 1.05 },
++export interface EnemyKindMeta {
++  name: string;
++  color: string;
++  art: string;
++  tier: 1 | 2 | 3 | 4;
++  hp: number;
++  atk: number;
++  def: number;
++  spd: number;
++  nin: number;
++  gen: number;
++  crit: number;
++  dodge: number;
++}
++
++/** Ten raid classes. Multipliers are deliberately centred around the old enemy
++ * average so class variety does not undo the v2.1 difficulty reduction. */
++export const ENEMY_KINDS: Record<string, EnemyKindMeta> = {
++  rogue_genin:    { name: "Rogue Genin",    art: "rogue_genin",    tier: 1, color: "#9b5d55", hp: 0.82, atk: 0.86, def: 0.92, spd: 1.00, nin: 0.95, gen: 0.90, crit: 0.08, dodge: 0.05 },
++  bandit_scout:   { name: "Bandit Scout",   art: "bandit_scout",   tier: 1, color: "#78618e", hp: 0.68, atk: 0.80, def: 0.78, spd: 1.38, nin: 0.90, gen: 0.88, crit: 0.12, dodge: 0.14 },
++  war_monk:       { name: "War Monk",       art: "war_monk",       tier: 1, color: "#b28b62", hp: 1.05, atk: 0.94, def: 1.08, spd: 0.92, nin: 0.88, gen: 1.04, crit: 0.07, dodge: 0.04 },
++  ash_bowman:     { name: "Ash Bowman",     art: "ash_bowman",     tier: 2, color: "#768897", hp: 0.74, atk: 1.08, def: 0.82, spd: 1.13, nin: 1.08, gen: 0.94, crit: 0.13, dodge: 0.07 },
++  oni_brawler:    { name: "Oni Brawler",    art: "oni_brawler",    tier: 2, color: "#b24c3c", hp: 1.36, atk: 1.18, def: 1.08, spd: 0.68, nin: 0.78, gen: 0.72, crit: 0.09, dodge: 0.02 },
++  mist_assassin:  { name: "Mist Assassin",  art: "mist_assassin",  tier: 2, color: "#6f678f", hp: 0.70, atk: 1.13, def: 0.78, spd: 1.40, nin: 1.04, gen: 1.06, crit: 0.17, dodge: 0.17 },
++  clan_guard:     { name: "Clan Guard",     art: "clan_guard",     tier: 3, color: "#677886", hp: 1.22, atk: 0.88, def: 1.30, spd: 0.76, nin: 0.88, gen: 0.88, crit: 0.07, dodge: 0.03 },
++  torch_saboteur: { name: "Torch Saboteur", art: "torch_saboteur", tier: 3, color: "#d06b38", hp: 0.88, atk: 1.06, def: 0.86, spd: 1.02, nin: 1.22, gen: 1.04, crit: 0.12, dodge: 0.07 },
++  clan_captain:   { name: "Clan Captain",   art: "clan_captain",   tier: 3, color: "#caa64b", hp: 1.42, atk: 1.14, def: 1.12, spd: 1.00, nin: 1.08, gen: 1.06, crit: 0.13, dodge: 0.06 },
++  dread_veteran:  { name: "Dread Veteran",  art: "dread_veteran",  tier: 4, color: "#8f514e", hp: 1.58, atk: 1.24, def: 1.18, spd: 1.04, nin: 1.08, gen: 1.02, crit: 0.16, dodge: 0.08 },
+ };
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -58,7 +58,7 @@
+ export function makeEnemy(i: number, kind: string, power: number): Unit {
+-  const k = ENEMY_KINDS[kind];
++  const k = ENEMY_KINDS[kind] ?? ENEMY_KINDS.rogue_genin;
+@@ -71,10 +71,10 @@
+-    def: 4 + power * 0.5,
++    def: (4 + power * 0.5) * k.def,
+     spd: (9 + power * 0.6) * k.spd,
+-    nin: 6 + power * 0.7,
+-    gen: 5 + power * 0.6,
++    nin: (6 + power * 0.7) * k.nin,
++    gen: (5 + power * 0.6) * k.gen,
+@@ -83,9 +83,9 @@
+-    crit: 0.1,
++    crit: k.crit,
+     critMult: 1.7,
+-    dodge: kind === "shadow" ? 0.15 : 0.04,
++    dodge: k.dodge,
+@@ -123,6 +123,17 @@
+ export function raidDefenders(defenders: Ninja[]): Ninja[] {
+@@
+ }
++
++export function raidClassPool(s: Pick<GameState, "day" | "raids">): string[] {
++  const pool = ["rogue_genin", "bandit_scout", "war_monk", "ash_bowman"];
++  if (s.day >= 5 || s.raids >= 1) pool.push("oni_brawler", "mist_assassin");
++  if (s.day >= 9 || s.raids >= 2) pool.push("clan_guard", "torch_saboteur");
++  if (s.day >= 13 || s.raids >= 3) pool.push("clan_captain");
++  if (s.day >= 18 || s.raids >= 5) pool.push("dread_veteran");
++  return pool;
++}
+@@
+ export function startBattle(s: GameState, defenders: Ninja[]): Battle {
+@@
+-  const chosenDefenders = raidDefenders(defenders);
++  const chosenDefenders = defenders.slice(0, 4);
+@@
+-    kinds.push(i === count - 1 && s.raids >= 1 && count > 1 ? "boss" : pick(["grunt", "brute", "shadow"]));
++    if (i === count - 1 && s.raids >= 1 && count > 1) kinds.push(s.raids >= 5 ? "dread_veteran" : "clan_captain");
++    else kinds.push(pick(raidClassPool(s)));
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -719,11 +719,26 @@
+-    s.battle = startBattle(s, defenders);
+-    s.phase = "battle";
++    s.battle = null;
++    s.phase = "raid_select";
+     ev.push({ type: "raid_start", clan: s.clan });
+-    pushLog(s, `${s.clan} attacks the village!`, "bad");
++    pushLog(s, `${s.clan} attacks the village — choose the defence team!`, "bad");
+     return true;
+@@
+ }
++
++export function beginRaidBattle(s: GameState, ids: number[]): boolean {
++  if (s.phase !== "raid_select") return false;
++  const unique = [...new Set(ids)].slice(0, 4);
++  const defenders = unique.map((id) => s.ninjas.find((n) => n.id === id)).filter((n): n is Ninja => !!n && n.status === "ready");
++  if (defenders.length === 0) return false;
++  s.battle = startBattle(s, defenders);
++  s.phase = "battle";
++  return true;
++}
+--- a/src/components/NinjaSprite.tsx
++++ b/src/components/NinjaSprite.tsx
+@@
+ export function EnemyArt({ kind, h, dead }: { kind: string; h: number; dead?: boolean }) {
+-  const meta = ENEMY_KINDS[kind] ?? ENEMY_KINDS.grunt;
++  const meta = ENEMY_KINDS[kind] ?? ENEMY_KINDS.rogue_genin;
++  return (
++    <img src={`/raiders/${meta.art}.webp`} alt="" aria-hidden draggable={false} decoding="async"
++      style={{ width: h * (320 / 440), height: h, objectFit: "contain", objectPosition: "center bottom", opacity: dead ? 0.28 : 1,
++        filter: dead ? "grayscale(1) brightness(0.65)" : `drop-shadow(0 2px 5px ${meta.color}22)`, userSelect: "none", pointerEvents: "none" }} />
++  );
+ }
+--- a/src/components/Scene.tsx
++++ b/src/components/Scene.tsx
+@@
+-          <p className="tabular-nums">HOME <span className={raidTone}>{raid.homePower.toLocaleString()}</span> / RAID ~{raid.enemyPower.toLocaleString()}</p>
++          <p className="tabular-nums">BEST 4 HOME <span className={raidTone}>{raid.homePower.toLocaleString()}</span> / RAID ~{raid.enemyPower.toLocaleString()}</p>
+--- a/public/sw.js
++++ b/public/sw.js
+@@
+-const CACHE = "shadow-village-v3-art80";
++const CACHE = "shadow-village-v5-raiders10-field";
+ const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);
+-const ASSETS = ["/", "/index.html", "/icon.png", "/bg-village.jpg", "/manifest.webmanifest", ...NINJA_ART];
++const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
++const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
+--- a/src/components/BattleScreen.tsx
++++ b/src/components/BattleScreen.tsx
+@@ -94,7 +94,7 @@
+-        <img src="/bg-village.jpg" alt="" className="h-full w-full object-cover opacity-45" draggable={false} />
++        <img src="/bg-raid-field.jpg" alt="" className="h-full w-full object-cover opacity-50" draggable={false} />
+--- /dev/null
++++ b/src/components/RaidDefenseModal.tsx
+@@ -0,0 +1,142 @@
++import { useEffect, useMemo, useState } from "react";
++import { Check, Shield, Swords } from "lucide-react";
++import type { GameState } from "../game/types";
++import { NATURE_META, TRAIT_META } from "../game/content";
++import { raidForecast, unitCombatPower, unitFromNinja } from "../game/battle";
++import NinjaSprite from "./NinjaSprite";
++import { RankPill } from "./Bits";
++import { cn } from "../utils/cn";
++
++export default function RaidDefenseModal({ s, onDefend }: { s: GameState; onDefend: (ids: number[]) => void }) {
++  const [sel, setSel] = useState<number[]>([]);
++  const forecast = raidForecast(s);
++  const home = useMemo(() => s.ninjas.filter((n) => n.status === "ready").map((n) => ({ n, power: unitCombatPower(unitFromNinja(n)) })).sort((a,b) => b.power-a.power), [s.ninjas]);
++  const selectedPower = sel.map((id) => home.find((x) => x.n.id === id)?.power ?? 0).reduce((a,b) => a+b,0);
++  const ratio = forecast.enemyPower > 0 ? selectedPower / forecast.enemyPower : 0;
++  const tone = sel.length === 0 ? "text-paper/35" : ratio >= 1.15 ? "text-jade" : ratio >= 0.9 ? "text-gold" : "text-[#ff7a5c]";
++  const toggle = (id:number) => setSel((cur) => cur.includes(id) ? cur.filter((x)=>x!==id) : cur.length>=4 ? cur : [...cur,id]);
++  useEffect(() => { const onKey=(e:KeyboardEvent)=>{ if(e.key==="Enter"&&sel.length>0){e.preventDefault();onDefend(sel);} }; window.addEventListener("keydown",onKey,true); return()=>window.removeEventListener("keydown",onKey,true); });
++  return <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#0b0c16]/88 p-0 backdrop-blur-sm sm:items-center sm:p-4">
++    <div className="modal-pop flex max-h-[94dvh] w-full max-w-xl flex-col rounded-t-2xl bg-[#151728]/98 shadow-2xl ring-1 ring-[#e2452f]/35 sm:rounded-2xl">
++      <div className="border-b border-white/8 p-3"><div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-vermil/15 text-vermil ring-1 ring-vermil/35"><Shield size={23}/></span><div><p className="text-[9px] font-black tracking-[0.24em] text-vermil">RAID DEFENCE</p><h2 className="font-display text-[17px] font-black text-paper">{s.clan} AT THE GATES</h2><p className="text-[10.5px] text-paper/50">Choose 1–4 shinobi who are currently home.</p></div></div>
++      <div className="mt-3 grid grid-cols-3 gap-1.5 text-center"><div className="rounded-lg bg-black/30 p-2"><p className="text-[8px] text-paper/35">RAIDERS</p><p className="font-black text-[#ff8a72]">{forecast.enemyCount} · ~Lv {forecast.enemyLevel}</p></div><div className="rounded-lg bg-black/30 p-2"><p className="text-[8px] text-paper/35">RAID POWER</p><p className="font-black text-[#ff8a72]">~{forecast.enemyPower.toLocaleString()}</p></div><div className="rounded-lg bg-black/30 p-2"><p className="text-[8px] text-paper/35">YOUR TEAM</p><p className={cn("font-black",tone)}>{sel.length?selectedPower.toLocaleString():"PICK"}</p></div></div></div>
++      <div className="scroller min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2.5">{home.map(({n,power})=>{const on=sel.includes(n.id); const nat=NATURE_META[n.nature]; return <button key={n.id} onClick={()=>toggle(n.id)} className={cn("flex w-full items-center gap-2 rounded-xl p-1.5 text-left ring-1",on?"bg-vermil/15 ring-vermil/55":"bg-black/25 ring-white/5")}><span className="relative"><NinjaSprite n={n} h={44} aura={on}/>{on&&<span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-jade text-[#0d0e1a]"><Check size={11}/></span>}</span><span className="min-w-0 flex-1"><span className="flex items-center gap-1.5"><b className="truncate text-[12px] text-paper/95">{n.name}</b><RankPill rank={n.rank} level={n.level}/></span><span className="mt-0.5 flex gap-2 text-[9.5px]"><b style={{color:nat.color}}>{nat.kanji} {nat.name}</b><span className="text-paper/35">{TRAIT_META[n.trait].name}</span></span></span><b className="text-[12px] text-paper/80">{power.toLocaleString()}</b></button>})}</div>
++      <div className="flex items-center gap-3 border-t border-white/8 p-3"><div className="flex-1"><p className="text-[9px] text-paper/35">SELECTED</p><p className="text-[11px] text-paper/70">{sel.length}/4 defenders · <span className={tone}>{sel.length?`${Math.round(ratio*100)}% of estimated raid power`:"choose your team"}</span></p></div><button disabled={sel.length===0} onClick={()=>onDefend(sel)} className="btn-primary h-12 rounded-xl px-5 text-[12px] font-black"><Swords size={14} className="mr-1.5 inline"/>DEFEND</button></div>
++    </div></div>;
++}
