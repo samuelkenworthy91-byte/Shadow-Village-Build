@@ -90,11 +90,16 @@ jobs:
           test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
           grep -q 'shadow-village-v5-raiders10-field' app/public/sw.js
 
-      - name: Upload patched source snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: Shadow-Village-Patched-Source
-          path: app
+      - name: Apply rank-up exam update
+        run: |
+          cd app
+          patch -p1 < ../overrides/rank_exam_v23.patch
+          cd ..
+          cat overrides/rank_exam_assets_b64_v23/part_* | tr -d '\n\r' | base64 --decode > app/public/bg-exam-arena.jpg
+          test -s app/public/bg-exam-arena.jpg
+          grep -q 'startExamBattle' app/src/game/battle.ts
+          grep -q 'TAKE EXAM' app/src/components/NinjaDetail.tsx
+          grep -q 'shadow-village-v6-rank-exams' app/public/sw.js
 
       - name: Install dependencies
         working-directory: app
