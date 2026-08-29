@@ -33,7 +33,9 @@ def main() -> None:
     game_root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
     asset_root = repo_root / "overrides" / "ninja_assets_v26"
 
-    color_bytes = read_b64_parts(str(asset_root / "color80_parts" / "part_*"))
+    # The colour atlas is a compact JPEG payload; alpha is stored separately so
+    # the reconstructed portraits still have clean transparent backgrounds.
+    color_bytes = read_b64_parts(str(asset_root / "color32_parts" / "part_*"))
     alpha_bytes = read_b64_parts(str(asset_root / "alpha80_parts" / "part_*"))
 
     color = Image.open(io.BytesIO(color_bytes)).convert("RGB")
@@ -81,6 +83,8 @@ def main() -> None:
         with Image.open(path) as check:
             if check.size != (SPRITE_W, SPRITE_H) or check.mode != "RGBA":
                 raise RuntimeError(f"Bad output portrait {path}: {check.size} {check.mode}")
+            if check.getbbox() is None:
+                raise RuntimeError(f"Portrait {path} is fully transparent")
 
     print(f"Reconstructed {written} transparent portraits ({FIRST_ID}-{LAST_ID}) into {out_dir}")
 
