@@ -57,6 +57,10 @@ jobs:
           mkdir -p app/assets
           convert /tmp/shadow-village-logo.png -resize 1024x1024 app/assets/logo.png
 
+      - name: Apply raid balance and transparency update
+        working-directory: app
+        run: python ../overrides/apply_raid_balance.py
+
       - name: Install dependencies
         working-directory: app
         run: npm install
