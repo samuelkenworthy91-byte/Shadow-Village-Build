@@ -24,7 +24,12 @@ def read_b64_parts(pattern: str) -> bytes:
     paths = sorted(glob.glob(pattern))
     if not paths:
         raise RuntimeError(f"No asset parts matched {pattern}")
-    encoded = "".join(Path(p).read_text(encoding="ascii").strip() for p in paths)
+    # Parts were staged through text transport, so remove all whitespace rather
+    # than only trimming file ends before using the strict base64 decoder.
+    encoded = "".join(
+        "".join(Path(p).read_text(encoding="ascii").split())
+        for p in paths
+    )
     return base64.b64decode(encoded, validate=True)
 
 
