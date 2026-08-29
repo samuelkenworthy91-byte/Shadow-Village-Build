@@ -1,0 +1,185 @@
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -9,6 +9,7 @@
+ import NinjaDetail from "./components/NinjaDetail";
+ import ScoutModal from "./components/ScoutModal";
+ import BattleScreen from "./components/BattleScreen";
++import RaidDefenseModal from "./components/RaidDefenseModal";
+ import ReportModal from "./components/ReportModal";
+ import { GameOverOverlay, PauseOverlay, StartOverlay } from "./components/Overlays";
+ import * as eng from "./game/engine";
+@@ -442,6 +443,18 @@
+     playerAct(action, target);
+   };
+ 
++  const defendRaid = (ids: number[]) => {
++    const st = sRef.current;
++    if (!eng.beginRaidBattle(st, ids)) {
++      audio.click();
++      fx.shake(3);
++      return;
++    }
++    audio.dispatch();
++    fx.shake(8);
++    force();
++  };
++
+   const battleFinish = () => {
+     const evs: Ev[] = [];
+     bat.finishBattle(sRef.current, evs);
+@@ -653,6 +666,9 @@
+       {s.reports.length > 0 && (
+         <ReportModal s={s} report={s.reports[0]} remaining={s.reports.length - 1} onNext={dismissReport} />
+       )}
++      {s.phase === "raid_select" && (
++        <RaidDefenseModal s={s} onDefend={defendRaid} />
++      )}
+       {s.phase === "battle" && s.battle && (
+         <BattleScreen s={s} b={s.battle} onAction={playerAct} onAuto={battleAuto} onFinish={battleFinish} />
+       )}
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -1,4 +1,4 @@
+-export type Phase = "menu" | "playing" | "paused" | "over" | "battle";
++export type Phase = "menu" | "playing" | "paused" | "over" | "raid_select" | "battle";
+ export type Rank = "D" | "C" | "B" | "A" | "S";
+ export type NinRank = "genin" | "chunin" | "jonin" | "anbu" | "kage";
+ export type Bld = "hall" | "farm" | "tea" | "dojo" | "tower" | "shrine";
+--- a/src/game/content.ts
++++ b/src/game/content.ts
+@@ -217,11 +217,34 @@
+   "Iron Cicada Clan", "Jagged Fang Clan", "Pale Viper Cabal",
+ ];
+ 
+-export const ENEMY_KINDS: Record<string, { name: string; color: string; hp: number; atk: number; spd: number }> = {
+-  grunt: { name: "Rogue Genin", color: "#7a6a9e", hp: 0.8, atk: 0.85, spd: 1 },
+-  brute: { name: "Oni Brawler", color: "#c0533a", hp: 1.45, atk: 1.15, spd: 0.7 },
+-  shadow: { name: "Mist Assassin", color: "#4f7f9d", hp: 0.75, atk: 1.15, spd: 1.35 },
+-  boss: { name: "Clan Captain", color: "#d4b03c", hp: 1.9, atk: 1.3, spd: 1.05 },
++export interface EnemyKindMeta {
++  name: string;
++  color: string;
++  art: string;
++  tier: 1 | 2 | 3 | 4;
++  hp: number;
++  atk: number;
++  def: number;
++  spd: number;
++  nin: number;
++  gen: number;
++  crit: number;
++  dodge: number;
++}
++
++/** Ten raid classes. Multipliers are deliberately centred around the old enemy
++ * average so class variety does not undo the v2.1 difficulty reduction. */
++export const ENEMY_KINDS: Record<string, EnemyKindMeta> = {
++  rogue_genin:    { name: "Rogue Genin",    art: "rogue_genin",    tier: 1, color: "#9b5d55", hp: 0.82, atk: 0.86, def: 0.92, spd: 1.00, nin: 0.95, gen: 0.90, crit: 0.08, dodge: 0.05 },
++  bandit_scout:   { name: "Bandit Scout",   art: "bandit_scout",   tier: 1, color: "#78618e", hp: 0.68, atk: 0.80, def: 0.78, spd: 1.38, nin: 0.90, gen: 0.88, crit: 0.12, dodge: 0.14 },
++  war_monk:       { name: "War Monk",       art: "war_monk",       tier: 1, color: "#b28b62", hp: 1.05, atk: 0.94, def: 1.08, spd: 0.92, nin: 0.88, gen: 1.04, crit: 0.07, dodge: 0.04 },
++  ash_bowman:     { name: "Ash Bowman",     art: "ash_bowman",     tier: 2, color: "#768897", hp: 0.74, atk: 1.08, def: 0.82, spd: 1.13, nin: 1.08, gen: 0.94, crit: 0.13, dodge: 0.07 },
++  oni_brawler:    { name: "Oni Brawler",    art: "oni_brawler",    tier: 2, color: "#b24c3c", hp: 1.36, atk: 1.18, def: 1.08, spd: 0.68, nin: 0.78, gen: 0.72, crit: 0.09, dodge: 0.02 },
++  mist_assassin:  { name: "Mist Assassin",  art: "mist_assassin",  tier: 2, color: "#6f678f", hp: 0.70, atk: 1.13, def: 0.78, spd: 1.40, nin: 1.04, gen: 1.06, crit: 0.17, dodge: 0.17 },
++  clan_guard:     { name: "Clan Guard",     art: "clan_guard",     tier: 3, color: "#677886", hp: 1.22, atk: 0.88, def: 1.30, spd: 0.76, nin: 0.88, gen: 0.88, crit: 0.07, dodge: 0.03 },
++  torch_saboteur: { name: "Torch Saboteur", art: "torch_saboteur", tier: 3, color: "#d06b38", hp: 0.88, atk: 1.06, def: 0.86, spd: 1.02, nin: 1.22, gen: 1.04, crit: 0.12, dodge: 0.07 },
++  clan_captain:   { name: "Clan Captain",   art: "clan_captain",   tier: 3, color: "#caa64b", hp: 1.42, atk: 1.14, def: 1.12, spd: 1.00, nin: 1.08, gen: 1.06, crit: 0.13, dodge: 0.06 },
++  dread_veteran:  { name: "Dread Veteran",  art: "dread_veteran",  tier: 4, color: "#8f514e", hp: 1.58, atk: 1.24, def: 1.18, spd: 1.04, nin: 1.08, gen: 1.02, crit: 0.16, dodge: 0.08 },
+ };
+ 
+ /* ---------------- sprite palettes ---------------- */
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -58,7 +58,7 @@
+ }
+ 
+ export function makeEnemy(i: number, kind: string, power: number): Unit {
+-  const k = ENEMY_KINDS[kind];
++  const k = ENEMY_KINDS[kind] ?? ENEMY_KINDS.rogue_genin;
+   const hp = Math.round((34 + power * 4.2) * k.hp);
+   return {
+     uid: `e${i}`,
+@@ -71,10 +71,10 @@
+     maxCp: 22,
+     cp: 22,
+     atk: (7 + power * 1.15) * k.atk,
+-    def: 4 + power * 0.5,
++    def: (4 + power * 0.5) * k.def,
+     spd: (9 + power * 0.6) * k.spd,
+-    nin: 6 + power * 0.7,
+-    gen: 5 + power * 0.6,
++    nin: (6 + power * 0.7) * k.nin,
++    gen: (5 + power * 0.6) * k.gen,
+     med: 0,
+     guard: false,
+     stun: 0,
+@@ -83,9 +83,9 @@
+     nature: null,
+     level: Math.max(1, Math.round(power / 3)),
+     rank: null,
+-    crit: 0.1,
++    crit: k.crit,
+     critMult: 1.7,
+-    dodge: kind === "shadow" ? 0.15 : 0.04,
++    dodge: k.dodge,
+     lifesteal: 0,
+     counter: 0,
+     regen: 0,
+@@ -97,9 +97,8 @@
+ }
+ 
+ /**
+- * Raid difficulty curve. v2.1 deliberately trims the old curve by roughly
+- * 10–15% without flattening progression: raids still get harder with both
+- * days survived and previous raid wins, just less abruptly.
++ * Raid difficulty curve. v2.1 trims the old curve by roughly 10–15% without
++ * flattening progression: raids still grow with days survived and raid wins.
+  */
+ export function raidEnemyPower(s: Pick<GameState, "day" | "raids">): number {
+   return 5.5 + (s.day - 1) * 1.4 + s.raids * 2.7;
+@@ -109,7 +108,7 @@
+   return Math.min(4, 1 + Math.floor(s.day / 4) + (s.raids > 2 ? 1 : 0));
+ }
+ 
+-/** A single comparable number used only for raid intel / defender selection. */
++/** A comparable score used only for raid intel and automatic defender choice. */
+ export function unitCombatPower(u: Unit): number {
+   return Math.round(
+     u.maxHp +
+@@ -123,12 +122,23 @@
+   );
+ }
+ 
++/** Forecast helper only: the raid HUD shows the best four home shinobi as a
++ * ceiling. The actual defence team is chosen manually by the player. */
+ export function raidDefenders(defenders: Ninja[]): Ninja[] {
+   return [...defenders]
+     .sort((a, b) => unitCombatPower(unitFromNinja(b)) - unitCombatPower(unitFromNinja(a)))
+     .slice(0, 4);
+ }
+ 
++export function raidClassPool(s: Pick<GameState, "day" | "raids">): string[] {
++  const pool = ["rogue_genin", "bandit_scout", "war_monk", "ash_bowman"];
++  if (s.day >= 5 || s.raids >= 1) pool.push("oni_brawler", "mist_assassin");
++  if (s.day >= 9 || s.raids >= 2) pool.push("clan_guard", "torch_saboteur");
++  if (s.day >= 13 || s.raids >= 3) pool.push("clan_captain");
++  if (s.day >= 18 || s.raids >= 5) pool.push("dread_veteran");
++  return pool;
++}
++
+ export function raidForecast(s: GameState): {
+   enemyPower: number;
+   enemyCount: number;
+@@ -139,17 +149,16 @@
+ } {
+   const power = raidEnemyPower(s);
+   const count = raidEnemyCount(s);
+-  const boss = s.raids >= 1 && count > 1;
+-  let enemyPower = 0;
+-  for (let i = 0; i < count; i++) {
+-    if (boss && i === count - 1) {
+-      enemyPower += unitCombatPower(makeEnemy(i, "boss", power));
+-    } else {
+-      const avg = ["grunt", "brute", "shadow"]
+-        .map((kind) => unitCombatPower(makeEnemy(i, kind, power)))
+-        .reduce((a, b) => a + b, 0) / 3;
+-      enemyPower += 
