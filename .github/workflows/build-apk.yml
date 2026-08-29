@@ -158,6 +158,14 @@ jobs:
           grep -q 'Quick Study' app/src/game/content.ts
           grep -q 'onResearch' app/src/components/BuildMenu.tsx
 
+      - name: Apply progression v0.2.1 XP correction
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          cd app
+          patch -p1 < ../overrides/progression_v021.patch
+          grep -q 'const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) \* perkFx(n).xp;' src/game/engine.ts
+          cd ..
+
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
         uses: actions/upload-artifact@v4
