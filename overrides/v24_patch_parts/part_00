@@ -1,0 +1,117 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index 60a058f..6221cf6 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -16,6 +16,7 @@ import * as eng from "./game/engine";
+ import * as bat from "./game/battle";
+ import { audio } from "./game/audio";
+ import { getPlayerName, loadScores, setPlayerName, submitScore, type ScoreEntry } from "./game/scores";
++import { deleteSlot, listSaveSlots, loadSlot, saveSlot } from "./game/save";
+ import { RANK_META, SKILL_META } from "./game/content";
+ import type { BAction, Bld, Ev, GameState, Skill } from "./game/types";
+ import { cn } from "./utils/cn";
+@@ -37,7 +38,17 @@ export default function App() {
+   const sRef = useRef<GameState>(null as unknown as GameState);
+   if (!sRef.current) sRef.current = eng.createState("menu");
+   const s = sRef.current;
+-  const [, force] = useReducer((x: number) => x + 1, 0);
++  const activeSlotRef = useRef<number | null>(null);
++  const [, rawForce] = useReducer((x: number) => x + 1, 0);
++  const [saveSlots, setSaveSlots] = useState(() => listSaveSlots());
++  const force = useCallback(() => {
++    const slot = activeSlotRef.current;
++    if (slot !== null && sRef.current.phase !== "menu") {
++      saveSlot(slot, sRef.current);
++      setSaveSlots(listSaveSlots());
++    }
++    rawForce();
++  }, []);
+ 
+   const [tab, setTab] = useState<Tab>("missions");
+   const [squadFor, setSquadFor] = useState<number | null>(null);
+@@ -163,18 +174,48 @@ export default function App() {
+     return () => window.clearTimeout(t);
+   }, [hitFlash]);
+ 
++  useEffect(() => {
++    const flush = () => {
++      const slot = activeSlotRef.current;
++      if (slot !== null && sRef.current.phase !== "menu") saveSlot(slot, sRef.current);
++    };
++    const onVisibility = () => {
++      if (document.visibilityState === "hidden") flush();
++    };
++    window.addEventListener("beforeunload", flush);
++    document.addEventListener("visibilitychange", onVisibility);
++    return () => {
++      window.removeEventListener("beforeunload", flush);
++      document.removeEventListener("visibilitychange", onVisibility);
++    };
++  }, []);
++
+   /* ---------------- lifecycle ---------------- */
+ 
+-  const begin = () => {
++  const begin = (slot = 1) => {
+     audio.unlock();
+-    if (sRef.current.phase === "menu") {
+-      sRef.current.phase = "playing";
+-      audio.start();
+-      force();
+-    }
++    if (sRef.current.phase !== "menu") return;
++    const loaded = loadSlot(slot);
++    activeSlotRef.current = slot;
++    sRef.current = loaded ?? eng.createState("playing");
++    if (sRef.current.phase === "menu") sRef.current.phase = "playing";
++    setTab("missions");
++    setHighlight(-1);
++    setSquadFor(null);
++    setDetailFor(null);
++    audio.start();
++    force();
++  };
++
++  const removeSave = (slot: number) => {
++    if (!window.confirm(`Delete save slot ${slot}? This cannot be undone.`)) return;
++    deleteSlot(slot);
++    setSaveSlots(listSaveSlots());
++    audio.click();
+   };
+ 
+   const restart = () => {
++    if (activeSlotRef.current === null) activeSlotRef.current = 1;
+     sRef.current = eng.createState("playing");
+     setTab("missions");
+     setHighlight(-1);
+@@ -187,11 +228,15 @@ export default function App() {
+   };
+ 
+   const toTitle = () => {
++    const slot = activeSlotRef.current;
++    if (slot !== null && sRef.current.phase !== "menu") saveSlot(slot, sRef.current);
++    activeSlotRef.current = null;
+     sRef.current = eng.createState("menu");
+     setScores(loadScores());
++    setSaveSlots(listSaveSlots());
+     setHighlight(-1);
+     setTab("missions");
+-    force();
++    rawForce();
+   };
+ 
+   const pauseToggle = () => {
+@@ -707,11 +752,13 @@ export default function App() {
+         <StartOverlay
+           scores={scores}
+           name={name}
++          slots={saveSlots}
+           onName={(n) => {
+             setName(n);
+             setPlayerName(n);
+           }}
+           onStart={begin}
++          onDelete={removeSave}
+         />
+       )}
+       {s.phase === "paused" && <

@@ -1,0 +1,84 @@
+assName="grid w-10 shrink-0 place-items-center rounded-xl bg-black/30 text-paper/35 ring-1 ring-inset ring-white/10 transition hover:bg-vermil/15 hover:text-vermil hover:ring-vermil/35"
++                >
++                  <Trash2 size={14} />
++                </button>
++              )}
++            </div>
++          ))}
++        </div>
++        <p className="mt-2 text-center text-[9.5px] text-paper/35">Each slot keeps its own village, roster, battles, exams and resources on this device.</p>
+       </div>
+ 
+       <div className="mt-4">
+@@ -113,10 +157,6 @@ export function StartOverlay({
+         </p>
+         <ScoreTable scores={scores} highlight={-1} />
+       </div>
+-
+-      <p className="mt-3 text-center text-[9.5px] leading-relaxed text-paper/35">
+-        <kbd className="kbd">↵</kbd> end day · <kbd className="kbd">1–6</kbd> deploy · <kbd className="kbd">E</kbd> squad · <kbd className="kbd">N</kbd> scout · <kbd className="kbd">F/T/D/W/S/H</kbd> build
+-      </p>
+     </Shell>
+   );
+ }
+diff --git a/src/game/battle.ts b/src/game/battle.ts
+index e80b064..c5d36da 100644
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -97,15 +97,15 @@ export function makeEnemy(i: number, kind: string, power: number): Unit {
+ }
+ 
+ /**
+- * Raid difficulty curve. v2.1 trims the old curve by roughly 10–15% without
+- * flattening progression: raids still grow with days survived and raid wins.
++ * Raid difficulty curve. v2.4 softens v2.1 by another ~14–16% and spaces
++ * out extra attackers/elite classes while preserving long-term escalation.
+  */
+ export function raidEnemyPower(s: Pick<GameState, "day" | "raids">): number {
+-  return 5.5 + (s.day - 1) * 1.4 + s.raids * 2.7;
++  return 4.8 + (s.day - 1) * 1.2 + s.raids * 2.25;
+ }
+ 
+ export function raidEnemyCount(s: Pick<GameState, "day" | "raids">): number {
+-  return Math.min(4, 1 + Math.floor(s.day / 4) + (s.raids > 2 ? 1 : 0));
++  return Math.min(4, 1 + Math.floor((s.day - 1) / 5));
+ }
+ 
+ /** A comparable score used only for raid intel and automatic defender choice. */
+@@ -132,10 +132,10 @@ export function raidDefenders(defenders: Ninja[]): Ninja[] {
+ 
+ export function raidClassPool(s: Pick<GameState, "day" | "raids">): string[] {
+   const pool = ["rogue_genin", "bandit_scout", "war_monk", "ash_bowman"];
+-  if (s.day >= 5 || s.raids >= 1) pool.push("oni_brawler", "mist_assassin");
+-  if (s.day >= 9 || s.raids >= 2) pool.push("clan_guard", "torch_saboteur");
+-  if (s.day >= 13 || s.raids >= 3) pool.push("clan_captain");
+-  if (s.day >= 18 || s.raids >= 5) pool.push("dread_veteran");
++  if (s.day >= 6 || s.raids >= 1) pool.push("oni_brawler", "mist_assassin");
++  if (s.day >= 11 || s.raids >= 3) pool.push("clan_guard", "torch_saboteur");
++  if (s.day >= 16 || s.raids >= 4) pool.push("clan_captain");
++  if (s.day >= 22 || s.raids >= 6) pool.push("dread_veteran");
+   return pool;
+ }
+ 
+@@ -156,8 +156,8 @@ export function raidForecast(s: GameState): {
+   let enemyPower = avgPower * count;
+   // Later raids generally include a leader-class final slot. Keep this in the
+   // forecast so the visible estimate remains honest.
+-  if (s.raids >= 1 && count > 1) {
+-    const leader = s.raids >= 5 ? "dread_veteran" : "clan_captain";
++  if (s.raids >= 2 && count > 1) {
++    const leader = s.raids >= 6 ? "dread_veteran" : "clan_captain";
+     enemyPower += unitCombatPower(makeEnemy(count - 1, leader, power)) - avgPower;
+   }
+   const homePower = raidDefenders(s.ninjas.filter((n) => n.status === "ready"))
+@@ -188,8 +188,8 @@ export function startBattle(s: GameState, defenders: Ninja[]): Battle {
+   const pool = raidClassPool(s);
+   const kinds: string[] = [];
+   for (let i = 0; i < count; i++) {
+-    if (i === count - 1 && s.raids >= 1 && count > 1) {
+-      kinds.push(s.raids >= 5 ? "dread_veteran" : "clan_captain");
++    if (i === count - 1 && s.raids >= 2 && count > 1) {
++      kinds.push(s.raids >= 6 ? "dread_veteran" : "clan_captain");
+     } else {
+       kinds.push(pick(pool));
+     }

@@ -1,0 +1,85 @@
+PauseOverlay onResume={pauseToggle} onRestart={restart} />}
+diff --git a/src/components/Overlays.tsx b/src/components/Overlays.tsx
+index f59ff48..1c147f4 100644
+--- a/src/components/Overlays.tsx
++++ b/src/components/Overlays.tsx
+@@ -1,6 +1,7 @@
+-import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trophy, Users } from "lucide-react";
++import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trash2, Trophy, Users } from "lucide-react";
+ import type { GameState } from "../game/types";
+ import type { ScoreEntry } from "../game/scores";
++import type { SaveSlotSummary } from "../game/save";
+ import { cn } from "../utils/cn";
+ import type { ReactNode } from "react";
+ 
+@@ -54,13 +55,17 @@ const HOW = [
+ export function StartOverlay({
+   scores,
+   name,
++  slots,
+   onName,
+   onStart,
++  onDelete,
+ }: {
+   scores: ScoreEntry[];
+   name: string;
++  slots: SaveSlotSummary[];
+   onName: (n: string) => void;
+-  onStart: () => void;
++  onStart: (slot: number) => void;
++  onDelete: (slot: number) => void;
+ }) {
+   return (
+     <Shell kanji="影">
+@@ -93,18 +98,57 @@ export function StartOverlay({
+         ))}
+       </div>
+ 
+-      <div className="mt-4 flex gap-2">
++      <div className="mt-4">
++        <label htmlFor="name-input" className="mb-1.5 block text-[9.5px] font-bold tracking-[0.22em] text-paper/40">PLAYER NAME</label>
+         <input
+           id="name-input"
+           value={name}
+           maxLength={12}
+           onChange={(e) => onName(e.target.value.toUpperCase())}
+           placeholder="YOUR NAME"
+-          className="h-11 w-[38%] rounded-xl bg-black/35 px-3 text-[13px] font-bold tracking-widest text-paper ring-1 ring-inset ring-white/10 outline-none placeholder:text-paper/25 focus:ring-gold/50"
++          className="h-10 w-full rounded-xl bg-black/35 px-3 text-[13px] font-bold tracking-widest text-paper ring-1 ring-inset ring-white/10 outline-none placeholder:text-paper/25 focus:ring-gold/50"
+         />
+-        <button onClick={onStart} className="btn-primary h-11 flex-1 rounded-xl text-[15px] font-black tracking-[0.2em]" style={{ animation: "pulseSoft 1.8s ease-in-out infinite" }}>
+-          BEGIN <kbd className="kbd">↵</kbd>
+-        </button>
++      </div>
++
++      <div className="mt-4">
++        <div className="mb-1.5 flex items-center justify-between">
++          <p className="text-[10px] font-bold tracking-[0.25em] text-paper/45">LOCAL SAVE SLOTS</p>
++          <p className="text-[9px] font-bold tracking-wider text-jade/70">AUTOSAVE ON</p>
++        </div>
++        <div className="space-y-2">
++          {slots.map((slot) => (
++            <div key={slot.slot} className="flex gap-2">
++              <button
++                onClick={() => onStart(slot.slot)}
++                className="min-w-0 flex-1 rounded-xl bg-black/30 px-3 py-2.5 text-left ring-1 ring-inset ring-white/10 transition hover:bg-white/[0.06] hover:ring-gold/35"
++              >
++                <div className="flex items-center justify-between gap-2">
++                  <span className="font-display text-[12px] font-black tracking-[0.18em] text-[#ffe9b8]">SLOT {slot.slot}</span>
++                  <span className={cn("text-[9.5px] font-black tracking-widest", slot.exists ? "text-jade" : "text-gold")}>
++                    {slot.exists ? "CONTINUE" : "NEW GAME"}
++                  </span>
++                </div>
++                {slot.exists ? (
++                  <p className="mt-1 truncate text-[10.5px] text-paper/55">
++                    Day {slot.day} · {slot.ninjas} ninja · {slot.gold?.toLocaleString()} gold · {slot.raids} raids held
++                  </p>
++                ) : (
++                  <p className="mt-1 text-[10.5px] text-paper/35">Empty local campaign slot</p>
++                )}
++              </button>
++              {slot.exists && (
++                <button
++                  onClick={() => onDelete(slot.slot)}
++                  aria-label={`Delete save slot ${slot.slot}`}
++                  cl
