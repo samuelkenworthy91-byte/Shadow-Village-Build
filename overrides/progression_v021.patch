@@ -1,5 +1,27 @@
---- a/src/game/engine.ts	2026-08-29 18:00:00.698519508 +0000
-+++ b/src/game/engine.ts	2026-08-29 18:00:00.191696302 +0000
+--- a/package.json
++++ b/package.json
+@@ -5,7 +5,7 @@
+   "type": "module",
+   "scripts": {
+     "dev": "vite",
+-    "build": "vite build",
++    "build": "tsc --noEmit && vite build",
+     "preview": "vite preview"
+   },
+   "dependencies": {
+--- a/src/components/Roster.tsx
++++ b/src/components/Roster.tsx
+@@ -2,7 +2,7 @@
+ import { LEGENDS, pendingPerks } from "../game/perks";
+ import type { GameState } from "../game/types";
+ import { SKILL_META } from "../game/content";
+-import { capOf, effSkill, overall, potRange, promoInfo, topSkills } from "../game/engine";
++import { capOf, effSkill, overall, potRange, promoInfo, scoutCost, topSkills } from "../game/engine";
+ import NinjaSprite from "./NinjaSprite";
+ import { FatigueBar, PotStars, RankPill } from "./Bits";
+ import { cn } from "../utils/cn";
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
 @@ -504,7 +504,7 @@
  /* ---------------- day advance ---------------- */
  
@@ -9,3 +31,18 @@
    n.xp += amount * mult;
    while (n.xp >= xpNext(n.level)) {
      n.xp -= xpNext(n.level);
+--- a/src/game/save.ts
++++ b/src/game/save.ts
+@@ -22,7 +22,11 @@
+ const backupKeyFor = (slot: number) => `${keyFor(slot)}-backup`;
+ 
+ function storageReady(): boolean {
+-  return typeof localStorage !== "undefined";
++  try {
++    return typeof window !== "undefined" && !!window.localStorage;
++  } catch {
++    return false;
++  }
+ }
+ 
+ function validSlot(slot: number): boolean {
