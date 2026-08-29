@@ -135,6 +135,23 @@ jobs:
           name: Shadow-Village-v2.5-Patched-Source
           path: app
 
+      - name: Apply expanded ninja progression
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          python overrides/apply_progression_expansion.py
+          grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
+          grep -q 'Dōjutsu Potential' app/src/game/content.ts
+          grep -q 'Commander's Gambit' app/src/game/perks.ts
+          grep -q 'com.shadowvillage.game.progression' app/capacitor.config.ts
+          grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
+
+      - name: Export progression source snapshot
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow-Village-Progression-Dev-Source
+          path: app
+
       - name: Install dependencies
         working-directory: app
         run: npm install
@@ -171,5 +188,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-APK
+          name: Shadow-Village-Progression-Dev-APK
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
