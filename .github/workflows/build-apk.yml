@@ -9,6 +9,7 @@ on:
       - rank-exam-dev
       - save-slots-v24
       - target-selection-v25
+      - feature/expanded-ninja-progression
 
 jobs:
   build-apk:
@@ -126,6 +127,13 @@ jobs:
           grep -q 'targetPrompt(pendingMode, pending)' app/src/components/BattleScreen.tsx
           grep -q 'target && target.foe === u.foe && !target.alive' app/src/game/battle.ts
           grep -q 'shadow-village-v8-target-selection' app/public/sw.js
+
+      - name: Export exact patched v2.5 source snapshot
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow-Village-v2.5-Patched-Source
+          path: app
 
       - name: Install dependencies
         working-directory: app
