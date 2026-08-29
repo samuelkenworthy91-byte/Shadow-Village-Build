@@ -1,0 +1,34 @@
+{
+  "name": "Shadow Village — Ninja Settlement",
+  "short_name": "Shadow Village",
+  "description": "Build a hidden ninja village, train shinobi, deploy squads on missions, and survive the raids.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#0d0e1a",
+  "theme_color": "#0d0e1a",
+  "categories": [
+    "games",
+    "strategy"
+  ],
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
