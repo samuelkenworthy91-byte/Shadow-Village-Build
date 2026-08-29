@@ -5,22 +5,22 @@ import glob
 import io
 import string
 import sys
-from collections import Counter
+import zipfile
 from pathlib import Path
 
 from PIL import Image
 
 SPRITE_W = 240
 SPRITE_H = 536
-CELL_W = 80
-CELL_H = 179
 COLS = 10
+ROWS = 11
 FIRST_ID = 81
 LAST_ID = 190
 MAX_CONTENT_W = 220
 MAX_CONTENT_H = 400
 BOTTOM_PAD = 8
 BASE64_CHARS = set(string.ascii_letters + string.digits + "+/=")
+IMAGE_EXTS = (".png", ".jpg", ".jpeg", ".webp")
 
 
 def read_b64_parts(pattern: str) -> bytes:
@@ -29,17 +29,38 @@ def read_b64_parts(pattern: str) -> bytes:
         raise RuntimeError(f"No asset parts matched {pattern}")
     raw = "".join(Path(p).read_text(encoding="utf-8") for p in paths)
     encoded = "".join(raw.split())
-    invalid = [(i, ch, ord(ch)) for i, ch in enumerate(encoded) if ch not in BASE64_CHARS]
+    invalid = [(i, ch) for i, ch in enumerate(encoded) if ch not in BASE64_CHARS]
     if invalid:
-        counts = Counter(ch for _, ch, _ in invalid)
-        sample = invalid[:12]
-        raise RuntimeError(
-            f"Invalid base64 transport characters in {pattern}: count={len(invalid)}, "
-            f"types={dict(counts)}, sample={sample}, compact_len={len(encoded)}"
-        )
+        raise RuntimeError(f"Invalid base64 transport in {pattern}: {invalid[:12]}")
     if len(encoded) % 4:
-        raise RuntimeError(f"Invalid base64 length in {pattern}: {len(encoded)} (mod 4 = {len(encoded) % 4})")
+        raise RuntimeError(f"Invalid base64 length in {pattern}: {len(encoded)}")
     return base64.b64decode(encoded, validate=True)
+
+
+def load_atlases(asset_root: Path) -> tuple[Image.Image, Image.Image]:
+    bundle = read_b64_parts(str(asset_root / "bundle_parts" / "part_*"))
+    if not zipfile.is_zipfile(io.BytesIO(bundle)):
+        raise RuntimeError("Portrait bundle is not a valid ZIP archive")
+
+    with zipfile.ZipFile(io.BytesIO(bundle)) as zf:
+        names = [n for n in zf.namelist() if n.lower().endswith(IMAGE_EXTS)]
+        alpha_name = next((n for n in names if "alpha" in Path(n).name.lower()), None)
+        color_name = next((n for n in names if n != alpha_name and "color" in Path(n).name.lower()), None)
+        if color_name is None:
+            color_name = next((n for n in names if n != alpha_name), None)
+        if alpha_name is None or color_name is None:
+            raise RuntimeError(f"Portrait bundle missing alpha/color images: {names}")
+        alpha_bytes = zf.read(alpha_name)
+        color_bytes = zf.read(color_name)
+
+    alpha = Image.open(io.BytesIO(alpha_bytes)).convert("L")
+    color = Image.open(io.BytesIO(color_bytes)).convert("RGB")
+    if color.size != alpha.size:
+        raise RuntimeError(f"Atlas sizes differ: color={color.size}, alpha={alpha.size}")
+    if color.width % COLS or color.height % ROWS:
+        raise RuntimeError(f"Atlas is not divisible into {COLS}x{ROWS} cells: {color.size}")
+    print(f"Loaded portrait atlases from bundle: color={color.size}, alpha={alpha.size}")
+    return color, alpha
 
 
 def main() -> None:
@@ -47,17 +68,9 @@ def main() -> None:
     game_root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
     asset_root = repo_root / "overrides" / "ninja_assets_v26"
 
-    color_bytes = read_b64_parts(str(asset_root / "color32_parts" / "part_*"))
-    alpha_bytes = read_b64_parts(str(asset_root / "alpha80_parts" / "part_*"))
-
-    color = Image.open(io.BytesIO(color_bytes)).convert("RGB")
-    alpha = Image.open(io.BytesIO(alpha_bytes)).convert("L")
-    expected_size = (CELL_W * COLS, CELL_H * 11)
-    if color.size != expected_size or alpha.size != expected_size:
-        raise RuntimeError(
-            f"Unexpected portrait atlas size: color={color.size}, alpha={alpha.size}, expected={expected_size}"
-        )
-
+    color, alpha = load_atlases(asset_root)
+    cell_w = color.width // COLS
+    cell_h = color.height // ROWS
     atlas = Image.merge("RGBA", (*color.split(), alpha))
     out_dir = game_root / "public" / "ninjas"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -67,9 +80,9 @@ def main() -> None:
         index = art_id - FIRST_ID
         col = index % COLS
         row = index // COLS
-        x0 = col * CELL_W
-        y0 = row * CELL_H
-        cell = atlas.crop((x0, y0, x0 + CELL_W, y0 + CELL_H))
+        x0 = col * cell_w
+        y0 = row * cell_h
+        cell = atlas.crop((x0, y0, x0 + cell_w, y0 + cell_h))
         bbox = cell.getbbox()
         if bbox is None:
             raise RuntimeError(f"Portrait {art_id} has no visible pixels")
