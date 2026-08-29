@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - raid-visuals-v22
 
 jobs:
   build-apk:
@@ -60,6 +61,23 @@ jobs:
       - name: Apply raid balance and transparency update
         working-directory: app
         run: python ../overrides/apply_raid_balance.py
+
+      - name: Apply raid classes and defender selection
+        run: |
+          cat overrides/raid_patch_b64_v22/part_* | tr -d '\n\r' | base64 --decode > /tmp/raid-v22.patch
+          cd app
+          patch -p1 --forward < /tmp/raid-v22.patch
+          cd ..
+          mkdir -p app/public/raiders
+          cat overrides/raid_assets/raiders120_webp75.b64 | tr -d '\n\r' | base64 --decode > /tmp/raiders-v22.zip
+          unzip -qo /tmp/raiders-v22.zip -d app/public/raiders
+          cat overrides/raid_assets/bg_raid_q65.b64 | tr -d '\n\r' | base64 --decode > app/public/bg-raid-field.jpg
+
+      - name: Verify raid assets
+        run: |
+          test -f app/src/components/RaidDefenseModal.tsx
+          test -f app/public/bg-raid-field.jpg
+          test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
 
       - name: Install dependencies
         working-directory: app
