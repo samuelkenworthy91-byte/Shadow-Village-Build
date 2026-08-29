@@ -1,0 +1,104 @@
+--- a/src/components/NinjaDetail.tsx
++++ b/src/components/NinjaDetail.tsx
+@@ -208,7 +208,7 @@
+                     </div>
+                   </div>
+                   <button
+-                    disabled={n.sp <= 0 || (k === "doj" && n.s.doj <= 0 && !n.traits.includes("dojutsuPotential") && n.legend !== "doujutsu")}
++                    disabled={n.sp <= 0 || (k === "doj" && n.dojutsuAwakening !== "mission" && n.dojutsuAwakening !== "bloodline" && n.dojutsuAwakening !== "legend" && !n.traits.includes("dojutsuPotential") && n.legend !== "doujutsu")}
+                     onClick={(e) => setConfirmSpend({ kind: "skill", skill: k, rect: e.currentTarget.getBoundingClientRect() })}
+                     className="btn-ink grid h-7 w-8 shrink-0 place-items-center rounded-lg"
+                     aria-label={`Train ${meta.name}`}
+@@ -226,7 +226,7 @@
+ 
+           <p className="mt-3 rounded-lg bg-black/25 p-2.5 text-[10px] leading-relaxed text-paper/50 ring-1 ring-inset ring-white/5">
+             <b className="text-paper/75">Traits:</b> {traits.map((t) => `${t.name} [${t.rarity.toUpperCase()}] — ${t.desc}`).join(" · ")}. <b className="text-paper/75">{nat.name}</b> accelerates {SKILL_META[nat.boost].name}.
+-            Dōjutsu remains dormant at 0 unless an ocular bloodline awakens it. Higher potential means more skill points each level.
++            Dōjutsu remains dormant at 0 through normal training and promotions. It only unlocks through an ocular bloodline/legend or an explicit Dōjutsu-awakening mission/event. Higher potential means more skill points each level.
+           </p>
+         </div>
+ 
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -583,6 +583,8 @@
+         n.examFails = 0;
+         n.sp += 3;
+         for (const k of SKILLS) {
++          const dojutsuUnlocked = n.dojutsuAwakening === "mission" || n.dojutsuAwakening === "bloodline" || n.dojutsuAwakening === "legend" || n.traits.includes("dojutsuPotential") || n.legend === "doujutsu";
++          if (k === "doj" && !dojutsuUnlocked) continue;
+           n.s[k] += Math.max(1, Math.round(req.boost * 1.35 * (n.growth[k] / 1.4)));
+         }
+         s.stats.promos++;
+--- a/src/game/content.ts
++++ b/src/game/content.ts
+@@ -81,7 +81,7 @@
+   wildcard: { name: "Wild Talent", desc: "Ninjutsu is a specialist skill: higher starting Ninjutsu, faster Ninjutsu growth, and more Ninjutsu tree offers.", boost: "nin", icon: "変", rarity: "uncommon" },
+   bladeborn: { name: "Blade Prodigy", desc: "Kenjutsu is a specialist skill and Kenjutsu techniques appear more often in this ninja's personal tree.", boost: "ken", icon: "剣", rarity: "uncommon" },
+   tactician: { name: "Tactician", desc: "Battlefield Tactics is a specialist skill and Tactics techniques appear more often in the personal tree.", boost: "tac", icon: "策", rarity: "common" },
+-  dojutsuPotential: { name: "Dōjutsu Potential", desc: "Awakens Dōjutsu above 0, allows Dōjutsu training, and unlocks Dōjutsu technique-tree choices.", boost: "doj", icon: "眼", rarity: "rare" },
++  dojutsuPotential: { name: "Dōjutsu Potential", desc: "Born with an awakened ocular bloodline: starts with Dōjutsu above 0, can train Dōjutsu, and can receive Dōjutsu technique-tree choices. Rank promotion alone never unlocks Dōjutsu.", boost: "doj", icon: "眼", rarity: "rare" },
+   latebloomer: { name: "Late Bloomer", desc: "Starts with 2 fewer points in every skill, but gains +0.22 growth in every skill for stronger long-term development.", icon: "芽", rarity: "uncommon" },
+   glasscannon: { name: "Glass Cannon", desc: "+18% battle attack, but -14% maximum HP.", icon: "砕", rarity: "uncommon" },
+   chakrafrugal: { name: "Chakra Frugal", desc: "+20% maximum chakra in battle.", icon: "節", rarity: "common" },
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -14,7 +14,12 @@
+ const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+ const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
+ const hasTrait = (n: Ninja, id: import("./types").TraitId) => n.traits.includes(id);
+-const dojutsuAwakened = (n: Ninja) => n.s.doj > 0 || hasTrait(n, "dojutsuPotential") || n.legend === "doujutsu";
++export const dojutsuAwakened = (n: Ninja) =>
++  n.dojutsuAwakening === "mission" ||
++  n.dojutsuAwakening === "bloodline" ||
++  n.dojutsuAwakening === "legend" ||
++  hasTrait(n, "dojutsuPotential") ||
++  n.legend === "doujutsu";
+ export const hasTech = (s: Pick<GameState, "techs">, id: VillageTechId) => s.techs.includes(id);
+ export function missionCap(s: GameState): number { return MISSION_CAP + (hasTech(s, "hall_mission_admin") ? 2 : 0); }
+ export function scoutCost(s: GameState) {
+@@ -191,6 +196,7 @@
+     id: s.nextId++, name: `${first} ${pick(SURNAMES)}`, seed: Math.random(),
+     look: { hair: ri(0, 7), hairColor: ri(0, HAIR_COLORS.length - 1), skin: ri(0, SKIN_TONES.length - 1), eyes: ri(0, 5), mark: ri(0, 4), outfit: ri(0, OUTFIT_COLORS.length - 1), band: ri(0, BAND_COLORS.length - 1), acc: ri(0, 3), build: ri(0, 2) },
+     nature, secondaryNature, traits, rank: "genin", level: 1, xp: 0, sp: 0, pot, s: sk, growth,
++    dojutsuAwakening: legendId === "doujutsu" ? "legend" : traits.includes("dojutsuPotential") ? "bloodline" : null,
+     fatigue: 0, status: "ready", daysLeft: 0, missionId: null, runs: 0, wins: 0,
+     perks: [], legend: legendId ?? null, title: legend ? legend.title : null,
+   };
+--- a/src/game/perks.ts
++++ b/src/game/perks.ts
+@@ -384,7 +384,7 @@
+   const best = (Object.keys(n.s) as Skill[]).sort((a, b) => n.s[b] - n.s[a]).slice(0, 2);
+   favour.push(...best);
+ 
+-  const canDojutsu = n.s.doj > 0 || n.traits.includes("dojutsuPotential") || n.legend === "doujutsu";
++  const canDojutsu = n.dojutsuAwakening === "mission" || n.dojutsuAwakening === "bloodline" || n.dojutsuAwakening === "legend" || n.traits.includes("dojutsuPotential") || n.legend === "doujutsu";
+   const pairMatches = (pair: [Nature, Nature]) => {
+     if (!n.secondaryNature) return false;
+     const have = new Set<Nature>([n.nature, n.secondaryNature]);
+--- a/src/game/save.ts
++++ b/src/game/save.ts
+@@ -46,6 +46,13 @@
+     // Lightweight migration/normalisation for saves made before later systems existed.
+     for (const ninja of state.ninjas) {
+       if (typeof ninja.examFails !== "number") ninja.examFails = 0;
++      if (ninja.legend === "doujutsu") ninja.dojutsuAwakening = "legend";
++      else if (ninja.traits?.includes("dojutsuPotential")) ninja.dojutsuAwakening = "bloodline";
++      else if (ninja.dojutsuAwakening !== "mission") {
++        ninja.dojutsuAwakening = null;
++        if (ninja.s) ninja.s.doj = 0;
++        if (ninja.growth) ninja.growth.doj = 0;
++      }
+     }
+     if (!state.stats) state.stats = { done: 0, failed: 0, raids: 0, earned: 0, levels: 0, promos: 0 };
+     if (!state.battle) state.battle = null;
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -57,6 +57,8 @@
+   missionId: number | null;
+   runs: number;
+   wins: number;
++  /** Dōjutsu is a gated discipline; ordinary rank-ups must never awaken it. */
++  dojutsuAwakening?: "bloodline" | "mission" | "legend" | null;
+   /** unlocked tech-tree node ids */
+   perks: string[];
+   /** legendary archetype id, if this is a unique shinobi */
