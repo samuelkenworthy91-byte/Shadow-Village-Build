@@ -1,0 +1,132 @@
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -9,6 +9,7 @@
+ import NinjaDetail from "./components/NinjaDetail";
+ import ScoutModal from "./components/ScoutModal";
+ import BattleScreen from "./components/BattleScreen";
++import RaidDefenseModal from "./components/RaidDefenseModal";
+ import ReportModal from "./components/ReportModal";
+ import { GameOverOverlay, PauseOverlay, StartOverlay } from "./components/Overlays";
+ import * as eng from "./game/engine";
+@@ -442,6 +443,18 @@
+     playerAct(action, target);
+   };
+ 
++  const defendRaid = (ids: number[]) => {
++    const st = sRef.current;
++    if (!eng.beginRaidBattle(st, ids)) {
++      audio.click();
++      fx.shake(3);
++      return;
++    }
++    audio.dispatch();
++    fx.shake(8);
++    force();
++  };
++
+   const battleFinish = () => {
+     const evs: Ev[] = [];
+     bat.finishBattle(sRef.current, evs);
+@@ -653,6 +666,9 @@
+       {s.reports.length > 0 && (
+         <ReportModal s={s} report={s.reports[0]} remaining={s.reports.length - 1} onNext={dismissReport} />
+       )}
++      {s.phase === "raid_select" && (
++        <RaidDefenseModal s={s} onDefend={defendRaid} />
++      )}
+       {s.phase === "battle" && s.battle && (
+         <BattleScreen s={s} b={s.battle} onAction={playerAct} onAuto={battleAuto} onFinish={battleFinish} />
+       )}
+--- a/src/components/BattleScreen.tsx
++++ b/src/components/BattleScreen.tsx
+@@ -94,7 +94,7 @@
+     <div className="fixed inset-0 z-50 flex flex-col bg-[#0b0c16]">
+       {/* battlefield backdrop */}
+       <div className="absolute inset-0">
+-        <img src="/bg-village.jpg" alt="" className="h-full w-full object-cover opacity-45" draggable={false} />
++        <img src="/bg-raid-field.jpg" alt="" className="h-full w-full object-cover opacity-50" draggable={false} />
+         <div className="absolute inset-0 bg-gradient-to-b from-[#1a0d18]/85 via-[#0b0c16]/55 to-[#0b0c16]" />
+         <div className="vignette-raid absolute inset-0 opacity-60" />
+       </div>
+--- a/src/components/NinjaSprite.tsx
++++ b/src/components/NinjaSprite.tsx
+@@ -2,14 +2,6 @@
+ import { ninjaArtMeta, ninjaArtSrc } from "../game/ninjaArt";
+ import type { Look, Nature, NinRank } from "../game/types";
+ 
+-function shade(hex: string, amt: number): string {
+-  const n = parseInt(hex.slice(1), 16);
+-  const r = Math.max(0, Math.min(255, ((n >> 16) & 255) + amt));
+-  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+-  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
+-}
+-
+ // Master raster assets are all normalized to this canvas.
+ export const SPRITE_W = 240;
+ export const SPRITE_H = 536;
+@@ -117,40 +109,24 @@
+ /* ---------------- enemy art ---------------- */
+ 
+ export function EnemyArt({ kind, h, dead }: { kind: string; h: number; dead?: boolean }) {
+-  const meta = ENEMY_KINDS[kind] ?? ENEMY_KINDS.grunt;
+-  const c = meta.color;
+-  const body = "#2a2733";
+-  const dark = shade(body, -10);
++  const meta = ENEMY_KINDS[kind] ?? ENEMY_KINDS.rogue_genin;
+   return (
+-    <svg width={h * 0.62} height={h} viewBox="0 -2 62 102" fill="none" aria-hidden style={{ opacity: dead ? 0.28 : 1 }}>
+-      <ellipse cx="31" cy="98" rx="16" ry="3.4" fill="#2b2118" opacity="0.25" />
+-      <path d="M22 60q-2 20-2.5 29l-.5 9h8.5l1-9 2.5-27z" fill={dark} />
+-      <path d="M40 60q2 20 2.5 29l.5 9h-8.5l-1-9-2.5-27z" fill={body} />
+-      <path
+-        d={`M${kind === "brute" ? 13 : 16.5} 35q${kind === "brute" ? 18 : 14.5} -9 ${kind === "brute" ? 36 : 29} 0 q-2 15-3.5 27 q-${kind === "brute" ? 15 : 11} 5 -${kind === "brute" ? 30 : 22} 0z`}
+-        fill={body}
+-      />
+-      <path d="M31 33v30" stroke={c} strokeWidth="2" opacity="0.5" />
+-      <path d="M16.5 36q-7 4-8.5 15l-1 13 6.5 2 5.5-17z" fill={dark} />
+-      <path d="M45.5 36q7 4 8.5 15l1 13-6.5 2-5.5-17z" fill={dark} />
+-      <ellipse cx="31" cy="20" rx="12" ry="13" fill="#211f2a" />
+-      <path d="M19 16q12-4 24 0-.5 4-1 7-11-4-22 0z" fill={shade(c, -34)} />
+-      <path d="M23.5 18.4l5 1.9-5 1.9z" fill={c}>
+-        <animate attributeName="opacity" values="1;0.42;1" dur="2.1s" repeatCount="indefinite" />
+-      </path>
+-      <path d="M38.5 18.4l-5 1.9 5 1.9z" fill={c}>
+-        <animate attributeName="opacity" values="1;0.42;1" dur="2.1s" repeatCount="indefinite" />
+-      </path>
+-      {kind === "brute" && <path d="M19.5 7.5q3 3 5 6.5M42.5 7.5q-3 3-5 6.5" stroke={c} strokeWidth="3.4" strokeLinecap="round" fill="none" />}
+-      {kind === "shadow" && <path d="M19 12q12-9.5 24 0-12-3.6-24 0z" fill={c} opacity="0.6" />}
+-      {kind === "boss" && (
+-        <>
+-          <path d="M17.5 9.5q3.5 2.6 6 5.5M44.5 9.5q-3.5 2.6-6 5.5" stroke={c} strokeWidth="3.4" strokeLinecap="round" fill="none" />
+-          <path d="M31 2l4 8h-8z" fill={c} />
+-          <path d="M13 39l-6 26 8.5-2.5 4-20z" fill={c} opacity="0.4" />
+-        </>
+-      )}
+-      {(kind === "shadow" || kind === "boss") && <path d="M52 39l7-24 3 2-6.4 24z" fill="#d3d8de" stroke="#8a9099" strokeWidth="0.7" />}
+-    </svg>
++    <img
++      src={`/raiders/${meta.art}.webp`}
++      alt=""
++      aria-hidden
++      draggable={false}
++      decoding="async"
++      style={{
++        width: h * (320 / 440),
++        height: h,
++        objectFit: "contain",
++        objectPosition: "center bottom",
++        opacity: dead ? 0.28 : 1,
++        filter: dead ? "grayscale(1) brightness(0.65)" : `drop-shadow(0 2px 5px ${meta.color}22)`,
++        userSelect: "none",
++        pointerEvents: "none",
++      }}
++    />
+   );
+ }
+--- a/src/components/Scene.tsx
++++ b/src/components/Scene.tsx
+@@ -69,7 +69,7 @@
+         <div className="rounded-md bg-black/45 px-2 py-1 text-right text-[8px] font-bold leading-[1.25] text-paper/60 backdrop-blur-sm ring-1 ring-white/8">
+           <p>+{raid.dailyThreat.toFixed(0)}%/day · {raid.daysUntil === 0 ? "RAID NEXT" : `${raid.daysUntil}d`}</p>
+           <p>{raid.enemyCount} raider{raid.enemyCount === 1 ? "" : "s"} · ~Lv {raid.enemyLevel}
