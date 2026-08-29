@@ -66,18 +66,29 @@ jobs:
         run: |
           cat overrides/raid_patch_b64_v22/part_* | tr -d '\n\r' | base64 --decode > /tmp/raid-v22.patch
           cd app
+          set +e
           patch -p1 --forward < /tmp/raid-v22.patch
+          PATCH_RC=$?
+          set -e
+          test -f src/components/RaidDefenseModal.tsx
+          grep -q 'raid_select' src/game/types.ts
+          grep -q 'dread_veteran' src/game/content.ts
+          grep -q 'beginRaidBattle' src/game/engine.ts
+          grep -q 'bg-raid-field.jpg' src/components/BattleScreen.tsx
           cd ..
+          cp overrides/raid_sw_v22.js app/public/sw.js
           mkdir -p app/public/raiders
           cat overrides/raid_assets/raiders120_webp75.b64 | tr -d '\n\r' | base64 --decode > /tmp/raiders-v22.zip
           unzip -qo /tmp/raiders-v22.zip -d app/public/raiders
           cat overrides/raid_assets/bg_raid_q65.b64 | tr -d '\n\r' | base64 --decode > app/public/bg-raid-field.jpg
+          echo "Patch return code: $PATCH_RC (service-worker hunk is intentionally replaced by override)"
 
       - name: Verify raid assets
         run: |
           test -f app/src/components/RaidDefenseModal.tsx
           test -f app/public/bg-raid-field.jpg
           test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
+          grep -q 'shadow-village-v5-raiders10-field' app/public/sw.js
 
       - name: Install dependencies
         working-directory: app
