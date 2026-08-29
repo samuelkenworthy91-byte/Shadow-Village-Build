@@ -78,9 +78,9 @@ jobs:
           cd ..
           cp overrides/raid_sw_v22.js app/public/sw.js
           mkdir -p app/public/raiders
-          cat overrides/raid_assets_safe_v22/raiders48_webp35.b64 | tr -d '\n\r' | base64 --decode > /tmp/raiders-v22.zip
+          cp overrides/raid_assets_bin_v22/raiders48_webp35.zip /tmp/raiders-v22.zip
           unzip -qo /tmp/raiders-v22.zip -d app/public/raiders
-          cat overrides/raid_assets_safe_v22/bgraid_640_q35.b64 | tr -d '\n\r' | base64 --decode > app/public/bg-raid-field.jpg
+          cp overrides/raid_assets_bin_v22/bgraid_640_q35.jpg app/public/bg-raid-field.jpg
           echo "Patch return code: $PATCH_RC (service-worker hunk is intentionally replaced by override)"
 
       - name: Verify raid assets
