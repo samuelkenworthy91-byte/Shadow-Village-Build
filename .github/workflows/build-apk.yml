@@ -28,18 +28,42 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
+      - name: Keep debug signing key stable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: shadow-village-debug-keystore-v1
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+
       - name: Unpack game
         run: |
+          rm -rf app
           mkdir -p app
           unzip -q ninja-settlement-management-game-art-swap.zip -d app
+
+      - name: Apply art and framing update
+        run: |
+          cp overrides/src/components/NinjaSprite.tsx app/src/components/NinjaSprite.tsx
+          cp overrides/src/components/HUD.tsx app/src/components/HUD.tsx
+          cp overrides/src/game/ninjaArt.ts app/src/game/ninjaArt.ts
+          cp overrides/public/sw.js app/public/sw.js
+          cp overrides/public/manifest.webmanifest app/public/manifest.webmanifest
+          cat overrides/icon_parts/*.txt | tr -d '\n\r' | base64 --decode > /tmp/shadow-village-logo.png
+          convert /tmp/shadow-village-logo.png -resize 512x512 app/public/icon.png
+          mkdir -p app/assets
+          convert /tmp/shadow-village-logo.png -resize 1024x1024 app/assets/logo.png
 
       - name: Install dependencies
         working-directory: app
         run: npm install
 
-      - name: Install Capacitor CLI
+      - name: Install Capacitor build tools
         working-directory: app
-        run: npm install --save-dev @capacitor/cli@8.5.0
+        run: npm install --save-dev @capacitor/cli@8.5.0 @capacitor/assets
 
       - name: Build game
         working-directory: app
@@ -50,6 +74,15 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Generate Android app icon
+        working-directory: app
+        run: |
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#0d0e1a' \
+            --iconBackgroundColorDark '#0d0e1a' \
+            --splashBackgroundColor '#0d0e1a' \
+            --splashBackgroundColorDark '#0d0e1a'
 
       - name: Build APK
         working-directory: app/android
