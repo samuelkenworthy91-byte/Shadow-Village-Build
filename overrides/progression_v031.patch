@@ -1,0 +1,26 @@
+--- a/src/components/Roster.tsx
++++ b/src/components/Roster.tsx
+@@ -2,7 +2,7 @@
+ import { LEGENDS, pendingPerks } from "../game/perks";
+ import type { GameState } from "../game/types";
+ import { SKILL_META } from "../game/content";
+-import { capOf, effSkill, overall, potRange, promoInfo, topSkills } from "../game/engine";
++import { capOf, effSkill, overall, potRange, promoInfo, scoutCost, topSkills } from "../game/engine";
+ import NinjaSprite from "./NinjaSprite";
+ import { FatigueBar, PotStars, RankPill } from "./Bits";
+ import { cn } from "../utils/cn";
+--- a/src/game/save.ts
++++ b/src/game/save.ts
+@@ -24,7 +24,11 @@
+ const backupKeyFor = (slot: number) => `${keyFor(slot)}-backup`;
+ 
+ function storageReady(): boolean {
+-  return typeof localStorage !== "undefined";
++  try {
++    return typeof window !== "undefined" && !!window.localStorage;
++  } catch {
++    return false;
++  }
+ }
+ 
+ function validSlot(slot: number): boolean {
