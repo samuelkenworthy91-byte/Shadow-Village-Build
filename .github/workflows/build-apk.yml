@@ -191,6 +191,16 @@ jobs:
           grep -q 'skillPointGain' app/src/game/engine.ts
           grep -q 'shadow-village-progression-dev-v3' app/public/sw.js
 
+      - name: Apply progression v0.3.3 Dōjutsu awakening gate
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          cd app
+          patch -p1 < ../overrides/progression_v033.patch
+          cd ..
+          grep -q 'dojutsuAwakening' app/src/game/types.ts
+          grep -q 'if (k === "doj" && !dojutsuUnlocked) continue' app/src/game/battle.ts
+          grep -q 'Rank promotion alone never unlocks Dōjutsu' app/src/game/content.ts
+
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
         uses: actions/upload-artifact@v4
