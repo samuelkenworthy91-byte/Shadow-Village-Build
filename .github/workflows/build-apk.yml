@@ -31,7 +31,7 @@ jobs:
       - name: Unpack game
         run: |
           mkdir -p app
-          unzip -q ninja-game.zip -d app
+          unzip -q ninja-settlement-management-game-art-swap.zip -d app
 
       - name: Install dependencies
         working-directory: app
