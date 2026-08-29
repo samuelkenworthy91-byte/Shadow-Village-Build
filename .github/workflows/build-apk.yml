@@ -78,17 +78,15 @@ jobs:
           cd ..
           cp overrides/raid_sw_v22.js app/public/sw.js
           mkdir -p app/public/raiders
-          cp overrides/raid_assets_bin_v22/raiders48_webp35.zip /tmp/raiders-v22.zip
-          unzip -qo /tmp/raiders-v22.zip -d app/public/raiders
-          cp overrides/raid_assets_bin_v22/bgraid_640_q35.jpg app/public/bg-raid-field.jpg
+          cp overrides/raid_assets_direct_v22/raiders/*.webp app/public/raiders/
+          cp overrides/raid_assets_direct_v22/bg-raid-field.jpg app/public/bg-raid-field.jpg
           echo "Patch return code: $PATCH_RC (service-worker hunk is intentionally replaced by override)"
 
       - name: Verify raid assets
         run: |
           test -f app/src/components/RaidDefenseModal.tsx
-          test -f app/public/bg-raid-field.jpg
+          test -s app/public/bg-raid-field.jpg
           test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
-          unzip -t /tmp/raiders-v22.zip >/dev/null
           grep -q 'shadow-village-v5-raiders10-field' app/public/sw.js
 
       - name: Install dependencies
