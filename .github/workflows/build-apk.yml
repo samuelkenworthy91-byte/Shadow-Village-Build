@@ -180,6 +180,17 @@ jobs:
           grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
           grep -q 'Math.max(0, s.raids - 2) \* 0.65' app/src/game/battle.ts
 
+      - name: Apply progression v0.3.2 point-spend QoL
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          cd app
+          patch -p1 < ../overrides/progression_v032.patch
+          cd ..
+          grep -q 'CONFIRM POINT SPEND' app/src/components/NinjaDetail.tsx
+          grep -q 'perkMechanics' app/src/components/PerkTree.tsx
+          grep -q 'skillPointGain' app/src/game/engine.ts
+          grep -q 'shadow-village-progression-dev-v3' app/public/sw.js
+
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
         uses: actions/upload-artifact@v4
