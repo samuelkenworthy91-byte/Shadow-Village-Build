@@ -1,0 +1,93 @@
+avg;
+-    }
++  const pool = raidClassPool(s);
++  const avgPower = pool
++    .map((kind) => unitCombatPower(makeEnemy(0, kind, power)))
++    .reduce((a, b) => a + b, 0) / Math.max(1, pool.length);
++  let enemyPower = avgPower * count;
++  // Later raids generally include a leader-class final slot. Keep this in the
++  // forecast so the visible estimate remains honest.
++  if (s.raids >= 1 && count > 1) {
++    const leader = s.raids >= 5 ? "dread_veteran" : "clan_captain";
++    enemyPower += unitCombatPower(makeEnemy(count - 1, leader, power)) - avgPower;
+   }
+   const homePower = raidDefenders(s.ninjas.filter((n) => n.status === "ready"))
+     .map(unitFromNinja)
+@@ -167,7 +176,8 @@
+ 
+ export function startBattle(s: GameState, defenders: Ninja[]): Battle {
+   const power = raidEnemyPower(s);
+-  const chosenDefenders = raidDefenders(defenders);
++  // Preserve the player's selection/order. No automatic strongest-four swap.
++  const chosenDefenders = defenders.slice(0, 4);
+   const allies = chosenDefenders.map(unitFromNinja);
+   // Will of Fire style team auras only count the shinobi actually defending.
+   let teamAtk = 1;
+@@ -175,9 +185,14 @@
+   if (teamAtk !== 1) for (const a of allies) a.atk *= teamAtk;
+ 
+   const count = raidEnemyCount(s);
++  const pool = raidClassPool(s);
+   const kinds: string[] = [];
+   for (let i = 0; i < count; i++) {
+-    kinds.push(i === count - 1 && s.raids >= 1 && count > 1 ? "boss" : pick(["grunt", "brute", "shadow"]));
++    if (i === count - 1 && s.raids >= 1 && count > 1) {
++      kinds.push(s.raids >= 5 ? "dread_veteran" : "clan_captain");
++    } else {
++      kinds.push(pick(pool));
++    }
+   }
+   const foes = kinds.map((k, i) => makeEnemy(i, k, power));
+   foes.forEach((f, i) => {
+@@ -443,7 +458,7 @@
+   const strongest = [...targets].sort((a, z) => z.atk - a.atk)[0];
+   const t = weakest.hp < weakest.maxHp * 0.35 ? weakest : Math.random() < 0.6 ? strongest : pick(targets);
+   if (u.cp >= COSTS.jutsu && Math.random() < 0.42) return { action: "jutsu", target: t.uid };
+-  if (u.cp >= COSTS.genjutsu && u.kind === "shadow" && Math.random() < 0.3) return { action: "genjutsu", target: t.uid };
++  if (u.cp >= COSTS.genjutsu && (u.kind === "mist_assassin" || u.kind === "torch_saboteur") && Math.random() < 0.3) return { action: "genjutsu", target: t.uid };
+   if (u.hp < u.maxHp * 0.2 && Math.random() < 0.25) return { action: "guard" };
+   return { action: "attack", target: t.uid };
+ }
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -719,11 +719,27 @@
+       }
+       return false;
+     }
+-    s.battle = startBattle(s, defenders);
+-    s.phase = "battle";
++    // The raid is now staged first so the player can choose up to four of the
++    // shinobi who are actually home. Combat only starts after confirmation.
++    s.battle = null;
++    s.phase = "raid_select";
+     ev.push({ type: "raid_start", clan: s.clan });
+-    pushLog(s, `${s.clan} attacks the village!`, "bad");
++    pushLog(s, `${s.clan} attacks the village — choose the defence team!`, "bad");
+     return true;
+   }
+   return false;
+ }
++
++
++/** Confirm the manually selected village defenders and begin the raid battle. */
++export function beginRaidBattle(s: GameState, ids: number[]): boolean {
++  if (s.phase !== "raid_select") return false;
++  const unique = [...new Set(ids)].slice(0, 4);
++  const defenders = unique
++    .map((id) => s.ninjas.find((n) => n.id === id))
++    .filter((n): n is Ninja => !!n && n.status === "ready");
++  if (defenders.length === 0) return false;
++  s.battle = startBattle(s, defenders);
++  s.phase = "battle";
++  return true;
++}
+--- a/src/components/NinjaSprite.tsx
++++ b/src/components/NinjaSprite.tsx
+@@ -2,14 +2,6 @@
+ import { ninjaArtMeta, ninjaArtSrc } from "../game/ninjaArt";
+ import type { Look, Nature, NinRank } from "../game/types";
+ 
+-function shade(hex: string, amt: number): string {
+-  const n = parseInt(hex.slice(1), 16);
+-  const r = Math.max(0, Math.min(255, ((n >> 16) & 255) + amt));
+-  const g = Math.max(
