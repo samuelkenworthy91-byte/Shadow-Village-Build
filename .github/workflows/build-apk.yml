@@ -9,6 +9,7 @@ on:
       - rank-exam-dev
       - save-slots-v24
       - target-selection-v25
+      - ninja-art-import-081-190
 
 jobs:
   build-apk:
@@ -126,6 +127,21 @@ jobs:
           grep -q 'targetPrompt(pendingMode, pending)' app/src/components/BattleScreen.tsx
           grep -q 'target && target.foe === u.foe && !target.alive' app/src/game/battle.ts
           grep -q 'shadow-village-v8-target-selection' app/public/sw.js
+
+      - name: Reconstruct ninja portraits 081-190
+        run: |
+          python -m pip install --quiet pillow
+          cd app
+          python ../overrides/apply_ninja_portraits.py .
+          test "$(find public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 190
+          test -s public/ninjas/ninja_081.png
+          test -s public/ninjas/ninja_190.png
+          grep -q 'Array.from({ length: 190 }' src/game/ninjaArt.ts
+          ! grep -q 'LEGEND_ART' src/game/ninjaArt.ts
+          sed -i 's/length: 80/length: 190/' public/sw.js
+          sed -i 's/shadow-village-v8-target-selection/shadow-village-v9-ninja190/' public/sw.js
+          grep -q 'length: 190' public/sw.js
+          grep -q 'shadow-village-v9-ninja190' public/sw.js
 
       - name: Install dependencies
         working-directory: app
