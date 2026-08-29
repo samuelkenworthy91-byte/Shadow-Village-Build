@@ -1,20 +1,10 @@
 import type { Look } from "./types";
 
 /**
- * Image-backed player ninja art. Six generated portraits are reserved for
- * legendary archetypes; the remaining 74 form the deterministic general pool.
+ * Image-backed player ninja art. All 190 portraits share one unrestricted
+ * deterministic pool. Legendary status never forces or excludes a portrait.
  */
-export const LEGEND_ART: Record<string, number> = {
-  sannin: 62,
-  jinchuriki: 66,
-  doujutsu: 67,
-  puppeteer: 68,
-  swordsman: 69,
-  sage: 70,
-};
-
-export const GENERAL_ART_IDS: number[] = Array.from({ length: 80 }, (_, i) => i + 1)
-  .filter((id) => !Object.values(LEGEND_ART).includes(id));
+export const GENERAL_ART_IDS: number[] = Array.from({ length: 190 }, (_, i) => i + 1);
 
 export type NinjaArtMeta = {
   bustTop: number;
@@ -100,7 +90,117 @@ export const NINJA_ART_META: Record<number, NinjaArtMeta> = {
   77: { bustTop: 126 },
   78: { bustTop: 117 },
   79: { bustTop: 151 },
-  80: { bustTop: 150 }
+  80: { bustTop: 150 },
+  81: { bustTop: 124 },
+  82: { bustTop: 124 },
+  83: { bustTop: 124 },
+  84: { bustTop: 124 },
+  85: { bustTop: 124 },
+  86: { bustTop: 124 },
+  87: { bustTop: 124 },
+  88: { bustTop: 124 },
+  89: { bustTop: 124 },
+  90: { bustTop: 124 },
+  91: { bustTop: 124 },
+  92: { bustTop: 124 },
+  93: { bustTop: 124 },
+  94: { bustTop: 124 },
+  95: { bustTop: 124 },
+  96: { bustTop: 124 },
+  97: { bustTop: 124 },
+  98: { bustTop: 124 },
+  99: { bustTop: 124 },
+  100: { bustTop: 124 },
+  101: { bustTop: 155 },
+  102: { bustTop: 124 },
+  103: { bustTop: 124 },
+  104: { bustTop: 182 },
+  105: { bustTop: 124 },
+  106: { bustTop: 124 },
+  107: { bustTop: 124 },
+  108: { bustTop: 124 },
+  109: { bustTop: 124 },
+  110: { bustTop: 124 },
+  111: { bustTop: 124 },
+  112: { bustTop: 124 },
+  113: { bustTop: 124 },
+  114: { bustTop: 124 },
+  115: { bustTop: 124 },
+  116: { bustTop: 124 },
+  117: { bustTop: 124 },
+  118: { bustTop: 124 },
+  119: { bustTop: 124 },
+  120: { bustTop: 124 },
+  121: { bustTop: 124 },
+  122: { bustTop: 124 },
+  123: { bustTop: 124 },
+  124: { bustTop: 124 },
+  125: { bustTop: 124 },
+  126: { bustTop: 126 },
+  127: { bustTop: 124 },
+  128: { bustTop: 124 },
+  129: { bustTop: 124 },
+  130: { bustTop: 124 },
+  131: { bustTop: 146 },
+  132: { bustTop: 124 },
+  133: { bustTop: 124 },
+  134: { bustTop: 124 },
+  135: { bustTop: 124 },
+  136: { bustTop: 124 },
+  137: { bustTop: 124 },
+  138: { bustTop: 162 },
+  139: { bustTop: 124 },
+  140: { bustTop: 124 },
+  141: { bustTop: 129 },
+  142: { bustTop: 124 },
+  143: { bustTop: 124 },
+  144: { bustTop: 124 },
+  145: { bustTop: 135 },
+  146: { bustTop: 124 },
+  147: { bustTop: 124 },
+  148: { bustTop: 124 },
+  149: { bustTop: 124 },
+  150: { bustTop: 124 },
+  151: { bustTop: 138 },
+  152: { bustTop: 124 },
+  153: { bustTop: 124 },
+  154: { bustTop: 124 },
+  155: { bustTop: 124 },
+  156: { bustTop: 124 },
+  157: { bustTop: 126 },
+  158: { bustTop: 124 },
+  159: { bustTop: 124 },
+  160: { bustTop: 124 },
+  161: { bustTop: 179 },
+  162: { bustTop: 124 },
+  163: { bustTop: 124 },
+  164: { bustTop: 124 },
+  165: { bustTop: 124 },
+  166: { bustTop: 124 },
+  167: { bustTop: 124 },
+  168: { bustTop: 150 },
+  169: { bustTop: 124 },
+  170: { bustTop: 124 },
+  171: { bustTop: 138 },
+  172: { bustTop: 124 },
+  173: { bustTop: 124 },
+  174: { bustTop: 124 },
+  175: { bustTop: 124 },
+  176: { bustTop: 124 },
+  177: { bustTop: 124 },
+  178: { bustTop: 124 },
+  179: { bustTop: 124 },
+  180: { bustTop: 124 },
+  181: { bustTop: 150 },
+  182: { bustTop: 124 },
+  183: { bustTop: 124 },
+  184: { bustTop: 124 },
+  185: { bustTop: 124 },
+  186: { bustTop: 162 },
+  187: { bustTop: 124 },
+  188: { bustTop: 124 },
+  189: { bustTop: 167 },
+  190: { bustTop: 161 },
 };
 
 function mix32(x: number): number {
@@ -111,8 +211,7 @@ function mix32(x: number): number {
 
 /** Stable portrait assignment: a ninja keeps the same art for the life of the save. */
 export function ninjaArtId(n: { id: number; look: Look; legend?: string | null }): number {
-  if (n.legend && LEGEND_ART[n.legend]) return LEGEND_ART[n.legend];
-
+  // Legendary ninjas deliberately use the exact same portrait pool as everyone else.
   // Include immutable appearance rolls as salt so sequential IDs distribute well.
   const L = n.look;
   let salt = n.id >>> 0;
@@ -127,7 +226,7 @@ export function ninjaArtId(n: { id: number; look: Look; legend?: string | null }
 }
 
 export function ninjaArtMeta(n: { id: number; look: Look; legend?: string | null }): NinjaArtMeta {
-  return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 72 };
+  return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 124 };
 }
 
 export function ninjaArtSrc(n: { id: number; look: Look; legend?: string | null }): string {
