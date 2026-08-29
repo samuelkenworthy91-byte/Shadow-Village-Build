@@ -1,5 +1,5 @@
 diff --git a/src/App.tsx b/src/App.tsx
-index 60a058f..6221cf6 100644
+index 60a058f..8f82095 100644
 --- a/src/App.tsx
 +++ b/src/App.tsx
 @@ -16,6 +16,7 @@ import * as eng from "./game/engine";
@@ -29,7 +29,7 @@ index 60a058f..6221cf6 100644
  
    const [tab, setTab] = useState<Tab>("missions");
    const [squadFor, setSquadFor] = useState<number | null>(null);
-@@ -163,18 +174,48 @@ export default function App() {
+@@ -163,18 +174,49 @@ export default function App() {
      return () => window.clearTimeout(t);
    }, [hitFlash]);
  
@@ -80,11 +80,12 @@ index 60a058f..6221cf6 100644
    };
  
    const restart = () => {
++    if (sRef.current.phase !== "over" && !window.confirm("Restart this save slot from Day 1? Current progress will be replaced.")) return;
 +    if (activeSlotRef.current === null) activeSlotRef.current = 1;
      sRef.current = eng.createState("playing");
      setTab("missions");
      setHighlight(-1);
-@@ -187,11 +228,15 @@ export default function App() {
+@@ -187,11 +229,15 @@ export default function App() {
    };
  
    const toTitle = () => {
@@ -101,7 +102,7 @@ index 60a058f..6221cf6 100644
    };
  
    const pauseToggle = () => {
-@@ -707,11 +752,13 @@ export default function App() {
+@@ -707,14 +753,16 @@ export default function App() {
          <StartOverlay
            scores={scores}
            name={name}
@@ -114,4 +115,18 @@ index 60a058f..6221cf6 100644
 +          onDelete={removeSave}
          />
        )}
-       {s.phase === "paused" && <
+-      {s.phase === "paused" && <PauseOverlay onResume={pauseToggle} onRestart={restart} />}
++      {s.phase === "paused" && <PauseOverlay onResume={pauseToggle} onTitle={toTitle} onRestart={restart} />}
+       {s.phase === "over" && (
+         <GameOverOverlay s={s} scores={scores} highlight={highlight} name={name} onRestart={restart} onTitle={toTitle} />
+       )}
+diff --git a/src/components/Overlays.tsx b/src/components/Overlays.tsx
+index f59ff48..116f945 100644
+--- a/src/components/Overlays.tsx
++++ b/src/components/Overlays.tsx
+@@ -1,6 +1,7 @@
+-import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trophy, Users } from "lucide-react";
++import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trash2, Trophy, Users } from "lucide-react";
+ import type { GameState } from "../game/types";
+ import type { ScoreEntry } from "../game/scores";
++import type { SaveSlotSumm

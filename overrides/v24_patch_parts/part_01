@@ -1,14 +1,4 @@
-PauseOverlay onResume={pauseToggle} onRestart={restart} />}
-diff --git a/src/components/Overlays.tsx b/src/components/Overlays.tsx
-index f59ff48..1c147f4 100644
---- a/src/components/Overlays.tsx
-+++ b/src/components/Overlays.tsx
-@@ -1,6 +1,7 @@
--import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trophy, Users } from "lucide-react";
-+import { Hammer, Play, RotateCcw, ScrollText, Sparkles, Swords, Trash2, Trophy, Users } from "lucide-react";
- import type { GameState } from "../game/types";
- import type { ScoreEntry } from "../game/scores";
-+import type { SaveSlotSummary } from "../game/save";
+ary } from "../game/save";
  import { cn } from "../utils/cn";
  import type { ReactNode } from "react";
  
@@ -82,4 +72,35 @@ index f59ff48..1c147f4 100644
 +                <button
 +                  onClick={() => onDelete(slot.slot)}
 +                  aria-label={`Delete save slot ${slot.slot}`}
-+                  cl
++                  className="grid w-10 shrink-0 place-items-center rounded-xl bg-black/30 text-paper/35 ring-1 ring-inset ring-white/10 transition hover:bg-vermil/15 hover:text-vermil hover:ring-vermil/35"
++                >
++                  <Trash2 size={14} />
++                </button>
++              )}
++            </div>
++          ))}
++        </div>
++        <p className="mt-2 text-center text-[9.5px] text-paper/35">Each slot keeps its own village, roster, battles, exams and resources on this device.</p>
+       </div>
+ 
+       <div className="mt-4">
+@@ -113,15 +157,11 @@ export function StartOverlay({
+         </p>
+         <ScoreTable scores={scores} highlight={-1} />
+       </div>
+-
+-      <p className="mt-3 text-center text-[9.5px] leading-relaxed text-paper/35">
+-        <kbd className="kbd">↵</kbd> end day · <kbd className="kbd">1–6</kbd> deploy · <kbd className="kbd">E</kbd> squad · <kbd className="kbd">N</kbd> scout · <kbd className="kbd">F/T/D/W/S/H</kbd> build
+-      </p>
+     </Shell>
+   );
+ }
+ 
+-export function PauseOverlay({ onResume, onRestart }: { onResume: () => void; onRestart: () => void }) {
++export function PauseOverlay({ onResume, onTitle, onRestart }: { onResume: () => void; onTitle: () => void; onRestart: () => void }) {
+   return (
+     <Shell kanji="休">
+       <div className="text-center">
+@@ -129,13 +169,18 @@ export function PauseOverlay({ onResume, onRestart }: { onResume: () => void; on
+         <h2 className="mt-2 font-display text-2xl font-black tracking-[0.3em] text-paper/95">PAUSED</h2>
+         <p className="mt-1 text-[11px] t

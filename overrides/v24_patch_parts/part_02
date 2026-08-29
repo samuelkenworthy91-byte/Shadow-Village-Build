@@ -1,26 +1,25 @@
-assName="grid w-10 shrink-0 place-items-center rounded-xl bg-black/30 text-paper/35 ring-1 ring-inset ring-white/10 transition hover:bg-vermil/15 hover:text-vermil hover:ring-vermil/35"
-+                >
-+                  <Trash2 size={14} />
-+                </button>
-+              )}
-+            </div>
-+          ))}
+ext-paper/45">The shadows hold their breath.</p>
+       </div>
+-      <div className="mt-4 grid grid-cols-2 gap-2">
+-        <button onClick={onResume} autoFocus className="btn-primary flex h-11 items-center justify-center gap-2 rounded-xl text-[13px] font-black tracking-widest">
++      <div className="mt-4 space-y-2">
++        <button onClick={onResume} autoFocus className="btn-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl text-[13px] font-black tracking-widest">
+           <Play size={15} /> RESUME
+         </button>
+-        <button onClick={onRestart} className="btn-ghost flex h-11 items-center justify-center gap-2 rounded-xl text-[13px] font-black tracking-widest">
+-          <RotateCcw size={15} /> RESTART
+-        </button>
++        <div className="grid grid-cols-2 gap-2">
++          <button onClick={onTitle} className="btn-ghost h-10 rounded-xl text-[11px] font-black tracking-widest">
++            SAVE SLOTS
++          </button>
++          <button onClick={onRestart} className="btn-ghost flex h-10 items-center justify-center gap-2 rounded-xl text-[11px] font-black tracking-widest">
++            <RotateCcw size={14} /> RESTART
++          </button>
 +        </div>
-+        <p className="mt-2 text-center text-[9.5px] text-paper/35">Each slot keeps its own village, roster, battles, exams and resources on this device.</p>
        </div>
- 
-       <div className="mt-4">
-@@ -113,10 +157,6 @@ export function StartOverlay({
-         </p>
-         <ScoreTable scores={scores} highlight={-1} />
-       </div>
--
--      <p className="mt-3 text-center text-[9.5px] leading-relaxed text-paper/35">
--        <kbd className="kbd">↵</kbd> end day · <kbd className="kbd">1–6</kbd> deploy · <kbd className="kbd">E</kbd> squad · <kbd className="kbd">N</kbd> scout · <kbd className="kbd">F/T/D/W/S/H</kbd> build
--      </p>
-     </Shell>
-   );
- }
+       <div className="mt-4 space-y-1 rounded-lg bg-black/25 p-3 text-[10.5px] leading-relaxed text-paper/55 ring-1 ring-inset ring-white/5">
+         <p><kbd className="kbd">↵</kbd> end the day · <kbd className="kbd">1–6</kbd> auto-deploy · <kbd className="kbd">E</kbd> squad select · <kbd className="kbd">N</kbd> scout · <kbd className="kbd">X</kbd> repair</p>
 diff --git a/src/game/battle.ts b/src/game/battle.ts
 index e80b064..c5d36da 100644
 --- a/src/game/battle.ts
