@@ -3,7 +3,9 @@ from __future__ import annotations
 import base64
 import glob
 import io
+import string
 import sys
+from collections import Counter
 from pathlib import Path
 
 from PIL import Image
@@ -18,18 +20,25 @@ LAST_ID = 190
 MAX_CONTENT_W = 220
 MAX_CONTENT_H = 400
 BOTTOM_PAD = 8
+BASE64_CHARS = set(string.ascii_letters + string.digits + "+/=")
 
 
 def read_b64_parts(pattern: str) -> bytes:
     paths = sorted(glob.glob(pattern))
     if not paths:
         raise RuntimeError(f"No asset parts matched {pattern}")
-    # Parts were staged through text transport, so remove all whitespace rather
-    # than only trimming file ends before using the strict base64 decoder.
-    encoded = "".join(
-        "".join(Path(p).read_text(encoding="ascii").split())
-        for p in paths
-    )
+    raw = "".join(Path(p).read_text(encoding="utf-8") for p in paths)
+    encoded = "".join(raw.split())
+    invalid = [(i, ch, ord(ch)) for i, ch in enumerate(encoded) if ch not in BASE64_CHARS]
+    if invalid:
+        counts = Counter(ch for _, ch, _ in invalid)
+        sample = invalid[:12]
+        raise RuntimeError(
+            f"Invalid base64 transport characters in {pattern}: count={len(invalid)}, "
+            f"types={dict(counts)}, sample={sample}, compact_len={len(encoded)}"
+        )
+    if len(encoded) % 4:
+        raise RuntimeError(f"Invalid base64 length in {pattern}: {len(encoded)} (mod 4 = {len(encoded) % 4})")
     return base64.b64decode(encoded, validate=True)
 
 
@@ -38,8 +47,6 @@ def main() -> None:
     game_root = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path.cwd()
     asset_root = repo_root / "overrides" / "ninja_assets_v26"
 
-    # The colour atlas is a compact JPEG payload; alpha is stored separately so
-    # the reconstructed portraits still have clean transparent backgrounds.
     color_bytes = read_b64_parts(str(asset_root / "color32_parts" / "part_*"))
     alpha_bytes = read_b64_parts(str(asset_root / "alpha80_parts" / "part_*"))
 
