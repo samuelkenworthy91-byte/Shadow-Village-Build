@@ -145,6 +145,19 @@ jobs:
           grep -q 'com.shadowvillage.game.progression' app/capacitor.config.ts
           grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
 
+      - name: Apply progression v0.2 village development
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          cat overrides/progression_v02.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v02.patch
+          cd app
+          patch -p1 < /tmp/progression-v02.patch
+          cd ..
+          grep -q 'VillageTechId' app/src/game/types.ts
+          grep -q 'Mission Administration' app/src/game/content.ts
+          grep -q 'Perfect Plan' app/src/game/perks.ts
+          grep -q 'Quick Study' app/src/game/content.ts
+          grep -q 'onResearch' app/src/components/BuildMenu.tsx
+
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
         uses: actions/upload-artifact@v4
