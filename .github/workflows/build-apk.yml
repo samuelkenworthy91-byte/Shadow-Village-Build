@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - raid-visuals-v22
+      - rank-exam-dev
 
 jobs:
   build-apk:
@@ -88,6 +89,12 @@ jobs:
           test -s app/public/bg-raid-field.jpg
           test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
           grep -q 'shadow-village-v5-raiders10-field' app/public/sw.js
+
+      - name: Upload patched source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow-Village-Patched-Source
+          path: app
 
       - name: Install dependencies
         working-directory: app
