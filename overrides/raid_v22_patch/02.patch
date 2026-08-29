@@ -1,0 +1,153 @@
+ublic/sw.js
++++ b/public/sw.js
+@@ -1,8 +1,9 @@
+ // Offline shell for Shadow Village. Ninja portraits are external PNG assets,
+ // so pre-cache the complete 80-character art library as well as the app shell.
+-const CACHE = "shadow-village-v3-art80";
++const CACHE = "shadow-village-v4-raiders10";
+ const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);
+-const ASSETS = ["/", "/index.html", "/icon.png", "/bg-village.jpg", "/manifest.webmanifest", ...NINJA_ART];
++const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.png`);
++const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
+ 
+ self.addEventListener("install", (e) => {
+   self.skipWaiting();
+--- a/src/components/RaidDefenseModal.tsx
++++ b/src/components/RaidDefenseModal.tsx
+@@ -0,0 +1,142 @@
++import { useEffect, useMemo, useState } from "react";
++import { Check, Shield, Swords } from "lucide-react";
++import type { GameState } from "../game/types";
++import { NATURE_META, TRAIT_META } from "../game/content";
++import { raidForecast, unitCombatPower, unitFromNinja } from "../game/battle";
++import NinjaSprite from "./NinjaSprite";
++import { RankPill } from "./Bits";
++import { cn } from "../utils/cn";
++
++export default function RaidDefenseModal({
++  s,
++  onDefend,
++}: {
++  s: GameState;
++  onDefend: (ids: number[]) => void;
++}) {
++  const [sel, setSel] = useState<number[]>([]);
++  const forecast = raidForecast(s);
++
++  const home = useMemo(
++    () => s.ninjas
++      .filter((n) => n.status === "ready")
++      .map((n) => ({ n, power: unitCombatPower(unitFromNinja(n)) }))
++      .sort((a, b) => b.power - a.power),
++    [s.ninjas]
++  );
++
++  const selectedPower = sel
++    .map((id) => home.find((x) => x.n.id === id)?.power ?? 0)
++    .reduce((a, b) => a + b, 0);
++  const ratio = forecast.enemyPower > 0 ? selectedPower / forecast.enemyPower : 0;
++  const tone = sel.length === 0 ? "text-paper/35" : ratio >= 1.15 ? "text-jade" : ratio >= 0.9 ? "text-gold" : "text-[#ff7a5c]";
++
++  const toggle = (id: number) => {
++    setSel((cur) => {
++      if (cur.includes(id)) return cur.filter((x) => x !== id);
++      if (cur.length >= 4) return cur;
++      return [...cur, id];
++    });
++  };
++
++  useEffect(() => {
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key === "Enter" && sel.length > 0) {
++        e.preventDefault();
++        onDefend(sel);
++      } else if (e.key >= "1" && e.key <= "9") {
++        const candidate = home[Number(e.key) - 1];
++        if (candidate) toggle(candidate.n.id);
++      }
++    };
++    window.addEventListener("keydown", onKey, true);
++    return () => window.removeEventListener("keydown", onKey, true);
++  });
++
++  return (
++    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-[#0b0c16]/88 p-0 backdrop-blur-sm sm:items-center sm:p-4">
++      <div className="modal-pop flex max-h-[94dvh] w-full max-w-xl flex-col rounded-t-2xl bg-[#151728]/98 shadow-2xl ring-1 ring-[#e2452f]/35 sm:rounded-2xl">
++        <div className="border-b border-white/8 p-3">
++          <div className="flex items-start gap-3">
++            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-vermil/15 text-vermil ring-1 ring-vermil/35">
++              <Shield size={23} />
++            </span>
++            <div className="min-w-0 flex-1">
++              <p className="text-[9px] font-black tracking-[0.24em] text-vermil">RAID DEFENCE</p>
++              <h2 className="truncate font-display text-[17px] font-black text-paper">{s.clan} AT THE GATES</h2>
++              <p className="mt-0.5 text-[10.5px] text-paper/50">Choose 1–4 shinobi who are currently home. The game will not replace your choices.</p>
++            </div>
++          </div>
++
++          <div className="mt-3 grid grid-cols-3 gap-1.5 text-center">
++            <div className="rounded-lg bg-black/30 p-2 ring-1 ring-white/5">
++              <p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">RAIDERS</p>
++              <p className="mt-0.5 text-[13px] font-black text-[#ff8a72]">{forecast.enemyCount} · ~Lv {forecast.enemyLevel}</p>
++            </div>
++            <div className="rounded-lg bg-black/30 p-2 ring-1 ring-white/5">
++              <p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">RAID POWER</p>
++              <p className="mt-0.5 text-[13px] font-black tabular-nums text-[#ff8a72]">~{forecast.enemyPower.toLocaleString()}</p>
++            </div>
++            <div className="rounded-lg bg-black/30 p-2 ring-1 ring-white/5">
++              <p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">YOUR TEAM</p>
++              <p className={cn("mt-0.5 text-[13px] font-black tabular-nums", tone)}>{sel.length ? selectedPower.toLocaleString() : "PICK"}</p>
++            </div>
++          </div>
++        </div>
++
++        <div className="scroller min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2.5">
++          {home.map(({ n, power }, i) => {
++            const on = sel.includes(n.id);
++            const nat = NATURE_META[n.nature];
++            return (
++              <button
++                key={n.id}
++                onClick={() => toggle(n.id)}
++                className={cn(
++                  "flex w-full items-center gap-2 rounded-xl p-1.5 text-left ring-1 transition active:scale-[0.99]",
++                  on ? "bg-vermil/15 ring-vermil/55" : "bg-black/25 ring-white/5 hover:bg-black/35",
++                  !on && sel.length >= 4 && "opacity-55"
++                )}
++              >
++                <span className="relative shrink-0">
++                  <NinjaSprite n={n} h={44} aura={on} />
++                  {on && <span className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full bg-jade text-[#0d0e1a]"><Check size={11} strokeWidth={4} /></span>}
++                </span>
++                <span className="min-w-0 flex-1">
++                  <span className="flex items-center gap-1.5">
++                    <b className="truncate text-[12px] font-bold text-paper/95">{n.name}</b>
++                    <RankPill rank={n.rank} level={n.level} />
++                  </span>
++                  <span className="mt-0.5 flex items-center gap-2 text-[9.5px]">
++                    <b style={{ color: nat.color }}>{nat.kanji} {nat.name}</b>
++                    <span className="text-paper/35">{TRAIT_META[n.trait].name}</span>
++                    <span className="text-paper/25">Fatigue {Math.round(n.fatigue)}%</span>
++                  </span>
++                </span>
++                <span className="shrink-0 text-right">
++                  <span className="block text-[8px] font-bold tracking-[0.12em] text-paper/30">POWER</span>
++                  <b className="text-[12px] tabular-nums text-paper/80">{power.toLocaleString()}</b>
++                  <span className="block text-[8px] text-paper/25">{i + 1}</span>
++                </span>
++              </button>
++            );
++          })}
++        </div>
++
++        <div className="flex items-center gap-3 border-t border-white/8 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
++          <div className="min-w-0 flex-1">
++            <p className="text-[9px] font-bold tracking-[0.14em] text-paper/35">SELECTED</p>
++            <p className="text-[11px] font-bold text-paper/70">{sel.length}/4 defenders · <span className={tone}>{sel.length ? `${Math.round(ratio * 100)}% of estimated raid power` : "choose your team"}</span></p>
++          </div>
++          <button
++            disabled={sel.length === 0}
++            onClick={() => onDefend(sel)}
++            className="btn-primary h-12 shrink-0 rounded-xl px-5 text-[12px] font-black tracking-[0.12em]"
++          >
++            <Swords size={14} className="mr-1.5 inline" />DEFEND <kbd className
