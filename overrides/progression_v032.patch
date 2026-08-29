@@ -1,0 +1,238 @@
+--- a/src/game/perks.ts
++++ b/src/game/perks.ts
+@@ -45,6 +45,66 @@
+   minTier?: number;
+ }
+ 
++const SKILL_LABEL: Record<Skill, string> = {
++  nin: "NIN", tai: "TAI", gen: "GEN", ste: "STE", med: "MED", spd: "SPD", ken: "KEN", doj: "DŌJ", tac: "TAC",
++};
++
++const pctDelta = (mult: number) => Math.round((mult - 1) * 100);
++const points = (chance: number) => Math.round(chance * 100);
++
++/**
++ * Player-facing mechanical summary generated from the same structured values
++ * used by combat/mission resolution. This is intentionally numbers-first so
++ * the tree never relies on flavour copy to explain what a node actually does.
++ */
++export function perkMechanics(p: Perk): string {
++  const out: string[] = [];
++  const f = p.fx;
++  if (f) {
++    if (f.atk != null && f.atk !== 1) out.push(`Battle ATK ${pctDelta(f.atk) >= 0 ? "+" : ""}${pctDelta(f.atk)}%`);
++    if (f.def != null && f.def !== 1) out.push(`Battle DEF ${pctDelta(f.def) >= 0 ? "+" : ""}${pctDelta(f.def)}%`);
++    if (f.hp != null && f.hp !== 1) out.push(`Max HP ${pctDelta(f.hp) >= 0 ? "+" : ""}${pctDelta(f.hp)}%`);
++    if (f.cp != null && f.cp !== 1) out.push(`Max chakra ${pctDelta(f.cp) >= 0 ? "+" : ""}${pctDelta(f.cp)}%`);
++    if (f.crit) out.push(`Crit chance +${points(f.crit)}pp`);
++    if (f.critMult) out.push(`Critical damage +${points(f.critMult)}pp`);
++    if (f.dodge) out.push(`Dodge chance +${points(f.dodge)}pp`);
++    if (f.lifesteal) out.push(`Heal for ${points(f.lifesteal)}% of damage dealt`);
++    if (f.counter) out.push(`Counter for ${points(f.counter)}% of damage received`);
++    if (f.regen) out.push(`+${f.regen} HP and +${f.regen} chakra each new round`);
++    if (f.firstStrike) out.push("Acts first in the opening round; +12 initiative on later rounds");
++    if (f.jutsu != null && f.jutsu !== 1) out.push(`Jutsu damage ${pctDelta(f.jutsu) >= 0 ? "+" : ""}${pctDelta(f.jutsu)}%`);
++  }
++
++  const v = p.village;
++  if (v) {
++    if (v.missionBonus) out.push(`Mission success +${points(v.missionBonus)}pp`);
++    if (v.fatigue != null && v.fatigue !== 1) out.push(`Mission fatigue ${pctDelta(v.fatigue)}%`);
++    if (v.xp != null && v.xp !== 1) out.push(`XP ${pctDelta(v.xp) >= 0 ? "+" : ""}${pctDelta(v.xp)}%`);
++  }
++
++  // Effects implemented by explicit perk-id checks rather than the generic fx object.
++  if (p.id === "minddagger") out.push("Genjutsu automatically lands and stuns the target for 2 rounds");
++  if (p.id === "fieldmedic") out.push("Heal action +40%; on failed missions, other squadmates recover 1 day sooner");
++  if (p.id === "willoffire") out.push("All allies deal +12% battle damage while this ninja is deployed");
++  if (p.id === "commandnet") out.push("All allies deal +7% battle damage while this ninja is deployed");
++
++  if (p.tech) {
++    const t = p.tech;
++    if (p.id === "mysticrevive") {
++      out.push("Special: revive one downed ally at 60% max HP; if nobody is down, heal all living allies for MED × 1.5");
++    } else {
++      const target = p.id === "shadowclone" || p.id === "lg_summon" ? "all enemies" : p.id === "assassinate" ? "the lowest-HP enemy" : "one enemy";
++      out.push(`Special ${t.name}: ${t.hits} hit${t.hits === 1 ? "" : "s"} at ${t.power.toFixed(2)}× ${SKILL_LABEL[t.stat]} scaling; targets ${target}`);
++      if (p.id === "gatekeeper" || p.id === "lg_silentmist" || p.id === "kekkei_magma") out.push("Special ignores Guard damage reduction");
++      if (p.id === "nightmare") out.push("Special stuns for 2 rounds");
++      if (p.id === "lg_beastcloak") out.push("Special damage gains up to +110% as HP is lost");
++      if (p.id === "lg_summon") out.push("Special also heals every living ally for MED × 1.2 + 6 HP");
++    }
++  }
++
++  return out.length ? out.join(" · ") : "No numeric combat or mission modifier; see the technique rule above.";
++}
++
+ export const PERKS: Record<string, Perk> = {
+   /* ---- taijutsu branch ---- */
+   ironbody: {
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -420,12 +420,16 @@
+   return true;
+ }
+ 
++export function skillPointGain(n: Ninja, k: Skill): number {
++  return Math.max(1, Math.round(1 + n.growth[k] * 1.4));
++}
++
+ export function trainSkill(s: GameState, ninjaId: number, k: Skill, ev: Ev[]): boolean {
+   const n = s.ninjas.find((x) => x.id === ninjaId);
+   if (!n || n.sp <= 0) return false;
+   if (k === "doj" && !dojutsuAwakened(n)) return false;
+   n.sp--;
+-  const gain = Math.max(1, Math.round(1 + n.growth[k] * 1.4));
++  const gain = skillPointGain(n, k);
+   n.s[k] += gain;
+   ev.push({ type: "trained", name: n.name, skill: k, gain });
+   return true;
+--- a/src/components/PerkTree.tsx
++++ b/src/components/PerkTree.tsx
+@@ -1,6 +1,6 @@
+ import { Check, Lock, Sparkles } from "lucide-react";
+ import type { Ninja, VillageTechId } from "../game/types";
+-import { pendingPerks, perkTree, tiersUnlocked } from "../game/perks";
++import { pendingPerks, perkMechanics, perkTree, tiersUnlocked } from "../game/perks";
+ import { cn } from "../utils/cn";
+ 
+ export default function PerkTree({ n, techs, onPick }: { n: Ninja; techs: VillageTechId[]; onPick: (id: string, r: DOMRect) => void }) {
+@@ -76,7 +76,8 @@
+                         {p.kind === "signature" && <Sparkles size={9} className="shrink-0 text-gold" />}
+                         {locked && !taken && <Lock size={9} className="ml-auto shrink-0 text-paper/30" />}
+                       </span>
+-                      <span className="mt-1 line-clamp-3 text-[9px] leading-snug text-paper/50">{p.desc}</span>
++                      <span className="mt-1 text-[8px] font-black tracking-[0.14em] text-jade/75">MECHANICS</span>
++                      <span className="mt-0.5 line-clamp-4 text-[9px] font-semibold leading-snug text-paper/65">{perkMechanics(p)}</span>
+                       {p.kind === "signature" && (
+                         <span className="mt-1 rounded bg-black/40 px-1 py-[1px] text-[8px] font-bold tracking-wider text-gold/80">
+                           奥義 UNLOCK
+--- a/src/components/NinjaDetail.tsx
++++ b/src/components/NinjaDetail.tsx
+@@ -1,11 +1,12 @@
++import { useState } from "react";
+ import { Check, Plus, Star, TrendingUp, X } from "lucide-react";
+ import type { GameState, Skill } from "../game/types";
+ import { kekkeiMeta, NATURE_META, RANK_META, SKILLS, SKILL_META, TRAIT_META } from "../game/content";
+-import { effSkill, overall, potRange, promoInfo, xpNext } from "../game/engine";
++import { effSkill, overall, potRange, promoInfo, skillPointGain, xpNext } from "../game/engine";
+ import NinjaSprite from "./NinjaSprite";
+ import PerkTree from "./PerkTree";
+ import { FatigueBar, PotStars, RankPill } from "./Bits";
+-import { LEGENDS, perkFx } from "../game/perks";
++import { LEGENDS, perkById, perkFx, perkMechanics } from "../game/perks";
+ import { unitFromNinja } from "../game/battle";
+ import { cn } from "../utils/cn";
+ 
+@@ -24,6 +25,11 @@
+   onPromote: (r: DOMRect) => void;
+   onPerk: (id: string, r: DOMRect) => void;
+ }) {
++  const [confirmSpend, setConfirmSpend] = useState<
++    | { kind: "skill"; skill: Skill; rect: DOMRect }
++    | { kind: "perk"; perkId: string; rect: DOMRect }
++    | null
++  >(null);
+   const n = s.ninjas.find((x) => x.id === ninjaId);
+   if (!n) return null;
+   const nat = NATURE_META[n.nature];
+@@ -203,7 +209,7 @@
+                   </div>
+                   <button
+                     disabled={n.sp <= 0 || (k === "doj" && n.s.doj <= 0 && !n.traits.includes("dojutsuPotential") && n.legend !== "doujutsu")}
+-                    onClick={(e) => onTrain(k, e.currentTarget.getBoundingClientRect())}
++                    onClick={(e) => setConfirmSpend({ kind: "skill", skill: k, rect: e.currentTarget.getBoundingClientRect() })}
+                     className="btn-ink grid h-7 w-8 shrink-0 place-items-center rounded-lg"
+                     aria-label={`Train ${meta.name}`}
+                   >
+@@ -215,7 +221,7 @@
+           </div>
+ 
+           <div className="mt-4 border-t border-white/8 pt-3">
+-            <PerkTree n={n} techs={s.techs} onPick={onPerk} />
++            <PerkTree n={n} techs={s.techs} onPick={(perkId, rect) => setConfirmSpend({ kind: "perk", perkId, rect })} />
+           </div>
+ 
+           <p className="mt-3 rounded-lg bg-black/25 p-2.5 text-[10px] leading-relaxed text-paper/50 ring-1 ring-inset ring-white/5">
+@@ -223,11 +229,71 @@
+             Dōjutsu remains dormant at 0 unless an ocular bloodline awakens it. Higher potential means more skill points each level.
+           </p>
+         </div>
++
++        {confirmSpend && (() => {
++          const isSkill = confirmSpend.kind === "skill";
++          const skill = isSkill ? confirmSpend.skill : null;
++          const perk = !isSkill ? perkById(confirmSpend.perkId) : null;
++          const gain = skill ? skillPointGain(n, skill) : 0;
++          const meta = skill ? SKILL_META[skill] : null;
++          const mechanics = skill ? skillPointMechanics(skill) : perk ? perkMechanics(perk) : "";
++          return (
++            <div className="fixed inset-0 z-[70] grid place-items-end bg-[#0d0e1a]/80 p-3 backdrop-blur-sm sm:place-items-center" onClick={() => setConfirmSpend(null)}>
++              <div className="modal-pop w-full max-w-sm rounded-2xl bg-[#1b1d2e] p-4 shadow-2xl ring-1 ring-white/12" onClick={(e) => e.stopPropagation()}>
++                <p className="text-[9px] font-black tracking-[0.2em] text-gold/75">CONFIRM POINT SPEND</p>
++                <div className="mt-2 flex items-center gap-2">
++                  <span className="grid h-9 w-9 place-items-center rounded-lg font-display text-lg font-black" style={{ backgroundColor: `${isSkill ? meta?.color : perk?.color}22`, color: isSkill ? meta?.color : perk?.color }}>
++                    {isSkill ? meta?.kanji : perk?.kanji}
++                  </span>
++                  <div className="min-w-0">
++                    <p className="text-sm font-black text-paper">{isSkill ? meta?.name : perk?.name}</p>
++                    <p className="mt-0.5 text-[10px] font-bold text-paper/45">
++                      {isSkill ? `Spend 1 skill point · ${n.s[skill!]} → ${n.s[skill!] + gain} (+${gain})` : "Spend 1 technique node · this tier choice is permanent"}
++                    </p>
++                  </div>
++                </div>
++                <div className="mt-3 rounded-xl bg-black/30 p-3 ring-1 ring-inset ring-white/7">
++                  <p className="text-[8.5px] font-black tracking-[0.16em] text-jade/75">MECHANICAL EFFECT</p>
++                  <p className="mt-1 text-[10.5px] font-semibold leading-relaxed text-paper/75">{mechanics}</p>
++                  {skill && <p className="mt-1.5 text-[9px] leading-relaxed text-paper/45">Also improves mission checks that require {meta?.name}. Values shown are the direct contribution before perk multipliers and caps.</p>}
++                </div>
++                <p className="mt-2 text-[9px] font-bold text-vermil/80">Points are only spent after you press CONFIRM.</p>
++                <div className="mt-3 grid grid-cols-2 gap-2">
++                  <button onClick={() => setConfirmSpend(null)} className="rounded-xl bg-black/35 px-3 py-2.5 text-[10px] font-black tracking-wider text-paper/60 ring-1 ring-white/10">CANCEL</button>
++                  <button
++                    onClick={() => {
++                      if (confirmSpend.kind === "skill") onTrain(confirmSpend.skill, confirmSpend.rect);
++                      else onPerk(confirmSpend.perkId, confirmSpend.rect);
++                      setConfirmSpend(null);
++                    }}
++                    className="rounded-xl bg-gold px-3 py-2.5 text-[10px] font-black tracking-wider text-[#2b2118] active:scale-[0.98]"
++                  >
++                    CONFIRM
++                  </button>
++                </div>
++              </div>
++            </div>
++          );
++        })()}
+       </div>
+     </div>
+   );
+ }
+ 
++function skillPointMechanics(k: Skill): string {
++  switch (k) {
++    case "tai": return "Each TAI point adds +3.1 base HP, +1.22 base ATK and +0.46 base DEF.";
++    case "nin": return "Each NIN point adds +1.5 base max chakra, +0.28 base ATK and +1.65 to base Jutsu damage scaling.";
++    case "gen": return "Each GEN point adds +0.8 base max chakra, +1 Genjutsu power/resistance and +0.55 base damage on a successful Genjutsu.";
++    case "ste": return "Each STE point adds +1.8 percentage points to critical-damage multiplier.";
++    case "med": return "Each MED point adds about +2.1 base HP to the Heal action before random variation and bonuses.";
++    case "spd": return "Each SPD point adds +1.28 initiative, +0.45pp crit chance and +0.30pp dodge chance.";
++    case "ken": return "Each KEN point adds +0.52 base ATK, +0.40pp crit chance and +0.80pp critical damage; KEN specials also scale from it.";
++    case "doj": return "Each DŌJ point adds +0.22 Genjutsu power, +0.25pp crit chance and +0.35pp dodge chance; DŌJ specials also scale from it.";
++    case "tac": return "Each TAC point adds +0.34 base DEF, +0.16 initiative and +0.12pp dodge chance.";
++  }
++}
++
+ function Req({ ok, label }: { ok: boolean; label: string }) {
+   return (
+     <span className={cn("inline-flex items-center gap-0.5", ok ? "text-jade" : "text-paper/40")}>
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,6 +1,6 @@
+ // Offline shell for Shadow Village. Ninja portraits are external PNG assets,
+ // so pre-cache the complete 80-character art library as well as the app shell.
+-const CACHE = "shadow-village-progression-dev-v2";
++const CACHE = "shadow-village-progression-dev-v3";
+ const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);
+ const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
+ const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/bg-exam-arena.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
