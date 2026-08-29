@@ -8,6 +8,7 @@ on:
       - raid-visuals-v22
       - rank-exam-dev
       - save-slots-v24
+      - target-selection-v25
 
 jobs:
   build-apk:
@@ -114,6 +115,17 @@ jobs:
           grep -q 'saveSlot' app/src/App.tsx
           grep -q '4.8 + (s.day - 1) \* 1.2' app/src/game/battle.ts
           grep -q 'shadow-village-v7-save-slots' app/public/sw.js
+
+      - name: Apply universal battle target selection
+        run: |
+          cd app
+          python ../overrides/apply_target_selection.py
+          cd ..
+          sed -i 's/shadow-village-v7-save-slots/shadow-village-v8-target-selection/' app/public/sw.js
+          grep -q 'type TargetMode = "foe" | "ally" | "downed_ally" | null' app/src/components/BattleScreen.tsx
+          grep -q 'targetPrompt(pendingMode, pending)' app/src/components/BattleScreen.tsx
+          grep -q 'target && target.foe === u.foe && !target.alive' app/src/game/battle.ts
+          grep -q 'shadow-village-v8-target-selection' app/public/sw.js
 
       - name: Install dependencies
         working-directory: app
