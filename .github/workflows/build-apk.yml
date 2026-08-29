@@ -18,8 +18,6 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: app/package-lock.json
 
       - name: Set up Java
         uses: actions/setup-java@v5
@@ -29,8 +27,6 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
-        with:
-          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
 
       - name: Unpack game
         run: |
@@ -41,7 +37,7 @@ jobs:
         working-directory: app
         run: npm install
 
-      - name: Update Capacitor CLI
+      - name: Install Capacitor CLI
         working-directory: app
         run: npm install --save-dev @capacitor/cli@8.5.0
 
