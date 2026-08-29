@@ -7,6 +7,7 @@ on:
       - main
       - raid-visuals-v22
       - rank-exam-dev
+      - save-slots-v24
 
 jobs:
   build-apk:
@@ -100,6 +101,19 @@ jobs:
           grep -q 'startExamBattle' app/src/game/battle.ts
           grep -q 'TAKE EXAM' app/src/components/NinjaDetail.tsx
           grep -q 'shadow-village-v6-rank-exams' app/public/sw.js
+
+      - name: Apply raid rebalance and three local save slots
+        run: |
+          cat overrides/v24_patch_parts/part_* > /tmp/v24.patch
+          cd app
+          patch -p1 < /tmp/v24.patch
+          cd ..
+          cp overrides/src/game/save.ts app/src/game/save.ts
+          sed -i 's/shadow-village-v6-rank-exams/shadow-village-v7-save-slots/' app/public/sw.js
+          grep -q 'LOCAL SAVE SLOTS' app/src/components/Overlays.tsx
+          grep -q 'saveSlot' app/src/App.tsx
+          grep -q '4.8 + (s.day - 1) \* 1.2' app/src/game/battle.ts
+          grep -q 'shadow-village-v7-save-slots' app/public/sw.js
 
       - name: Install dependencies
         working-directory: app
