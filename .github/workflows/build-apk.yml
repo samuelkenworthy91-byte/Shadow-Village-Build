@@ -141,7 +141,7 @@ jobs:
           python overrides/apply_progression_expansion.py
           grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
           grep -q 'Dōjutsu Potential' app/src/game/content.ts
-          grep -q 'Commander's Gambit' app/src/game/perks.ts
+          grep -q "Commander's Gambit" app/src/game/perks.ts
           grep -q 'com.shadowvillage.game.progression' app/capacitor.config.ts
           grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
 
