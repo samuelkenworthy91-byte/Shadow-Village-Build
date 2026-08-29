@@ -166,6 +166,20 @@ jobs:
           grep -q 'const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) \* perkFx(n).xp;' src/game/engine.ts
           cd ..
 
+      - name: Apply progression v0.3 elemental bloodlines
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
+        run: |
+          cat overrides/progression_v03.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v03.patch
+          cd app
+          patch -p1 < /tmp/progression-v03.patch
+          cd ..
+          grep -q 'secondaryNature: Nature | null' app/src/game/types.ts
+          grep -q 'Kekkei Talent' app/src/game/content.ts
+          grep -q 'Magma Vein' app/src/game/perks.ts
+          grep -q 'Twin Fang Form' app/src/game/perks.ts
+          grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
+          grep -q 'Math.max(0, s.raids - 2) \* 0.65' app/src/game/battle.ts
+
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression'
         uses: actions/upload-artifact@v4
