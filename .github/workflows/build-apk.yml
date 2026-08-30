@@ -244,11 +244,16 @@ jobs:
         if: github.ref == 'refs/heads/equipment-gacha-system'
         run: |
           python overrides/apply_equipment_gacha.py
-          grep -q 'Array.from({ length: 200 }' app/src/game/equipment.ts
+          python overrides/apply_equipment_gacha_v2.py
+          grep -q 'Array.from({ length: 400 }' app/src/game/equipment.ts
+          grep -q 'canEquipRarity' app/src/game/equipment.ts
+          grep -q 'equipmentSpecial' app/src/game/equipment.ts
+          grep -q '"gear"' app/src/game/types.ts
+          grep -q 'grid-cols-7' app/src/components/BattleScreen.tsx
           grep -q 'EquipmentScreen' app/src/App.tsx
           grep -q 'NinjaEquipment' app/src/components/NinjaDetail.tsx
           grep -q 'applyEquipmentToBattleUnit' app/src/game/battle.ts
-          grep -q 'shadow-village-equipment-gacha-v1' app/public/sw.js
+          grep -q 'shadow-village-equipment-gacha-v2-400gear' app/public/sw.js
 
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system'
