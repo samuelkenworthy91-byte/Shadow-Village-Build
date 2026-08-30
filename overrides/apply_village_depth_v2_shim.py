@@ -52,14 +52,15 @@ sw.write_text(sw_text, encoding='utf-8')
 # Modify only the CI workspace copy of the v1 runner. The repository's v1 source
 # remains unchanged; when the next workflow step runs it will finish by applying the
 # stable content pass (v3), battle Jutsu pass (v4), infrastructure/threat (v5), then
-# rare mission-only ninja orders (v6).
+# rare mission-only ninja orders (v6). A tiny v6 follow-up keeps TypeScript's
+# discriminated-union narrowing intact inside nested roster callbacks.
 # The final cache key intentionally retains the historical v1 token because the
 # workflow's branch validation greps for that namespace after all runtime hooks run.
 v1_runner = Path('overrides/apply_village_depth_v1.py')
 v1_text = v1_runner.read_text(encoding='utf-8')
 hook_marker = '# VILLAGE_DEPTH_V3_RUNTIME_HOOK'
 if hook_marker not in v1_text:
-    v1_text += '''\n\n# VILLAGE_DEPTH_V3_RUNTIME_HOOK\nimport runpy as _village_depth_runpy\nfrom pathlib import Path as _VillageDepthPath\n_village_depth_runpy.run_path("overrides/apply_village_depth_v3.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v4_jutsu_battle.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v5_infrastructure.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_orders.py", run_name="__main__")\n_vd_sw = _VillageDepthPath("app/public/sw.js")\n_vd_sw_text = _vd_sw.read_text(encoding="utf-8").replace("shadow-village-depth-v5-infrastructure-threat", "shadow-village-depth-v1-jutsu-potential-v5-infrastructure-threat")\n_vd_sw.write_text(_vd_sw_text, encoding="utf-8")\n'''
+    v1_text += '''\n\n# VILLAGE_DEPTH_V3_RUNTIME_HOOK\nimport runpy as _village_depth_runpy\nfrom pathlib import Path as _VillageDepthPath\n_village_depth_runpy.run_path("overrides/apply_village_depth_v3.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v4_jutsu_battle.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v5_infrastructure.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_orders.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_typefix.py", run_name="__main__")\n_vd_sw = _VillageDepthPath("app/public/sw.js")\n_vd_sw_text = _vd_sw.read_text(encoding="utf-8").replace("shadow-village-depth-v5-infrastructure-threat", "shadow-village-depth-v1-jutsu-potential-v5-infrastructure-threat")\n_vd_sw.write_text(_vd_sw_text, encoding="utf-8")\n'''
     v1_runner.write_text(v1_text, encoding='utf-8')
 
-print('Applied village depth v2 staging shim; v3 + battle jutsu v4 + infrastructure v5 + rare orders v6 queued after v1.')
+print('Applied village depth v2 staging shim; v3 + battle jutsu v4 + infrastructure v5 + rare orders v6 + typefix queued after v1.')
