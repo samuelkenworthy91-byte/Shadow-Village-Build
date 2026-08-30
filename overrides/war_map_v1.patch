@@ -1,0 +1,269 @@
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -11,6 +11,7 @@
+ import BattleScreen from "./components/BattleScreen";
+ import RaidDefenseModal from "./components/RaidDefenseModal";
+ import ReportModal from "./components/ReportModal";
++import WarMap from "./components/WarMap";
+ import { GameOverOverlay, PauseOverlay, StartOverlay } from "./components/Overlays";
+ import * as eng from "./game/engine";
+ import * as bat from "./game/battle";
+@@ -18,10 +19,10 @@
+ import { getPlayerName, loadScores, setPlayerName, submitScore, type ScoreEntry } from "./game/scores";
+ import { deleteSlot, listSaveSlots, loadSlot, saveSlot } from "./game/save";
+ import { RANK_META, SKILL_META } from "./game/content";
+-import type { BAction, Bld, Ev, GameState, Skill, VillageTechId } from "./game/types";
++import type { BAction, Bld, Ev, GameState, Skill, VillageTechId, WarOperationType } from "./game/types";
+ import { cn } from "./utils/cn";
+ 
+-type Tab = "missions" | "ninjas" | "build";
++type Tab = "missions" | "ninjas" | "build" | "war";
+ interface Floater { id: number; x: number; y: number; txt: string; kind: string }
+ 
+ let fid = 1;
+@@ -166,6 +167,16 @@
+             floater(50, 18, "A UNIQUE SHINOBI HAS COME", "great");
+           }, 220);
+           break;
++        case "war_unlocked":
++          audio.raidWin();
++          fx.shake(10);
++          fx.burst(window.innerWidth * 0.5, window.innerHeight * 0.3, "star", 32);
++          floater(50, 20, "KAGE ERA — WAR MAP UNLOCKED", "great");
++          setTab("war");
++          break;
++        case "war_alert":
++          floater(50, 22, String(e.message ?? "WAR MAP UPDATED"), "bad");
++          break;
+         default:
+           break;
+       }
+@@ -356,6 +367,25 @@
+       fx.shake(2);
+     }
+     handleEvs(evs);
++    force();
++  };
++
++  const doWarOperation = (territoryId: string, op: WarOperationType, ids: number[]) => {
++    const st = sRef.current;
++    const result = eng.runWarOperation(st, territoryId, op, ids);
++    audio.click();
++    if (result.ok) {
++      if (result.success) {
++        fx.burst(window.innerWidth * 0.5, window.innerHeight * 0.42, result.captured ? "star" : "spark", result.captured ? 18 : 9);
++        floater(50, 38, result.message, result.captured ? "great" : "good");
++      } else {
++        fx.shake(5);
++        floater(50, 38, result.message, "bad");
++      }
++    } else {
++      fx.shake(2);
++      floater(50, 38, result.message, "bad");
++    }
+     force();
+   };
+ 
+@@ -597,7 +627,7 @@
+       if (st.phase !== "playing") return;
+ 
+       if (k === "ArrowLeft" || k === "ArrowRight") {
+-        const order: Tab[] = ["missions", "ninjas", "build"];
++        const order: Tab[] = st.war?.unlocked ? ["missions", "ninjas", "build", "war"] : ["missions", "ninjas", "build"];
+         const i = order.indexOf(tabRef.current);
+         setTab(order[(i + (k === "ArrowRight" ? 1 : order.length - 1)) % order.length]);
+         audio.click();
+@@ -634,7 +664,8 @@
+     const open = eng.openMissions(s);
+     const sp = s.ninjas.reduce((a, n) => a + n.sp, 0);
+     const promoReady = s.ninjas.some((n) => eng.promoInfo(s, n).ready);
+-    if (s.hungry) hint = "The village is hungry — build rice paddies [F]";
++    if (tab === "war" && s.war.unlocked) hint = `${s.war.operationsLeft} strategic operation${s.war.operationsLeft === 1 ? "" : "s"} available today`;
++    else if (s.hungry) hint = "The village is hungry — build rice paddies [F]";
+     else if (sp > 0) hint = `${sp} unspent skill point${sp > 1 ? "s" : ""} — open a shinobi to train`;
+     else if (promoReady) hint = "A shinobi is ready for their promotion exam";
+     else if (s.threat >= 80) hint = "Raid imminent — keep your best cell at the village";
+@@ -649,6 +680,7 @@
+     { id: "missions", kanji: "任", label: "Missions", badge: String(openCount) },
+     { id: "ninjas", kanji: "忍", label: "Shinobi", badge: String(readyCount) },
+     { id: "build", kanji: "築", label: "Build", badge: s.ap > 0 ? String(s.ap) : "" },
++    ...(s.war.unlocked ? [{ id: "war" as Tab, kanji: "戦", label: "War", badge: String(s.war.operationsLeft) }] : []),
+   ];
+ 
+   const recentLog = s.log.slice(-4);
+@@ -660,6 +692,15 @@
+         <div className="mx-auto flex h-full max-w-6xl flex-col gap-2 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-3">
+           <HUD s={s} muted={mutedUi} onMute={muteToggle} onPause={pauseToggle} />
+           <Scene s={s} onEndDay={endDay} busy={busy} />
++
++          {s.war.unlocked && (
++            <button
++              onClick={() => { setTab(tab === "war" ? "missions" : "war"); audio.click(); }}
++              className="hidden h-8 shrink-0 items-center justify-center rounded-lg bg-vermil/12 text-[10px] font-bold tracking-[0.16em] text-[#ffb4a4] ring-1 ring-inset ring-vermil/35 transition hover:bg-vermil/20 lg:flex"
++            >
++              {tab === "war" ? "← RETURN TO VILLAGE" : `戦 OPEN WAR MAP · ${s.war.operationsLeft}/3 OPERATIONS`}
++            </button>
++          )}
+ 
+           <nav className="flex h-10 shrink-0 gap-1.5 lg:hidden">
+             {tabs.map((t) => (
+@@ -682,25 +723,31 @@
+           </nav>
+ 
+           <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 lg:grid-cols-3">
+-            <MissionBoard
+-              s={s}
+-              className={cn(tab !== "missions" && "max-lg:hidden")}
+-              onOpen={(id) => {
+-                setSquadFor(id);
+-                audio.click();
+-              }}
+-              onQuick={quickDeploy}
+-            />
+-            <Roster
+-              s={s}
+-              className={cn(tab !== "ninjas" && "max-lg:hidden")}
+-              onOpen={(id) => {
+-                setDetailFor(id);
+-                audio.click();
+-              }}
+-              onScout={doScout}
+-            />
+-            <BuildMenu s={s} className={cn(tab !== "build" && "max-lg:hidden")} onBuild={doBuild} onRepair={doRepair} onResearch={doResearch} />
++            {tab === "war" && s.war.unlocked ? (
++              <WarMap s={s} onOperation={doWarOperation} onReturn={() => setTab("missions")} />
++            ) : (
++              <>
++                <MissionBoard
++                  s={s}
++                  className={cn(tab !== "missions" && "max-lg:hidden")}
++                  onOpen={(id) => {
++                    setSquadFor(id);
++                    audio.click();
++                  }}
++                  onQuick={quickDeploy}
++                />
++                <Roster
++                  s={s}
++                  className={cn(tab !== "ninjas" && "max-lg:hidden")}
++                  onOpen={(id) => {
++                    setDetailFor(id);
++                    audio.click();
++                  }}
++                  onScout={doScout}
++                />
++                <BuildMenu s={s} className={cn(tab !== "build" && "max-lg:hidden")} onBuild={doBuild} onRepair={doRepair} onResearch={doResearch} />
++              </>
++            )}
+           </div>
+ 
+           <p className="h-4 shrink-0 truncate text-center text-[10px] font-medium tracking-wide text-paper/40">{hint}</p>
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -10,6 +10,30 @@
+   | "tower_scout_network" | "tower_raid_forecast" | "tower_sensor_corps" | "tower_rapid_response"
+   | "shrine_recovery_ward" | "shrine_field_medicine" | "shrine_chakra_restoration" | "shrine_trauma_care";
+ export type NinjaStatus = "ready" | "mission" | "injured";
++export type WarFactionId = "shadow" | "ember" | "mist" | "stone" | "gold" | "neutral";
++export type WarTerritoryStatus = "stable" | "contested" | "occupied";
++export type WarOperationType = "scout" | "raid" | "assault" | "fortify";
++
++export interface WarTerritory {
++  id: string;
++  name: string;
++  x: number;
++  y: number;
++  owner: WarFactionId;
++  strength: number;
++  intel: number;
++  status: WarTerritoryStatus;
++}
++
++export interface WarState {
++  unlocked: boolean;
++  founderId: number | null;
++  unlockedDay: number | null;
++  turn: number;
++  operationsLeft: number;
++  territories: WarTerritory[];
++  history: string[];
++}
+ 
+ export type Skill = "nin" | "tai" | "gen" | "ste" | "med" | "spd" | "ken" | "doj" | "tac";
+ export type Nature = "fire" | "water" | "wind" | "earth" | "light";
+@@ -223,6 +247,7 @@
+   scout: Ninja[] | null;
+   log: LogEntry[];
+   reports: Report[];
++  war: WarState;
+ }
+ 
+ export interface Ev {
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -9,6 +9,8 @@
+ import type { Nature, ReportLine, ReportXp } from "./types";
+ import { startBattle, startExamBattle } from "./battle";
+ import { LEGENDS, LEGEND_IDS, pendingPerks, perkById, perkFx, perkTree } from "./perks";
++import { advanceWarDay, createWarState, runWarOperation } from "./war";
++export { runWarOperation };
+ 
+ const ri = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
+ const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+@@ -284,6 +286,7 @@
+     scout: null,
+     log: [],
+     reports: [],
++    war: createWarState(),
+   };
+   s.ninjas.push(makeNinja(s, true), makeNinja(s), makeNinja(s));
+   s.missions.push(genMission(s, "D"), genMission(s, "D"), genMission(s, "C"));
+@@ -775,7 +778,10 @@
+   // 6. action points refresh
+   s.ap = apMax(s);
+ 
+-  // 7. threat & raids
++  // 7. Kage-era regional war layer
++  advanceWarDay(s, ev);
++
++  // 8. threat & raids
+   s.threat += THREAT_PER_DAY * (1 + s.raids * 0.05) * (hasTech(s, "tower_raid_forecast") ? 0.80 : 1);
+   if (s.threat >= 100) {
+     s.threat = 0;
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -1,6 +1,7 @@
+ import type { BAction, Battle, GameState, Ninja, Unit } from "./types";
+ import { ENEMY_KINDS, NATURE_META, RANK_META, SKILLS, rankIndex } from "./content";
+ import { perkById, perkFx } from "./perks";
++import { unlockWar } from "./war";
+ 
+ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+ const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+@@ -590,6 +591,10 @@
+         s.stats.promos++;
+         s.score += 75 * (rankIndex(targetRank) + 1);
+         ev.push({ type: "promoted", name: n.name, rank: targetRank, kanji: req.kanji });
++        if (targetRank === "kage" && unlockWar(s, n)) {
++          ev.push({ type: "war_unlocked", name: n.name });
++          s.log.push({ txt: `${n.name} became Shadow Village's first Kage-level shinobi. The War Map is now available.`, kind: "great", id: Date.now() + 1 });
++        }
+         s.log.push({ txt: `${n.name} passed the ${req.name} Exam and earned promotion!`, kind: "great", id: Date.now() });
+       } else {
+         n.examFails = (n.examFails ?? 0) + 1;
+--- a/src/game/save.ts
++++ b/src/game/save.ts
+@@ -1,4 +1,5 @@
+ import type { GameState } from "./types";
++import { normalizeWarState } from "./war";
+ 
+ const SAVE_VERSION = 3;
+ export const SAVE_SLOT_COUNT = 3;
+@@ -60,6 +61,7 @@
+     if (!Array.isArray(state.techs)) state.techs = [];
+     if (!Array.isArray(state.log)) state.log = [];
+     if (!Array.isArray(state.reports)) state.reports = [];
++    normalizeWarState(state);
+     if (state.phase === "menu") state.phase = "playing";
+ 
+     return {
