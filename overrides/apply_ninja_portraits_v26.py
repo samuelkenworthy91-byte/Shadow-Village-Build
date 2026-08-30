@@ -51,38 +51,31 @@ extra = "  80: { bustTop: 150 },\n" + "\n".join(
 ) + "\n};"
 s = s.replace(marker, extra)
 
-s = s.replace('  if (n.legend && LEGEND_ART[n.legend]) return LEGEND_ART[n.legend];\n\n',
-              '  // Legendary ninjas deliberately use the same unrestricted pool.\n')
-s = s.replace('return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 72 };',
-              'return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 124 };')
-old_src = '''export function ninjaArtSrc(n: { id: number; look: Look; legend?: string | null }): string {
-  return `/ninjas/ninja_${String(ninjaArtId(n)).padStart(3, "0")}.png`;
-}'''
-new_src = '''export function ninjaArtSrc(n: { id: number; look: Look; legend?: string | null }): string {
-  const id = ninjaArtId(n);
-  const ext = id <= 80 ? "png" : "webp";
-  return `/ninjas/ninja_${String(id).padStart(3, "0")}.${ext}`;
-}'''
-if old_src not in s:
-    raise RuntimeError("Expected ninjaArtSrc implementation was not found")
-s = s.replace(old_src, new_src)
+s = s.replace(
+    '  if (n.legend && LEGEND_ART[n.legend]) return LEGEND_ART[n.legend];\n\n',
+    '  // Legendary ninjas deliberately use the same unrestricted pool.\n',
+)
+s = s.replace(
+    'return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 72 };',
+    'return NINJA_ART_META[ninjaArtId(n)] ?? { bustTop: 124 };',
+)
 ART.write_text(s)
 
 sw = SW.read_text()
 old_art = 'const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);'
-new_art = '''const NINJA_ART = [
-  ...Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`),
-  ...Array.from({ length: 110 }, (_, i) => `/ninjas/ninja_${String(i + 81).padStart(3, "0")}.webp`),
-];'''
+new_art = 'const NINJA_ART = Array.from({ length: 190 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);'
 if old_art not in sw:
     raise RuntimeError("Expected final 80-portrait service-worker list was not found")
 sw = sw.replace(old_art, new_art)
 sw = sw.replace('shadow-village-progression-dev-v3', 'shadow-village-progression-dev-v4-ninja190')
 SW.write_text(sw)
 
-assert "LEGEND_ART" not in ART.read_text()
-assert "length: 190" in ART.read_text()
-assert "190: { bustTop: 161 }" in ART.read_text()
-assert "length: 110" in SW.read_text()
-assert "shadow-village-progression-dev-v4-ninja190" in SW.read_text()
-print("Applied unrestricted 1-190 ninja portrait library")
+art_check = ART.read_text()
+sw_check = SW.read_text()
+assert "LEGEND_ART" not in art_check
+assert "length: 190" in art_check
+assert "190: { bustTop: 161 }" in art_check
+assert '.webp' not in art_check
+assert "length: 190" in sw_check
+assert "shadow-village-progression-dev-v4-ninja190" in sw_check
+print("Applied unrestricted 1-190 ninja portrait library with PNG runtime paths")
