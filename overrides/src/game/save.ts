@@ -22,7 +22,6 @@ export interface SaveSlotSummary {
 
 const keyFor = (slot: number) => `shadow-village-save-v${SAVE_VERSION}-slot-${slot}`;
 const backupKeyFor = (slot: number) => `${keyFor(slot)}-backup`;
-const WAR_TEST_MARKER = "shadow-village-kage-war-test-v1-seeded";
 
 function storageReady(): boolean {
   return typeof localStorage !== "undefined";
@@ -147,11 +146,9 @@ function makeWarTestState(): GameState {
 function ensureWarTestSlot(): void {
   if (!storageReady()) return;
   try {
-    if (localStorage.getItem(WAR_TEST_MARKER)) return;
     const slot = 3;
     const existing = localStorage.getItem(keyFor(slot)) || localStorage.getItem(backupKeyFor(slot));
     if (!existing) saveSlot(slot, makeWarTestState());
-    localStorage.setItem(WAR_TEST_MARKER, "1");
   } catch {
     // QA seed is optional; never block the title screen if storage is unavailable.
   }
