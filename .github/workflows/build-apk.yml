@@ -10,6 +10,7 @@ on:
       - save-slots-v24
       - target-selection-v25
       - feature/expanded-ninja-progression
+      - ninja-art-190-current-main
 
 jobs:
   build-apk:
@@ -129,14 +130,14 @@ jobs:
           grep -q 'shadow-village-v8-target-selection' app/public/sw.js
 
       - name: Export exact patched v2.5 source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         uses: actions/upload-artifact@v4
         with:
           name: Shadow-Village-v2.5-Patched-Source
           path: app
 
       - name: Apply expanded ninja progression
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           python overrides/apply_progression_expansion.py
           grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
@@ -146,7 +147,7 @@ jobs:
           grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
 
       - name: Apply progression v0.2 village development
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           cat overrides/progression_v02.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v02.patch
           cd app
@@ -159,7 +160,7 @@ jobs:
           grep -q 'onResearch' app/src/components/BuildMenu.tsx
 
       - name: Apply progression v0.2.1 XP correction
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v021.patch
@@ -167,7 +168,7 @@ jobs:
           cd ..
 
       - name: Apply progression v0.3 elemental bloodlines
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           cat overrides/progression_v03.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v03.patch
           cd app
@@ -181,7 +182,7 @@ jobs:
           grep -q 'Math.max(0, s.raids - 2) \* 0.65' app/src/game/battle.ts
 
       - name: Apply progression v0.3.2 point-spend QoL
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v032.patch
@@ -192,7 +193,7 @@ jobs:
           grep -q 'shadow-village-progression-dev-v3' app/public/sw.js
 
       - name: Apply progression v0.3.3 Dōjutsu awakening gate
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v033.patch
@@ -201,8 +202,45 @@ jobs:
           grep -q 'if (k === "doj" && !dojutsuUnlocked) continue' app/src/game/battle.ts
           grep -q 'Rank promotion alone never unlocks Dōjutsu' app/src/game/content.ts
 
+      - name: Apply 190 ninja portrait library
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        run: |
+          set -euo pipefail
+          mkdir -p app/public/ninjas
+          test "$(find overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 110
+          for n in $(seq -w 81 190); do
+            src=""
+            for dir in overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct; do
+              candidate="$dir/ninja_${n}.webp"
+              if [ -f "$candidate" ]; then
+                src="$candidate"
+                break
+              fi
+            done
+            if [ -z "$src" ]; then
+              echo "Missing source portrait ninja_${n}.webp" >&2
+              exit 1
+            fi
+            dims="$(identify -format '%wx%h' "$src")"
+            if [ "$dims" != "240x536" ]; then
+              echo "Unexpected dimensions for ninja_${n}.webp: $dims" >&2
+              exit 1
+            fi
+            convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
+          done
+          python overrides/apply_ninja_portraits_v26.py
+          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 190
+          for n in $(seq -w 1 190); do
+            test -s "app/public/ninjas/ninja_${n}.png"
+          done
+          grep -q 'Array.from({ length: 190 }' app/src/game/ninjaArt.ts
+          ! grep -q 'LEGEND_ART' app/src/game/ninjaArt.ts
+          grep -q '190: { bustTop: 161 }' app/src/game/ninjaArt.ts
+          grep -q 'Array.from({ length: 190 }' app/public/sw.js
+          grep -q 'shadow-village-progression-dev-v4-ninja190' app/public/sw.js
+
       - name: Export progression source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         uses: actions/upload-artifact@v4
         with:
           name: Shadow-Village-Progression-Dev-Source
