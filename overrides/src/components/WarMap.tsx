@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Eye, Flag, Map, Shield, Swords } from "lucide-react";
 import type { GameState, WarFactionId, WarOperationType } from "../game/types";
 import { WAR_FACTIONS, WAR_LINKS, isShadowFrontier } from "../game/war";
@@ -43,10 +43,10 @@ export default function WarMap({
   const [operation, setOperation] = useState<WarOperationType>("scout");
 
   const selected = s.war.territories.find((t) => t.id === selectedId) ?? s.war.territories[0];
-  const ready = useMemo(
-    () => [...s.ninjas].filter((n) => n.status === "ready").sort((a, b) => (b.s.tac + b.s.ste + b.level) - (a.s.tac + a.s.ste + a.level)).slice(0, 10),
-    [s.ninjas]
-  );
+  const ready = [...s.ninjas]
+    .filter((n) => n.status === "ready")
+    .sort((a, b) => (b.s.tac + b.s.ste + b.level) - (a.s.tac + a.s.ste + a.level))
+    .slice(0, 10);
   const controlled = s.war.territories.filter((t) => t.owner === "shadow").length;
   const founder = s.ninjas.find((n) => n.id === s.war.founderId);
 
@@ -162,7 +162,7 @@ export default function WarMap({
             <button
               disabled={opDisabled}
               onClick={() => onOperation(selected.id, operation, selectedNinjas)}
-              className="btn-vermil mt-3 h-10 w-full rounded-lg text-[10px] font-bold tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-30"
+              className="btn-primary mt-3 h-10 w-full rounded-lg text-[10px] font-bold tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-30"
             >
               LAUNCH {OP_META[operation].label.toUpperCase()}
             </button>
