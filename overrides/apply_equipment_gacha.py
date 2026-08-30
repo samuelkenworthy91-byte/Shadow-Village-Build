@@ -46,19 +46,19 @@ if 'equipmentSkillBonus' not in s:
 else:
     print('engine equipment stats: already applied')
 
-# Battle units inherit all passive gear effects and an equipment technique if they have no personal special.
+# Battle units inherit flat skill boosts before the normal stat formulas run, then passive gear multipliers.
 p = 'src/game/battle.ts'
 s = read(p)
 if 'applyEquipmentToBattleUnit' not in s:
     lines = s.splitlines()
     insert_at = max((i + 1 for i, line in enumerate(lines) if line.startswith('import ')), default=0)
-    lines.insert(insert_at, 'import { applyEquipmentToBattleUnit } from "./equipment";')
+    lines.insert(insert_at, 'import { applyEquipmentToBattleUnit, equipmentSkillBonus } from "./equipment";')
     s = '\n'.join(lines) + ('\n' if read(p).endswith('\n') else '')
     m = re.search(r'export function unitFromNinja\s*\(\s*n:\s*Ninja\s*\)\s*(?::\s*Unit\s*)?\{', s)
     if not m:
         raise SystemExit('battle equipment wrapper: unitFromNinja signature not found')
     s = s[:m.start()] + m.group(0).replace('export function unitFromNinja', 'function baseUnitFromNinja') + s[m.end():]
-    s += '\n\nexport function unitFromNinja(n: Ninja): Unit {\n  return applyEquipmentToBattleUnit(n, baseUnitFromNinja(n)) as Unit;\n}\n'
+    s += '''\n\nexport function unitFromNinja(n: Ninja): Unit {\n  const equipped = { ...n, s: { ...n.s } };\n  const gearSkills: Skill[] = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"];\n  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k);\n  return applyEquipmentToBattleUnit(n, baseUnitFromNinja(equipped)) as Unit;\n}\n'''
     write(p, s)
     print('battle equipment wrapper: applied')
 else:
