@@ -266,7 +266,9 @@ jobs:
         if: github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           python overrides/apply_village_depth_v1.py
-          grep -q 'ELEMENTAL JUTSU TREE' app/src/components/JutsuTree.tsx
+          grep -q 'JUTSU PATH TREES' app/src/components/JutsuTree.tsx
+          grep -q 'prerequisiteJutsu' app/src/game/jutsu.ts
+          grep -q 'pathLabel' app/src/game/jutsu.ts
           grep -q 'potentialDevelopmentMultiplier' app/src/game/engine.ts
           grep -q 'Find the Lost Cat Tama' app/src/game/content.ts
           grep -q 'End the Silent War' app/src/game/content.ts
@@ -316,5 +318,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-Village-Depth-v1-APK
+          name: Shadow-Village-Village-Depth-v8-APK
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
