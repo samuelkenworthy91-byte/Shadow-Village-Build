@@ -28,8 +28,8 @@ copy('src/game/equipment.ts')
 copy('src/components/EquipmentScreen.tsx')
 copy('src/components/NinjaEquipment.tsx')
 
-# Effective skill values include flat bonuses from all four slots. Support both
-# function declarations and const-arrow exports used by different progression revisions.
+# Effective skill values include flat bonuses from all four slots.
+# The live game signature is effSkill(GameState, Ninja, Skill).
 p = 'src/game/engine.ts'
 s = read(p)
 if 'equipmentSkillBonus' not in s:
@@ -43,7 +43,7 @@ if 'equipmentSkillBonus' not in s:
         s = s.replace('export const effSkill', 'const baseEffSkill', 1)
     else:
         raise SystemExit('engine equipment stats: effSkill export not found')
-    s += '\n\nexport function effSkill(n: Ninja, k: Skill): number {\n  return baseEffSkill(n, k) + equipmentSkillBonus(n, k);\n}\n'
+    s += '\n\nexport function effSkill(s: GameState, n: Ninja, k: Skill): number {\n  return baseEffSkill(s, n, k) + equipmentSkillBonus(n, k);\n}\n'
     write(p, s)
     print('engine equipment stats: applied')
 else:
@@ -98,6 +98,10 @@ if 'NinjaEquipment' not in s:
         raise SystemExit('ninja equipment import: NinjaSprite import not found')
     s = s.replace('import NinjaSprite from "./NinjaSprite";', 'import NinjaSprite from "./NinjaSprite";\nimport NinjaEquipment from "./NinjaEquipment";', 1)
 
+    # Add an immediate persistence callback to the component API.
+    s = s.replace('  onPerk,\n}: {', '  onPerk,\n  onEquipmentChanged,\n}: {', 1)
+    s = s.replace('  onPerk: (id: string, r: DOMRect) => void;\n}) {', '  onPerk: (id: string, r: DOMRect) => void;\n  onEquipmentChanged: () => void;\n}) {', 1)
+
     state_anchor = re.search(r'(const \[confirmSpend, setConfirmSpend\][\s\S]*?= useState<[\s\S]*?>\(null\);)', s)
     if state_anchor:
         block = state_anchor.group(1)
@@ -117,13 +121,15 @@ if 'NinjaEquipment' not in s:
     modal_anchor = '        {confirmSpend && (() => {'
     if modal_anchor not in s:
         raise SystemExit('ninja equipment modal: point-spend modal anchor not found')
-    s = s.replace(modal_anchor, '        {showEquipment && <NinjaEquipment s={s} n={n} onClose={() => setShowEquipment(false)} />}\n\n' + modal_anchor, 1)
+    s = s.replace(modal_anchor, '        {showEquipment && <NinjaEquipment s={s} n={n} onChanged={onEquipmentChanged} onClose={() => setShowEquipment(false)} />}\n\n' + modal_anchor, 1)
     write(p, s)
     print('ninja portrait equipment entry: applied')
 else:
     print('ninja portrait equipment entry: already applied')
 
-# Add the bottom Equipment tab and main gacha/inventory screen.
+# Add Equipment as a real fourth responsive tab. The existing desktop layout shows
+# the three management panels simultaneously, so selecting Equipment temporarily
+# replaces that grid with the full equipment/inventory screen.
 p = 'src/App.tsx'
 s = read(p)
 if 'EquipmentScreen' not in s:
@@ -142,27 +148,40 @@ if 'EquipmentScreen' not in s:
     if '"equipment"' not in union:
         s = s[:mt.start(1)] + union.rstrip() + ' | "equipment"' + s[mt.end(1):]
 
-    content_anchor = re.search(r'\{tab\s*===\s*"ninjas"\s*&&', s)
-    if not content_anchor:
-        raise SystemExit('app equipment content: ninjas tab render not found')
-    s = s[:content_anchor.start()] + '{tab === "equipment" && <EquipmentScreen s={s} onChanged={force} />}\n      ' + s[content_anchor.start():]
+    # Keyboard left/right navigation includes Equipment.
+    order = re.search(r'const order: Tab\[\] = \[([^\]]+)\];', s)
+    if order and '"equipment"' not in order.group(1):
+        vals = order.group(1).rstrip()
+        s = s[:order.start(1)] + vals + ', "equipment"' + s[order.end(1):]
 
-    nav_button = re.search(r'<button\b(?:(?!</button>)[\s\S])*?setTab\("ninjas"\)(?:(?!</button>)[\s\S])*?</button>', s)
-    if not nav_button:
-        raise SystemExit('app equipment nav: ninjas button block not found')
-    new_button = r'''
-          <button
-            onClick={() => { audio.click(); setTab("equipment"); setDetailFor(null); setSquadFor(null); }}
-            className={cn(
-              "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-[8.5px] font-black tracking-[0.08em] transition active:scale-95",
-              tab === "equipment" ? "bg-gold/12 text-gold ring-1 ring-gold/25" : "text-paper/45 hover:text-paper/70"
-            )}
-            aria-label="Equipment"
-          >
-            <span className="font-display text-[15px] leading-none">具</span>
-            <span>EQUIP</span>
-          </button>'''
-    s = s[:nav_button.end()] + new_button + s[nav_button.end():]
+    # Append the Equipment button to the existing tabs data array.
+    tabs = re.search(r'(const tabs: \{ id: Tab; kanji: string; label: string; badge: string \}\[\] = \[)([\s\S]*?)(\n  \];)', s)
+    if not tabs:
+        raise SystemExit('app equipment tabs: tabs array not found')
+    body = tabs.group(2)
+    if 'id: "equipment"' not in body:
+        body = body.rstrip() + '\n    { id: "equipment", kanji: "具", label: "Equip", badge: "" },'
+        s = s[:tabs.start(2)] + body + s[tabs.end(2):]
+
+    # The equipment tab must be reachable on desktop as well as mobile.
+    s = s.replace('<nav className="flex h-10 shrink-0 gap-1.5 lg:hidden">', '<nav className="flex h-10 shrink-0 gap-1.5">', 1)
+
+    grid = re.search(r'<div className="([^"]*grid min-h-0 flex-1[^"]*)">', s)
+    if not grid:
+        raise SystemExit('app equipment content: management grid not found')
+    grid_class = grid.group(1)
+    equipment_render = '          {tab === "equipment" && <EquipmentScreen s={s} onChanged={force} />}\n\n'
+    replacement = equipment_render + '<div className={cn("' + grid_class + '", tab === "equipment" && "hidden")}> '
+    s = s[:grid.start()] + replacement + s[grid.end():]
+
+    # Persist gear changes through the same force/save path as all other actions.
+    nd = re.search(r'(<NinjaDetail[\s\S]*?onPerk=\{\(id, r\) => doPerk\(detailFor, id, r\)\}[\s\S]*?)(/>)', s)
+    if not nd:
+        raise SystemExit('app equipment persistence: NinjaDetail invocation not found')
+    if 'onEquipmentChanged' not in nd.group(1):
+        block = nd.group(1) + '          onEquipmentChanged={force}\n        '
+        s = s[:nd.start()] + block + nd.group(2) + s[nd.end():]
+
     write(p, s)
     print('app equipment tab: applied')
 else:
