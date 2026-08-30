@@ -77,7 +77,7 @@ export function normalizeWarState(s: GameState): void {
 }
 
 export function unlockWar(s: GameState, founder: Ninja): boolean {
-  normalizeWarState(s);
+  if (!s.war || !Array.isArray(s.war.territories)) s.war = createWarState();
   if (s.war.unlocked) return false;
   s.war.unlocked = true;
   s.war.founderId = founder.id;
