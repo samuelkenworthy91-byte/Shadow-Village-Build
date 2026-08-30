@@ -17,6 +17,9 @@ META = {
     171:138,172:124,173:124,174:124,175:124,176:124,177:124,178:124,179:124,180:124,
     181:150,182:124,183:124,184:124,185:124,186:162,187:124,188:124,189:167,190:161,
 }
+# The 191-250 generation was authored with consistent framing, so the standard
+# bust crop is appropriate for the whole new batch.
+META.update({i: 124 for i in range(191, 251)})
 
 s = ART.read_text()
 old_pool = '''/**
@@ -35,10 +38,10 @@ export const LEGEND_ART: Record<string, number> = {
 export const GENERAL_ART_IDS: number[] = Array.from({ length: 80 }, (_, i) => i + 1)
   .filter((id) => !Object.values(LEGEND_ART).includes(id));'''
 new_pool = '''/**
- * Image-backed player ninja art. All 190 portraits share one unrestricted
+ * Image-backed player ninja art. All 250 portraits share one unrestricted
  * deterministic pool. Legendary status never forces or excludes a portrait.
  */
-export const GENERAL_ART_IDS: number[] = Array.from({ length: 190 }, (_, i) => i + 1);'''
+export const GENERAL_ART_IDS: number[] = Array.from({ length: 250 }, (_, i) => i + 1);'''
 if old_pool not in s:
     raise RuntimeError("Expected legacy 80-portrait pool was not found")
 s = s.replace(old_pool, new_pool)
@@ -47,7 +50,7 @@ marker = "  80: { bustTop: 150 }\n};"
 if marker not in s:
     raise RuntimeError("Expected NINJA_ART_META tail was not found")
 extra = "  80: { bustTop: 150 },\n" + "\n".join(
-    f"  {i}: {{ bustTop: {META[i]} }}," for i in range(81, 191)
+    f"  {i}: {{ bustTop: {META[i]} }}," for i in range(81, 251)
 ) + "\n};"
 s = s.replace(marker, extra)
 
@@ -63,19 +66,19 @@ ART.write_text(s)
 
 sw = SW.read_text()
 old_art = 'const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);'
-new_art = 'const NINJA_ART = Array.from({ length: 190 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);'
+new_art = 'const NINJA_ART = Array.from({ length: 250 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);'
 if old_art not in sw:
     raise RuntimeError("Expected final 80-portrait service-worker list was not found")
 sw = sw.replace(old_art, new_art)
-sw = sw.replace('shadow-village-progression-dev-v3', 'shadow-village-progression-dev-v4-ninja190')
+sw = sw.replace('shadow-village-progression-dev-v3', 'shadow-village-progression-dev-v4-ninja250')
 SW.write_text(sw)
 
 art_check = ART.read_text()
 sw_check = SW.read_text()
 assert "LEGEND_ART" not in art_check
-assert "length: 190" in art_check
-assert "190: { bustTop: 161 }" in art_check
+assert "length: 250" in art_check
+assert "250: { bustTop: 124 }" in art_check
 assert '.webp' not in art_check
-assert "length: 190" in sw_check
-assert "shadow-village-progression-dev-v4-ninja190" in sw_check
-print("Applied unrestricted 1-190 ninja portrait library with PNG runtime paths")
+assert "length: 250" in sw_check
+assert "shadow-village-progression-dev-v4-ninja250" in sw_check
+print("Applied unrestricted 1-250 ninja portrait library with PNG runtime paths")
