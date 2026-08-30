@@ -1,6 +1,7 @@
 from pathlib import Path
 import base64
 import gzip
+import os
 
 payload = Path('overrides/equipment_gacha_v2.py.gz.b64').read_text(encoding='utf-8').strip()
 source = gzip.decompress(base64.b64decode(payload)).decode('utf-8')
@@ -27,5 +28,12 @@ new_cache = 'shadow-village-equipment-gacha-v2-400gear-v5-mobile-hud'
 if old_cache not in sw_text:
     raise SystemExit('Expected v4 service-worker cache key not found')
 sw.write_text(sw_text.replace(old_cache, new_cache, 1), encoding='utf-8')
+
+# The village-depth branch layers its grade-first mission board and special-mission
+# systems immediately before its dedicated v1 progression pass. Guard by ref so
+# this development hook cannot alter main if the wrapper is later merged alone.
+if os.environ.get('GITHUB_REF') == 'refs/heads/village-depth-jutsu-missions-potential':
+    shim = Path('overrides/apply_village_depth_v2_shim.py').read_text(encoding='utf-8')
+    exec(compile(shim, 'apply_village_depth_v2_shim.py', 'exec'))
 
 print('Applied compact mobile resource forecast HUD and cache refresh.')
