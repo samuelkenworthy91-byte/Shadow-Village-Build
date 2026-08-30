@@ -28,7 +28,8 @@ copy('src/game/equipment.ts')
 copy('src/components/EquipmentScreen.tsx')
 copy('src/components/NinjaEquipment.tsx')
 
-# Effective skill values include flat bonuses from all four slots.
+# Effective skill values include flat bonuses from all four slots. Support both
+# function declarations and const-arrow exports used by different progression revisions.
 p = 'src/game/engine.ts'
 s = read(p)
 if 'equipmentSkillBonus' not in s:
@@ -36,10 +37,12 @@ if 'equipmentSkillBonus' not in s:
     insert_at = max((i + 1 for i, line in enumerate(lines) if line.startswith('import ')), default=0)
     lines.insert(insert_at, 'import { equipmentSkillBonus } from "./equipment";')
     s = '\n'.join(lines) + ('\n' if read(p).endswith('\n') else '')
-    m = re.search(r'export function effSkill\s*\(\s*n:\s*Ninja\s*,\s*k:\s*Skill\s*\)\s*(?::\s*number\s*)?\{', s)
-    if not m:
-        raise SystemExit('engine equipment stats: effSkill signature not found')
-    s = s[:m.start()] + m.group(0).replace('export function effSkill', 'function baseEffSkill') + s[m.end():]
+    if 'export function effSkill' in s:
+        s = s.replace('export function effSkill', 'function baseEffSkill', 1)
+    elif 'export const effSkill' in s:
+        s = s.replace('export const effSkill', 'const baseEffSkill', 1)
+    else:
+        raise SystemExit('engine equipment stats: effSkill export not found')
     s += '\n\nexport function effSkill(n: Ninja, k: Skill): number {\n  return baseEffSkill(n, k) + equipmentSkillBonus(n, k);\n}\n'
     write(p, s)
     print('engine equipment stats: applied')
@@ -54,10 +57,12 @@ if 'applyEquipmentToBattleUnit' not in s:
     insert_at = max((i + 1 for i, line in enumerate(lines) if line.startswith('import ')), default=0)
     lines.insert(insert_at, 'import { applyEquipmentToBattleUnit, equipmentSkillBonus } from "./equipment";')
     s = '\n'.join(lines) + ('\n' if read(p).endswith('\n') else '')
-    m = re.search(r'export function unitFromNinja\s*\(\s*n:\s*Ninja\s*\)\s*(?::\s*Unit\s*)?\{', s)
-    if not m:
-        raise SystemExit('battle equipment wrapper: unitFromNinja signature not found')
-    s = s[:m.start()] + m.group(0).replace('export function unitFromNinja', 'function baseUnitFromNinja') + s[m.end():]
+    if 'export function unitFromNinja' in s:
+        s = s.replace('export function unitFromNinja', 'function baseUnitFromNinja', 1)
+    elif 'export const unitFromNinja' in s:
+        s = s.replace('export const unitFromNinja', 'const baseUnitFromNinja', 1)
+    else:
+        raise SystemExit('battle equipment wrapper: unitFromNinja export not found')
     s += '''\n\nexport function unitFromNinja(n: Ninja): Unit {\n  const equipped = { ...n, s: { ...n.s } };\n  const gearSkills: Skill[] = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"];\n  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k);\n  return applyEquipmentToBattleUnit(n, baseUnitFromNinja(equipped)) as Unit;\n}\n'''
     write(p, s)
     print('battle equipment wrapper: applied')
