@@ -192,6 +192,44 @@ export function runWarOperation(s: GameState, territoryId: string, op: WarOperat
   return { ok: true, success, message, captured };
 }
 
+export type WarInterventionKind = "scout_force" | "sabotage_supplies" | "eliminate_commander" | "breakthrough";
+export const WAR_INTERVENTIONS: Record<WarInterventionKind, { name: string; desc: string }> = {
+  scout_force: { name: "Scout Enemy Force", desc: "Fight through forward scouts to reveal the army and soften its strength." },
+  sabotage_supplies: { name: "Sabotage Supplies", desc: "Hit guarded stores to cut the territory's fighting strength." },
+  eliminate_commander: { name: "Eliminate Commander", desc: "Hunt the enemy captain. Hard battle; major collapse on success." },
+  breakthrough: { name: "Breakthrough Battle", desc: "Lead a frontline attack. Victory captures the territory." },
+};
+
+export function resolveWarIntervention(s: GameState, territoryId: string, kind: WarInterventionKind, won: boolean, ninjaIds: number[]): string {
+  normalizeWarState(s);
+  const t = territoryById(s, territoryId);
+  if (!t) return "Battlefield lost.";
+  const team = ninjaIds.map((id) => s.ninjas.find((n) => n.id === id)).filter((n): n is Ninja => !!n);
+  for (const n of team) {
+    n.fatigue = clamp(n.fatigue + (won ? 16 : 22), 0, 100);
+    if (!won && Math.random() < 0.22) { n.status = "injured"; n.daysLeft = Math.max(1, 2 - Math.floor(s.b.shrine / 2)); }
+  }
+  let msg = "";
+  if (kind === "scout_force") {
+    t.intel = clamp(t.intel + (won ? 3 : 1), 0, 3);
+    if (won) t.strength = clamp(t.strength - 4, 8, 99);
+    msg = won ? `${t.name}: enemy force mapped; strength −4.` : `${t.name}: scouts repelled, but partial intel returned.`;
+  } else if (kind === "sabotage_supplies") {
+    const loss = won ? Math.max(10, Math.round(t.strength * 0.18)) : 2;
+    t.strength = clamp(t.strength - loss, 8, 99);
+    if (won) t.status = "contested";
+    msg = won ? `${t.name}: supply depots destroyed; strength −${loss}.` : `${t.name}: sabotage failed; only minor damage.`;
+  } else if (kind === "eliminate_commander") {
+    if (won) { const loss = Math.max(16, Math.round(t.strength * 0.24)); t.strength = clamp(t.strength - loss, 8, 99); t.status = "contested"; t.intel = 3; s.gold += 55; s.score += 120; msg = `${t.name}: commander eliminated; strength −${loss}.`; }
+    else msg = `${t.name}: the enemy commander survived.`;
+  } else {
+    if (won) { const old = t.owner; t.owner = "shadow"; t.status = "occupied"; t.intel = 3; t.strength = 42; s.gold += 75; s.score += 180; msg = `${t.name} captured from ${WAR_FACTIONS[old].name}.`; }
+    else { t.strength = clamp(t.strength - 5, 8, 99); t.status = "contested"; msg = `${t.name}: breakthrough repelled; defenders lost 5 strength.`; }
+  }
+  s.war.history.unshift(msg); s.war.history = s.war.history.slice(0, 30);
+  return msg;
+}
+
 function aiCandidates(s: GameState): WarTerritory[] {
   return s.war.territories.filter((t) => t.owner !== "shadow" && t.owner !== "neutral" && neighbours(t.id).some((id) => {
     const n = territoryById(s, id);
