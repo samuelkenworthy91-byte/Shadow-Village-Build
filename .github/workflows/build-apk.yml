@@ -208,10 +208,14 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p app/public/ninjas
-          test "$(find overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 170
+          asset_dirs=(overrides/ninja_assets_v26/direct)
+          if [ -d overrides/ninja_assets_v27/direct ]; then
+            asset_dirs+=(overrides/ninja_assets_v27/direct)
+          fi
+          test "$(find "${asset_dirs[@]}" -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 170
           for n in $(seq -w 81 250); do
             src=""
-            for dir in overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct; do
+            for dir in "${asset_dirs[@]}"; do
               candidate="$dir/ninja_${n}.webp"
               if [ -f "$candidate" ]; then
                 src="$candidate"
@@ -223,16 +227,18 @@ jobs:
               exit 1
             fi
             dims="$(identify -format '%wx%h' "$src")"
-            if [ "$dims" != "240x536" ]; then
-              echo "Unexpected dimensions for ninja_${n}.webp: $dims" >&2
-              exit 1
+            if [ "$dims" = "240x536" ]; then
+              convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
+            else
+              echo "Normalizing ninja_${n}.webp from $dims to 240x536"
+              convert "$src" -trim +repage -resize '230x520>' -gravity south -background none -extent 240x536 "PNG32:app/public/ninjas/ninja_${n}.png"
             fi
-            convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
           done
           python overrides/apply_ninja_portraits_v26.py
           test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 250
           for n in $(seq -w 1 250); do
             test -s "app/public/ninjas/ninja_${n}.png"
+            test "$(identify -format '%wx%h' "app/public/ninjas/ninja_${n}.png")" = "240x536"
           done
           grep -q 'Array.from({ length: 250 }' app/src/game/ninjaArt.ts
           ! grep -q 'LEGEND_ART' app/src/game/ninjaArt.ts
