@@ -14,7 +14,7 @@ import {
 } from "../game/equipment";
 import NinjaSprite from "./NinjaSprite";
 
-export default function NinjaEquipment({ s, n, onClose }: { s: GameState; n: Ninja; onClose: () => void }) {
+export default function NinjaEquipment({ s, n, onClose, onChanged }: { s: GameState; n: Ninja; onClose: () => void; onChanged: () => void }) {
   const [, redraw] = useState(0);
   const [pickSlot, setPickSlot] = useState<number | null>(null);
   const st = ensureEquipmentState(s);
@@ -26,7 +26,14 @@ export default function NinjaEquipment({ s, n, onClose }: { s: GameState; n: Nin
     if (equipItem(s, n, pickSlot, item.id)) {
       setPickSlot(null);
       redraw((x) => x + 1);
+      onChanged();
     }
+  };
+
+  const remove = (slot: number) => {
+    unequipItem(n, slot);
+    redraw((x) => x + 1);
+    onChanged();
   };
 
   return (
@@ -70,7 +77,7 @@ export default function NinjaEquipment({ s, n, onClose }: { s: GameState; n: Nin
                       </div>
                       <p className="mt-2 line-clamp-3 text-[8.5px] font-semibold leading-relaxed text-paper/50">{item?.desc ?? "Tap to choose any owned equipment."}</p>
                       {item && (
-                        <span onClick={(e) => { e.stopPropagation(); unequipItem(n, slot); redraw((x) => x + 1); }} className="mt-2 inline-flex rounded bg-vermil/12 px-1.5 py-1 text-[8px] font-black text-vermil/80">UNEQUIP</span>
+                        <span onClick={(e) => { e.stopPropagation(); remove(slot); }} className="mt-2 inline-flex rounded bg-vermil/12 px-1.5 py-1 text-[8px] font-black text-vermil/80">UNEQUIP</span>
                       )}
                     </button>
                   );
