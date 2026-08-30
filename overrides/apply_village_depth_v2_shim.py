@@ -5,9 +5,8 @@ import runpy
 # This branch's workflow runs equipment immediately before the dedicated village-depth
 # progression step. v2 was authored against v1-shaped files, so stage the generated
 # mission board/special catalogue here, preserve that catalogue, then let the normal
-# v1 step run. The shim also arranges for v3-v8 to run after v1 so content, battle
-# Jutsu, village infrastructure, rare orders, scout uniques and the four-path Jutsu
-# trees are not overwritten.
+# v1 step run. The shim also arranges for v3-v10 to run after v1 so later systems are
+# not overwritten by the generated base progression source.
 root = Path('app')
 jutsu = root / 'src/components/JutsuTree.tsx'
 if not jutsu.exists():
@@ -51,15 +50,13 @@ if n != 1:
 sw.write_text(sw_text, encoding='utf-8')
 
 # Modify only the CI workspace copy of the v1 runner. The repository's v1 source
-# remains unchanged; when the next workflow step runs it will finish by applying the
-# stable content pass (v3), battle Jutsu pass (v4), infrastructure/threat (v5),
-# rare orders (v6), the v6 TS narrowing fix, scout uniques + exclusive Jutsu (v7),
-# then the four-path-per-tier Jutsu tree redesign (v8) and its strict TS cleanup.
+# remains unchanged; the next workflow step finishes by applying each later pass in
+# order, ending with the v9 playtest fixes, expanded identity systems and v10 personal legend arts.
 v1_runner = Path('overrides/apply_village_depth_v1.py')
 v1_text = v1_runner.read_text(encoding='utf-8')
 hook_marker = '# VILLAGE_DEPTH_V3_RUNTIME_HOOK'
 if hook_marker not in v1_text:
-    v1_text += '''\n\n# VILLAGE_DEPTH_V3_RUNTIME_HOOK\nimport runpy as _village_depth_runpy\nfrom pathlib import Path as _VillageDepthPath\n_village_depth_runpy.run_path("overrides/apply_village_depth_v3.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v4_jutsu_battle.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v5_infrastructure.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_orders.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_typefix.py", run_name="__main__")\n_vd_sw = _VillageDepthPath("app/public/sw.js")\n_vd_sw_text = _vd_sw.read_text(encoding="utf-8").replace("shadow-village-depth-v5-infrastructure-threat", "shadow-village-depth-v1-jutsu-potential-v5-infrastructure-threat")\n_vd_sw.write_text(_vd_sw_text, encoding="utf-8")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v7_scout_uniques.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v8_jutsu_paths.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v8_typefix.py", run_name="__main__")\n'''
+    v1_text += '''\n\n# VILLAGE_DEPTH_V3_RUNTIME_HOOK\nimport runpy as _village_depth_runpy\nfrom pathlib import Path as _VillageDepthPath\n_village_depth_runpy.run_path("overrides/apply_village_depth_v3.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v4_jutsu_battle.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v5_infrastructure.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_orders.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v6_typefix.py", run_name="__main__")\n_vd_sw = _VillageDepthPath("app/public/sw.js")\n_vd_sw_text = _vd_sw.read_text(encoding="utf-8").replace("shadow-village-depth-v5-infrastructure-threat", "shadow-village-depth-v1-jutsu-potential-v5-infrastructure-threat")\n_vd_sw.write_text(_vd_sw_text, encoding="utf-8")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v7_scout_uniques.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v8_jutsu_paths.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v8_typefix.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v9_playtest_core.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v9_identity_uniques.py", run_name="__main__")\n_village_depth_runpy.run_path("overrides/apply_village_depth_v10_personal_legend_arts.py", run_name="__main__")\n'''
     v1_runner.write_text(v1_text, encoding='utf-8')
 
-print('Applied village depth v2 staging shim; v3-v8 plus v8 strict TypeScript fix queued after v1.')
+print('Applied village depth v2 staging shim; v3-v10 queued after v1, including playtest balance, elemental identities, Kekkei trees and personal legend arts.')
