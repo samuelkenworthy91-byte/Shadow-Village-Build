@@ -63,7 +63,7 @@ if 'applyEquipmentToBattleUnit' not in s:
         s = s.replace('export const unitFromNinja', 'const baseUnitFromNinja', 1)
     else:
         raise SystemExit('battle equipment wrapper: unitFromNinja export not found')
-    s += '''\n\nexport function unitFromNinja(n: Ninja): Unit {\n  const equipped = { ...n, s: { ...n.s } };\n  const gearSkills: Skill[] = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"];\n  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k);\n  return applyEquipmentToBattleUnit(n, baseUnitFromNinja(equipped)) as Unit;\n}\n'''
+    s += '''\n\nexport function unitFromNinja(n: Ninja): Unit {\n  const equipped = { ...n, s: { ...n.s } };\n  const gearSkills = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"] as const;\n  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k);\n  return applyEquipmentToBattleUnit(n, baseUnitFromNinja(equipped)) as Unit;\n}\n'''
     write(p, s)
     print('battle equipment wrapper: applied')
 else:
