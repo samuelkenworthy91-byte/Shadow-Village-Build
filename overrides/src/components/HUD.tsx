@@ -1,6 +1,6 @@
 import { Coins, Flame, Menu, Trophy, Volume2, VolumeX, Wheat, Zap } from "lucide-react";
 import type { GameState } from "../game/types";
-import { FARM_RICE, TEA_GOLD } from "../game/content";
+import { EAT_PER_DAY, FARM_RICE, TEA_GOLD } from "../game/content";
 import { apMax, hasTech, streakMult } from "../game/engine";
 import { cn } from "../utils/cn";
 import type { ReactNode } from "react";
@@ -16,6 +16,7 @@ function Chip({
   icon,
   value,
   gain,
+  loss,
   title,
   warn,
 }: {
@@ -23,6 +24,7 @@ function Chip({
   icon: ReactNode;
   value: string;
   gain?: number;
+  loss?: number;
   title?: string;
   warn?: boolean;
 }) {
@@ -39,6 +41,9 @@ function Chip({
       <span>{value}</span>
       {gain !== undefined && (
         <span className="text-[10px] font-bold text-[#8fce6a]">+{formatGain(gain)}</span>
+      )}
+      {loss !== undefined && (
+        <span className="text-[10px] font-bold text-vermil">−{formatGain(loss)}</span>
       )}
     </span>
   );
@@ -58,6 +63,7 @@ export default function HUD({
   const max = apMax(s);
   const nextGoldFromBuildings = TEA_GOLD * s.b.tea * (hasTech(s, "tea_merchant_contacts") ? 1.25 : 1);
   const nextRiceFromBuildings = FARM_RICE * s.b.farm * (hasTech(s, "farm_efficiency") ? 1.25 : 1);
+  const nextRiceConsumption = EAT_PER_DAY * s.ninjas.length * (hasTech(s, "farm_ration_stores") ? 0.75 : 1);
 
   return (
     <header className="flex h-11 shrink-0 items-center gap-1.5 rounded-xl bg-[#151728]/85 px-2 ring-1 ring-white/10 backdrop-blur sm:gap-2 sm:px-3">
@@ -79,7 +85,8 @@ export default function HUD({
         icon={<Wheat size={13} className={s.hungry ? "text-vermil" : "text-[#8fce6a]"} />}
         value={Math.floor(s.rice).toLocaleString()}
         gain={nextRiceFromBuildings}
-        title={`Next day from Rice Paddies: +${formatGain(nextRiceFromBuildings)} rice before ninja consumption`}
+        loss={nextRiceConsumption}
+        title={`Next day: +${formatGain(nextRiceFromBuildings)} rice from Paddies −${formatGain(nextRiceConsumption)} rice consumed by ${s.ninjas.length} ninja`}
         warn={s.hungry}
       />
       <Chip icon={<Trophy size={13} className="text-[#ffe9b8]" />} value={s.score.toLocaleString()} />
