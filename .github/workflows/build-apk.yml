@@ -11,6 +11,7 @@ on:
       - target-selection-v25
       - feature/expanded-ninja-progression
       - ninja-art-190-current-main
+      - feature/kage-war-map-v1
 
 jobs:
   build-apk:
@@ -130,14 +131,14 @@ jobs:
           grep -q 'shadow-village-v8-target-selection' app/public/sw.js
 
       - name: Export exact patched v2.5 source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         uses: actions/upload-artifact@v4
         with:
           name: Shadow-Village-v2.5-Patched-Source
           path: app
 
       - name: Apply expanded ninja progression
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           python overrides/apply_progression_expansion.py
           grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
@@ -147,7 +148,7 @@ jobs:
           grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
 
       - name: Apply progression v0.2 village development
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           cat overrides/progression_v02.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v02.patch
           cd app
@@ -160,7 +161,7 @@ jobs:
           grep -q 'onResearch' app/src/components/BuildMenu.tsx
 
       - name: Apply progression v0.2.1 XP correction
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v021.patch
@@ -168,7 +169,7 @@ jobs:
           cd ..
 
       - name: Apply progression v0.3 elemental bloodlines
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           cat overrides/progression_v03.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v03.patch
           cd app
@@ -182,7 +183,7 @@ jobs:
           grep -q 'Math.max(0, s.raids - 2) \* 0.65' app/src/game/battle.ts
 
       - name: Apply progression v0.3.2 point-spend QoL
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v032.patch
@@ -193,7 +194,7 @@ jobs:
           grep -q 'shadow-village-progression-dev-v3' app/public/sw.js
 
       - name: Apply progression v0.3.3 Dōjutsu awakening gate
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v033.patch
@@ -203,7 +204,7 @@ jobs:
           grep -q 'Rank promotion alone never unlocks Dōjutsu' app/src/game/content.ts
 
       - name: Apply 190 ninja portrait library
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         run: |
           set -euo pipefail
           mkdir -p app/public/ninjas
@@ -239,8 +240,23 @@ jobs:
           grep -q 'Array.from({ length: 190 }' app/public/sw.js
           grep -q 'shadow-village-progression-dev-v4-ninja190' app/public/sw.js
 
+      - name: Apply Kage-era regional war map
+        if: github.ref == 'refs/heads/feature/kage-war-map-v1'
+        run: |
+          cp overrides/src/game/war.ts app/src/game/war.ts
+          cp overrides/src/components/WarMap.tsx app/src/components/WarMap.tsx
+          cd app
+          patch -p1 < ../overrides/war_map_v1.patch
+          cd ..
+          grep -q 'KAGE ERA WAR MAP' app/src/components/WarMap.tsx
+          grep -q 'war: createWarState()' app/src/game/engine.ts
+          grep -q 'targetRank === "kage" && unlockWar' app/src/game/battle.ts
+          grep -q 'normalizeWarState(state)' app/src/game/save.ts
+          grep -q 'WarOperationType' app/src/game/types.ts
+          grep -q "capital held" app/src/game/war.ts
+
       - name: Export progression source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
+        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/feature/kage-war-map-v1'
         uses: actions/upload-artifact@v4
         with:
           name: Shadow-Village-Progression-Dev-Source
