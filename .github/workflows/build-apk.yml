@@ -202,13 +202,13 @@ jobs:
           grep -q 'if (k === "doj" && !dojutsuUnlocked) continue' app/src/game/battle.ts
           grep -q 'Rank promotion alone never unlocks Dōjutsu' app/src/game/content.ts
 
-      - name: Apply 190 ninja portrait library
+      - name: Apply 250 ninja portrait library
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
         run: |
           set -euo pipefail
           mkdir -p app/public/ninjas
-          test "$(find overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 110
-          for n in $(seq -w 81 190); do
+          test "$(find overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 170
+          for n in $(seq -w 81 250); do
             src=""
             for dir in overrides/ninja_assets_v26/direct overrides/ninja_assets_v27/direct; do
               candidate="$dir/ninja_${n}.webp"
@@ -229,15 +229,15 @@ jobs:
             convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
           done
           python overrides/apply_ninja_portraits_v26.py
-          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 190
-          for n in $(seq -w 1 190); do
+          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 250
+          for n in $(seq -w 1 250); do
             test -s "app/public/ninjas/ninja_${n}.png"
           done
-          grep -q 'Array.from({ length: 190 }' app/src/game/ninjaArt.ts
+          grep -q 'Array.from({ length: 250 }' app/src/game/ninjaArt.ts
           ! grep -q 'LEGEND_ART' app/src/game/ninjaArt.ts
-          grep -q '190: { bustTop: 161 }' app/src/game/ninjaArt.ts
-          grep -q 'Array.from({ length: 190 }' app/public/sw.js
-          grep -q 'shadow-village-progression-dev-v4-ninja190' app/public/sw.js
+          grep -q '250: { bustTop: 124 }' app/src/game/ninjaArt.ts
+          grep -q 'Array.from({ length: 250 }' app/public/sw.js
+          grep -q 'shadow-village-progression-dev-v4-ninja250' app/public/sw.js
 
       - name: Export progression source snapshot
         if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main'
