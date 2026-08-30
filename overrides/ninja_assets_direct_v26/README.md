@@ -1,0 +1,1 @@
+Direct portrait assets for Shadow Village v2.6. Individual ninja portrait image files are committed here; the build copies them into app/public/ninjas. No archive/base64 reconstruction is required.
