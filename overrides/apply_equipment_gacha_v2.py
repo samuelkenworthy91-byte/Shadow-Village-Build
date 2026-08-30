@@ -14,3 +14,18 @@ exec(compile(source_v3, 'equipment_gacha_v3_payload.py', 'exec'))
 # Raid consequence v4: failed/undefended raids also knock one existing building down a level.
 source_v4 = Path('overrides/apply_raid_building_damage.py').read_text(encoding='utf-8')
 exec(compile(source_v4, 'raid_building_damage_v4.py', 'exec'))
+
+# Mobile HUD v5: apply the compact income/consumption presentation last so the forecast cannot be squeezed away.
+hud_src = Path('overrides/src/components/HUD.tsx')
+hud_dst = Path('app/src/components/HUD.tsx')
+hud_dst.write_text(hud_src.read_text(encoding='utf-8'), encoding='utf-8')
+
+sw = Path('app/public/sw.js')
+sw_text = sw.read_text(encoding='utf-8')
+old_cache = 'shadow-village-equipment-gacha-v2-400gear-v4-raid-damage'
+new_cache = 'shadow-village-equipment-gacha-v2-400gear-v5-mobile-hud'
+if old_cache not in sw_text:
+    raise SystemExit('Expected v4 service-worker cache key not found')
+sw.write_text(sw_text.replace(old_cache, new_cache, 1), encoding='utf-8')
+
+print('Applied compact mobile resource forecast HUD and cache refresh.')
