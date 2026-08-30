@@ -228,13 +228,21 @@ export function advanceWarDay(s: GameState, ev: Ev[]): void {
   } else if (target.owner === "shadow") {
     const defence = target.strength + Math.random() * 34;
     if (pressure > defence) {
-      target.owner = attacker.owner;
-      target.status = "occupied";
-      target.intel = 1;
-      target.strength = clamp(Math.round(attacker.strength * 0.72), 30, 78);
-      const msg = `${WAR_FACTIONS[attacker.owner].name} broke through and took ${target.name}.`;
-      s.war.history.unshift(msg);
-      ev.push({ type: "war_alert", message: msg });
+      if (target.id === "shadow_village") {
+        target.status = "contested";
+        target.strength = clamp(target.strength - 10, 30, 99);
+        const msg = `${WAR_FACTIONS[attacker.owner].name} reached Shadow Village's outer defences. The capital held.`;
+        s.war.history.unshift(msg);
+        ev.push({ type: "war_alert", message: msg });
+      } else {
+        target.owner = attacker.owner;
+        target.status = "occupied";
+        target.intel = 1;
+        target.strength = clamp(Math.round(attacker.strength * 0.72), 30, 78);
+        const msg = `${WAR_FACTIONS[attacker.owner].name} broke through and took ${target.name}.`;
+        s.war.history.unshift(msg);
+        ev.push({ type: "war_alert", message: msg });
+      }
     } else {
       target.strength = clamp(target.strength - 5, 10, 99);
       target.status = "contested";
