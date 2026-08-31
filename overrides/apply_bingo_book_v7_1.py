@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 
 p = Path("app/src/App.tsx")
 s = p.read_text(encoding="utf-8")
@@ -12,3 +13,5 @@ if old not in s:
 else:
     p.write_text(s.replace(old, new, 1), encoding="utf-8")
     print("Bingo Book v7.1 battle-close fix applied")
+
+subprocess.run(["python", "overrides/apply_bingo_book_v8_mobile.py"], check=True)
