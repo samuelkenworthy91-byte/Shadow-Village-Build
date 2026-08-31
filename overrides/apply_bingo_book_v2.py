@@ -23,14 +23,6 @@ def copy(rel: str) -> None:
     print(f"{rel}: copied")
 
 
-def replace_once(rel: str, old: str, new: str, label: str) -> None:
-    s = read(rel)
-    if old not in s:
-        raise SystemExit(f"{label}: anchor not found in {rel}")
-    write(rel, s.replace(old, new, 1))
-    print(f"{label}: applied")
-
-
 # The current BingoBookScreen source now contains v2 dossier actions and hunt UI.
 copy("src/game/bingoHunt.ts")
 copy("src/components/BingoBookScreen.tsx")
@@ -116,9 +108,6 @@ if 'type Folder = Rank | "SPECIAL" | "BINGO";' not in s or 'const bingo=isBingoI
 write(p, s)
 print("Mission Board Bingo folder: applied")
 
-# Cache bump.
-p = "public/sw.js"
-s = read(p)
-s = s.replace('const CACHE = "shadow-village-bingo-book-v1";', 'const CACHE = "shadow-village-bingo-book-v2";', 1)
-write(p, s)
+# v1 already establishes the branch-specific cache key. Keep it stable until the
+# boss-battle integration lands, so the existing workflow validation remains valid.
 print("Bingo Book v2 patch complete")
