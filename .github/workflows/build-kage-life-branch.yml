@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           cat overrides/kage_life_logo_parts/part_* | tr -d '\n\r' | base64 --decode > /tmp/kage-life-logo.webp
           identify /tmp/kage-life-logo.webp
-          convert /tmp/kage-life-logo.webp -alpha on -trim +repage -resize '900x900>' -gravity center -background none -extent 1024x1024 /tmp/kage-life-logo-square.png
+          convert /tmp/kage-life-logo.webp -alpha on -trim +repage -resize '900x900' -gravity center -background none -extent 1024x1024 /tmp/kage-life-logo-square.png
           convert /tmp/kage-life-logo-square.png -resize 512x512 app/public/icon.png
           mkdir -p app/assets
           cp /tmp/kage-life-logo-square.png app/assets/logo.png
