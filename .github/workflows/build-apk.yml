@@ -282,7 +282,7 @@ jobs:
           grep -q 'bbFlipNext' app/src/components/BingoBookOverlay.tsx
           grep -q 'bb-stamp' app/src/components/BingoBookOverlay.tsx
           grep -q 'orientation:portrait' app/src/components/BingoBookOverlay.tsx
-          grep -q 'shadow-village-bingo-book-v8-mobile-polish' app/public/sw.js
+          grep -q 'shadow-village-main-polish-v1' app/public/sw.js
 
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
