@@ -127,7 +127,7 @@ export function recruitBingoPrisoner(s: GameState, targetId: string): { ok: bool
   }
 
   const n = makeNinja(s, true);
-  const natureMap: Partial<Record<string, Nature>> = { Fire: "fire", Water: "water", Wind: "wind", Earth: "earth", Lightning: "lightning" };
+  const natureMap: Partial<Record<string, Nature>> = { Fire: "fire", Water: "water", Wind: "wind", Earth: "earth", Lightning: "light" };
   n.name = target.name;
   n.title = target.epithet;
   n.legend = null;
