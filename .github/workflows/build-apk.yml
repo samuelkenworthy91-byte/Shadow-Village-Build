@@ -249,6 +249,18 @@ jobs:
           grep -q 'DETENTION FILE' app/src/components/BingoBookScreen.tsx
           grep -q 'shadow-village-bingo-book-v5-detention-recruitment' app/public/sw.js
 
+      - name: Apply Bingo 102-event hunts and active boss mechanics
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/apply_bingo_book_v6.py
+          grep -q 'export const HUNT_EVENT_TOTAL = HUNT_EVENTS.length' app/src/game/huntEvents.ts
+          grep -q 'export type BingoMechanicId' app/src/game/bingo.ts
+          grep -q 'bossMechanicIds' app/src/game/bingo.ts
+          grep -q 'function applyBingoRoundState' app/src/game/battle.ts
+          grep -q 'BINGO FALSE BODY' app/src/game/battle.ts
+          grep -q 'shadow-village-bingo-book-v6-events-mechanics' app/public/sw.js
+          test "$(grep -c '^    \["' app/src/game/huntEvents.ts)" -ge 64
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
