@@ -1,6 +1,8 @@
 from pathlib import Path
 import re
 import shutil
+import subprocess
+import sys
 
 ROOT = Path("app")
 SRC = Path("overrides/bingo_book")
@@ -133,7 +135,6 @@ print("App Bingo tab + exile wiring: applied")
 p = "src/components/NinjaDetail.tsx"
 s = read(p)
 if "onExile" not in s:
-    # Existing equipment pass added onEquipmentChanged to both destructuring and prop type.
     s = s.replace('  onEquipmentChanged,\n}: {', '  onEquipmentChanged,\n  onExile,\n}: {', 1)
     s = s.replace('  onEquipmentChanged: () => void;\n}) {', '  onEquipmentChanged: () => void;\n  onExile: (id: number) => void;\n}) {', 1)
 
@@ -168,3 +169,8 @@ if n != 1:
     raise SystemExit("bingo service worker CACHE constant not found")
 write(p, s)
 print("Bingo Book v1 patch complete")
+
+# v2 extends the same branch build with real intelligence contracts and the
+# deterministic multi-stage hunt loop. Keeping this chained here means the
+# existing branch CI remains the single reproducible build entrypoint.
+subprocess.run([sys.executable, "overrides/apply_bingo_book_v2.py"], check=True)
