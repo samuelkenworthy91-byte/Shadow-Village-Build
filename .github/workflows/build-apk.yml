@@ -217,6 +217,17 @@ jobs:
           grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
           grep -q 'shadow-village-bingo-book-v1' app/public/sw.js
 
+      - name: Apply Bingo Book full roster and 80 assets
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/bingo_assets_v1/import_batch.py --start 1 --end 80 --require-complete
+          test "$(find app/public/bingo -maxdepth 1 -name 'bingo_*.png' | wc -l)" -eq 80
+          python overrides/apply_bingo_book_v3.py
+          grep -q 'for (let i = 4; i <= 80; i++)' app/src/game/bingo.ts
+          grep -q 'resolvedStandard >= 24' app/src/game/bingo.ts
+          grep -q '80 unique targets · 10 Black Book superbosses' app/src/components/BingoBookScreen.tsx
+          grep -q 'shadow-village-bingo-book-v3-80-targets' app/public/sw.js
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
