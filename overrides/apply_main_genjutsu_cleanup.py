@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Final post-stack cleanup for legacy personal Genjutsu-tree nodes.
 perks_path = Path("app/src/game/perks.ts")
 battle_path = Path("app/src/game/battle.ts")
 
