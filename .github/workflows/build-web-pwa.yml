@@ -1,0 +1,104 @@
+name: Build Shadow Village Browser + iPhone PWA
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - browser-iphone-pwa
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  build-web:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+
+      - name: Assemble current Shadow Village source
+        run: bash overrides/assemble_current_game.sh
+
+      - name: Apply portable browser and iPhone PWA layer
+        run: python overrides/apply_web_pwa.py
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Build portable browser bundle
+        working-directory: app
+        run: npm run build -- --base=./
+
+      - name: Finalize offline PWA cache
+        run: python overrides/finalize_web_dist.py
+
+      - name: Validate browser and iPhone bundle
+        run: |
+          set -euo pipefail
+          test -s app/dist/index.html
+          test -s app/dist/manifest.webmanifest
+          test -s app/dist/register-sw.js
+          test -s app/dist/sw.js
+          test -s app/dist/icon.png
+          test "$(find app/dist/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 250
+          grep -q 'href="./manifest.webmanifest"' app/dist/index.html
+          grep -q 'apple-mobile-web-app-capable' app/dist/index.html
+          grep -q 'viewport-fit=cover' app/dist/index.html
+          grep -q 'shadow-village-web-' app/dist/sw.js
+          ! grep -Eq '(src|href)="/assets/' app/dist/index.html
+          python -m http.server 4173 --directory app/dist >/tmp/shadow-village-web.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          sleep 1
+          curl --fail --silent http://127.0.0.1:4173/ >/tmp/shadow-village-index.html
+          curl --fail --silent http://127.0.0.1:4173/manifest.webmanifest >/tmp/shadow-village-manifest.json
+          curl --fail --silent http://127.0.0.1:4173/sw.js >/tmp/shadow-village-sw.js
+          kill $SERVER_PID
+          trap - EXIT
+
+      - name: Upload browser/iPhone build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow-Village-Browser-iPhone-PWA
+          path: app/dist
+          if-no-files-found: error
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: app/dist
+
+  deploy-pages:
+    needs: build-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Enable/configure GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Deploy browser/iPhone PWA
+        id: deployment
+        uses: actions/deploy-pages@v4
