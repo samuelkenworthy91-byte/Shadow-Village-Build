@@ -74,8 +74,7 @@ jobs:
       - name: Verify uploaded Kage Life logo
         run: |
           set -euo pipefail
-          test -s overrides/kage_life_logo.webp
-          identify overrides/kage_life_logo.webp
+          test "$(find overrides/kage_life_uploaded_logo_b64 -maxdepth 1 -name 'part_*' | wc -l)" -eq 10
           identify app/public/icon.png
           identify app/assets/logo.png
 
