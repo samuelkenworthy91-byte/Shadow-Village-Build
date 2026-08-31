@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - v16-specialist-combat-rework
+      - feature/bingo-book-endgame
 
 jobs:
   build-apk:
@@ -200,6 +201,88 @@ jobs:
           grep -q 'shadow-village-depth-v1-jutsu-potential-v16-specialist-combat-rework' app/public/sw.js
           ! grep -q 'case "special":' app/src/game/battle.ts
           ! grep -q '{ id: "special"' app/src/components/BattleScreen.tsx
+
+      - name: Apply Bingo Book endgame v1
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/apply_bingo_book_v1.py
+          test -f app/src/game/bingo.ts
+          test -f app/src/game/huntEvents.ts
+          test -f app/src/components/BingoBookScreen.tsx
+          grep -q 'EXILE_MISSING_NIN_CHANCE = 0.03' app/src/game/bingo.ts
+          grep -q 'HUNT_MIN_EVENT_HP_RATIO = 0.10' app/src/game/bingo.ts
+          grep -q 'BINGO_ACTIVE_PARTY_SIZE = 3' app/src/game/bingo.ts
+          grep -q 'EXILE NINJA' app/src/components/NinjaDetail.tsx
+          grep -q 'BingoBookScreen' app/src/App.tsx
+          grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
+          grep -q 'shadow-village-bingo-book-v1' app/public/sw.js
+
+      - name: Apply Bingo Book full roster and 80 assets
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/bingo_assets_v1/import_batch.py --start 1 --end 80 --require-complete
+          test "$(find app/public/bingo -maxdepth 1 -name 'bingo_*.png' | wc -l)" -eq 80
+          python overrides/apply_bingo_book_v3.py
+          grep -q 'for (let i = 4; i <= 80; i++)' app/src/game/bingo.ts
+          grep -q 'resolvedStandard >= 24' app/src/game/bingo.ts
+          grep -q '80 unique targets · 10 Black Book superbosses' app/src/components/BingoBookScreen.tsx
+          grep -q 'shadow-village-bingo-book-v3-80-targets' app/public/sw.js
+
+      - name: Apply Bingo Book lethal target battles
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/apply_bingo_book_v4.py
+          grep -q 'mode?: "raid" | "exam" | "bingo"' app/src/game/types.ts
+          grep -q 'export function startBingoBattle' app/src/game/battle.ts
+          grep -q 'export function beginBingoBossBattle' app/src/game/bingoHunt.ts
+          grep -q 'TARGET DEFEATED · FATE DECISION' app/src/components/BingoBookScreen.tsx
+          grep -q 'kind.startsWith("bingo_")' app/src/components/NinjaSprite.tsx
+          grep -q 'shadow-village-bingo-book-v4-boss-battles' app/public/sw.js
+
+      - name: Apply Bingo detention and recruitment
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/apply_bingo_book_v5.py
+          grep -q 'bingoArt?: string | null' app/src/game/types.ts
+          grep -q 'export function recruitBingoPrisoner' app/src/game/engine.ts
+          grep -q 'export function interrogateBingoPrisoner' app/src/game/bingoHunt.ts
+          grep -q 'DETENTION FILE' app/src/components/BingoBookScreen.tsx
+          grep -q 'shadow-village-bingo-book-v5-detention-recruitment' app/public/sw.js
+
+      - name: Apply Bingo 102-event hunts and active boss mechanics
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/apply_bingo_book_v6.py
+          grep -q 'export const HUNT_EVENT_TOTAL = HUNT_EVENTS.length' app/src/game/huntEvents.ts
+          grep -q 'HUNT_EXPANSION_GROUPS' app/src/game/huntEvents.ts
+          grep -q 'Signals in the Canopy' app/src/game/huntEvents.ts
+          grep -q 'The Endless Road' app/src/game/huntEvents.ts
+          grep -q 'export type BingoMechanicId' app/src/game/bingo.ts
+          grep -q 'bossMechanicIds' app/src/game/bingo.ts
+          grep -q 'function applyBingoRoundState' app/src/game/battle.ts
+          grep -q 'BINGO FALSE BODY' app/src/game/battle.ts
+          grep -q 'shadow-village-bingo-book-v6-events-mechanics' app/public/sw.js
+
+      - name: Apply graphical physical Bingo Book v7/v8
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+        run: |
+          python overrides/apply_bingo_book_v7.py
+          python overrides/apply_bingo_book_v7_1.py
+          test -f app/src/components/BingoBookOverlay.tsx
+          grep -q 'export type BingoDiscoveryKey' app/src/game/bingo.ts
+          grep -q 'export function recordBingoDiscovery' app/src/game/bingo.ts
+          grep -q 'export function bingoUnreadCount' app/src/game/bingo.ts
+          grep -q 'recordBingoDiscovery' app/src/game/bingoHunt.ts
+          grep -q 'BingoBookOverlay' app/src/App.tsx
+          grep -q 'sRef.current.phase !== "paused"' app/src/App.tsx
+          ! grep -q 'shadow-village-bingo-slot3-kage-test-v1' app/src/App.tsx
+          ! grep -q 'id: "bingo"' app/src/App.tsx
+          grep -q 'BINGO BOOK' app/src/components/Overlays.tsx
+          grep -q '100dvh-1rem' app/src/components/Overlays.tsx
+          grep -q 'bbFlipNext' app/src/components/BingoBookOverlay.tsx
+          grep -q 'bb-stamp' app/src/components/BingoBookOverlay.tsx
+          grep -q 'orientation:portrait' app/src/components/BingoBookOverlay.tsx
+          grep -q 'shadow-village-bingo-book-v8-mobile-polish' app/public/sw.js
 
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
