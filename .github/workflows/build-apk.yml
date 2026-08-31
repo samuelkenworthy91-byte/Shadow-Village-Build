@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - v16-specialist-combat-rework
+      - feature/bingo-book-endgame
 
 jobs:
   build-apk:
@@ -200,6 +201,21 @@ jobs:
           grep -q 'shadow-village-depth-v1-jutsu-potential-v16-specialist-combat-rework' app/public/sw.js
           ! grep -q 'case "special":' app/src/game/battle.ts
           ! grep -q '{ id: "special"' app/src/components/BattleScreen.tsx
+
+      - name: Apply Bingo Book endgame v1
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/apply_bingo_book_v1.py
+          test -f app/src/game/bingo.ts
+          test -f app/src/game/huntEvents.ts
+          test -f app/src/components/BingoBookScreen.tsx
+          grep -q 'EXILE_MISSING_NIN_CHANCE = 0.03' app/src/game/bingo.ts
+          grep -q 'HUNT_MIN_EVENT_HP_RATIO = 0.10' app/src/game/bingo.ts
+          grep -q 'BINGO_ACTIVE_PARTY_SIZE = 3' app/src/game/bingo.ts
+          grep -q 'EXILE NINJA' app/src/components/NinjaDetail.tsx
+          grep -q 'BingoBookScreen' app/src/App.tsx
+          grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
+          grep -q 'shadow-village-bingo-book-v1' app/public/sw.js
 
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
