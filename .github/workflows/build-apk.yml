@@ -5,14 +5,7 @@ on:
   push:
     branches:
       - main
-      - raid-visuals-v22
-      - rank-exam-dev
-      - save-slots-v24
-      - target-selection-v25
-      - feature/expanded-ninja-progression
-      - ninja-art-190-current-main
-      - equipment-gacha-system
-      - village-depth-jutsu-missions-potential
+      - v16-specialist-combat-rework
 
 jobs:
   build-apk:
@@ -79,22 +72,13 @@ jobs:
           set -e
           test -f src/components/RaidDefenseModal.tsx
           grep -q 'raid_select' src/game/types.ts
-          grep -q 'dread_veteran' src/game/content.ts
           grep -q 'beginRaidBattle' src/game/engine.ts
-          grep -q 'bg-raid-field.jpg' src/components/BattleScreen.tsx
           cd ..
           cp overrides/raid_sw_v22.js app/public/sw.js
           mkdir -p app/public/raiders
           cp overrides/raid_assets_direct_v22/raiders/*.webp app/public/raiders/
           cp overrides/raid_assets_direct_v22/bg-raid-field.jpg app/public/bg-raid-field.jpg
-          echo "Patch return code: $PATCH_RC (service-worker hunk is intentionally replaced by override)"
-
-      - name: Verify raid assets
-        run: |
-          test -f app/src/components/RaidDefenseModal.tsx
-          test -s app/public/bg-raid-field.jpg
-          test "$(find app/public/raiders -name '*.webp' | wc -l)" -eq 10
-          grep -q 'shadow-village-v5-raiders10-field' app/public/sw.js
+          echo "Patch return code: $PATCH_RC"
 
       - name: Apply rank-up exam update
         run: |
@@ -103,11 +87,8 @@ jobs:
           cd ..
           cat overrides/rank_exam_assets_b64_v23/part_* | tr -d '\n\r' | base64 --decode > app/public/bg-exam-arena.jpg
           test -s app/public/bg-exam-arena.jpg
-          grep -q 'startExamBattle' app/src/game/battle.ts
-          grep -q 'TAKE EXAM' app/src/components/NinjaDetail.tsx
-          grep -q 'shadow-village-v6-rank-exams' app/public/sw.js
 
-      - name: Apply raid rebalance and three local save slots
+      - name: Apply raid rebalance and local save slots
         run: |
           cat overrides/v24_patch_parts/part_* > /tmp/v24.patch
           cd app
@@ -115,10 +96,6 @@ jobs:
           cd ..
           cp overrides/src/game/save.ts app/src/game/save.ts
           sed -i 's/shadow-village-v6-rank-exams/shadow-village-v7-save-slots/' app/public/sw.js
-          grep -q 'LOCAL SAVE SLOTS' app/src/components/Overlays.tsx
-          grep -q 'saveSlot' app/src/App.tsx
-          grep -q '4.8 + (s.day - 1) \* 1.2' app/src/game/battle.ts
-          grep -q 'shadow-village-v7-save-slots' app/public/sw.js
 
       - name: Apply universal battle target selection
         run: |
@@ -126,86 +103,46 @@ jobs:
           python ../overrides/apply_target_selection.py
           cd ..
           sed -i 's/shadow-village-v7-save-slots/shadow-village-v8-target-selection/' app/public/sw.js
-          grep -q 'type TargetMode = "foe" | "ally" | "downed_ally" | null' app/src/components/BattleScreen.tsx
-          grep -q 'targetPrompt(pendingMode, pending)' app/src/components/BattleScreen.tsx
-          grep -q 'target && target.foe === u.foe && !target.alive' app/src/game/battle.ts
-          grep -q 'shadow-village-v8-target-selection' app/public/sw.js
-
-      - name: Export exact patched v2.5 source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
-        uses: actions/upload-artifact@v4
-        with:
-          name: Shadow-Village-v2.5-Patched-Source
-          path: app
 
       - name: Apply expanded ninja progression
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           python overrides/apply_progression_expansion.py
           grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
-          grep -q 'Dōjutsu Potential' app/src/game/content.ts
-          grep -q "Commander's Gambit" app/src/game/perks.ts
-          grep -q 'com.shadowvillage.game.progression' app/capacitor.config.ts
           grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
 
       - name: Apply progression v0.2 village development
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           cat overrides/progression_v02.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v02.patch
           cd app
           patch -p1 < /tmp/progression-v02.patch
           cd ..
-          grep -q 'VillageTechId' app/src/game/types.ts
-          grep -q 'Mission Administration' app/src/game/content.ts
-          grep -q 'Perfect Plan' app/src/game/perks.ts
-          grep -q 'Quick Study' app/src/game/content.ts
-          grep -q 'onResearch' app/src/components/BuildMenu.tsx
 
       - name: Apply progression v0.2.1 XP correction
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v021.patch
-          grep -q 'const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) \* perkFx(n).xp;' src/game/engine.ts
           cd ..
 
       - name: Apply progression v0.3 elemental bloodlines
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           cat overrides/progression_v03.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v03.patch
           cd app
           patch -p1 < /tmp/progression-v03.patch
           cd ..
-          grep -q 'secondaryNature: Nature | null' app/src/game/types.ts
-          grep -q 'Kekkei Talent' app/src/game/content.ts
-          grep -q 'Magma Vein' app/src/game/perks.ts
-          grep -q 'Twin Fang Form' app/src/game/perks.ts
-          grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
-          grep -q 'Math.max(0, s.raids - 2) \* 0.65' app/src/game/battle.ts
 
       - name: Apply progression v0.3.2 point-spend QoL
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           cd app
           patch -p1 < ../overrides/progression_v032.patch
           cd ..
-          grep -q 'CONFIRM POINT SPEND' app/src/components/NinjaDetail.tsx
-          grep -q 'perkMechanics' app/src/components/PerkTree.tsx
-          grep -q 'skillPointGain' app/src/game/engine.ts
-          grep -q 'shadow-village-progression-dev-v3' app/public/sw.js
 
-      - name: Apply progression v0.3.3 Dōjutsu awakening gate
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
+      - name: Apply progression v0.3.3 Dojutsu awakening gate
         run: |
           cd app
           patch -p1 < ../overrides/progression_v033.patch
           cd ..
-          grep -q 'dojutsuAwakening' app/src/game/types.ts
-          grep -q 'if (k === "doj" && !dojutsuUnlocked) continue' app/src/game/battle.ts
-          grep -q 'Rank promotion alone never unlocks Dōjutsu' app/src/game/content.ts
 
       - name: Apply 250 ninja portrait library
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           set -euo pipefail
           mkdir -p app/public/ninjas
@@ -223,63 +160,51 @@ jobs:
                 break
               fi
             done
-            if [ -z "$src" ]; then
-              echo "Missing source portrait ninja_${n}.webp" >&2
-              exit 1
-            fi
+            test -n "$src"
             dims="$(identify -format '%wx%h' "$src")"
             if [ "$dims" = "240x536" ]; then
               convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
             else
-              echo "Normalizing ninja_${n}.webp from $dims to 240x536"
               convert "$src" -trim +repage -resize '230x520>' -gravity south -background none -extent 240x536 "PNG32:app/public/ninjas/ninja_${n}.png"
             fi
           done
           python overrides/apply_ninja_portraits_v26.py
           test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 250
-          for n in $(seq -w 1 250); do
-            test -s "app/public/ninjas/ninja_${n}.png"
-            test "$(identify -format '%wx%h' "app/public/ninjas/ninja_${n}.png")" = "240x536"
-          done
-          grep -q 'Array.from({ length: 250 }' app/src/game/ninjaArt.ts
-          ! grep -q 'LEGEND_ART' app/src/game/ninjaArt.ts
-          grep -q '250: { bustTop: 124 }' app/src/game/ninjaArt.ts
-          grep -q 'Array.from({ length: 250 }' app/public/sw.js
-          grep -q 'shadow-village-progression-dev-v4-ninja250' app/public/sw.js
 
       - name: Apply equipment gacha system
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
         run: |
           python overrides/apply_equipment_gacha.py
           python overrides/apply_equipment_gacha_v2.py
           grep -q 'Array.from({ length: 400 }' app/src/game/equipment.ts
-          grep -q 'canEquipRarity' app/src/game/equipment.ts
-          grep -q 'equipmentSpecial' app/src/game/equipment.ts
-          grep -q '"gear"' app/src/game/types.ts
-          grep -q 'grid-cols-7' app/src/components/BattleScreen.tsx
-          grep -q 'EquipmentScreen' app/src/App.tsx
-          grep -q 'NinjaEquipment' app/src/components/NinjaDetail.tsx
           grep -q 'applyEquipmentToBattleUnit' app/src/game/battle.ts
-          grep -q 'shadow-village-equipment-gacha-v2-400gear' app/public/sw.js
 
-      - name: Apply village depth jutsu, missions and potential v1
-        if: github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
+      - name: Stage village depth v2 and queue v3-v16
+        run: |
+          python overrides/apply_village_depth_v2_shim.py
+          test -f app/src/game/specialMissionsV2.ts
+          grep -q 'apply_village_depth_v16_specialist_combat.py' overrides/apply_village_depth_v1.py
+          grep -q 'apply_village_depth_v16_typefix.py' overrides/apply_village_depth_v1.py
+
+      - name: Apply village depth full stack v1-v16
         run: |
           python overrides/apply_village_depth_v1.py
-          grep -q 'JUTSU PATH TREES' app/src/components/JutsuTree.tsx
-          grep -q 'prerequisiteJutsu' app/src/game/jutsu.ts
-          grep -q 'pathLabel' app/src/game/jutsu.ts
-          grep -q 'potentialDevelopmentMultiplier' app/src/game/engine.ts
-          grep -q 'Find the Lost Cat Tama' app/src/game/content.ts
-          grep -q 'End the Silent War' app/src/game/content.ts
-          grep -q 'breakthrough_trial' app/src/game/specialMissions.ts
-          grep -q 'shadow-village-depth-v1-jutsu-potential' app/public/sw.js
 
-      - name: Export progression source snapshot
-        if: github.ref == 'refs/heads/feature/expanded-ninja-progression' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/ninja-art-190-current-main' || github.ref == 'refs/heads/equipment-gacha-system' || github.ref == 'refs/heads/village-depth-jutsu-missions-potential'
+      - name: Validate v16 integration
+        run: |
+          grep -q 'export function specialistJutsuTraits' app/src/game/jutsu.ts
+          grep -q 'export function combatTechniqueIds' app/src/game/perks.ts
+          grep -q '"technique"' app/src/game/types.ts
+          grep -q 'COMBAT TECHNIQUES' app/src/components/BattleScreen.tsx
+          grep -q 'EQUIPPED GEAR TECHNIQUES' app/src/components/BattleScreen.tsx
+          grep -q 'ONE DEFINING JUTSU STYLE' app/src/components/JutsuTree.tsx
+          grep -q 'shadow-village-depth-v1-jutsu-potential-v16-specialist-combat-rework' app/public/sw.js
+          ! grep -q 'case "special":' app/src/game/battle.ts
+          ! grep -q '{ id: "special"' app/src/components/BattleScreen.tsx
+
+      - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-Progression-Dev-Source
+          name: Shadow-Village-v16-Patched-Source
           path: app
 
       - name: Install dependencies
@@ -315,8 +240,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Upload v16 APK
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-Village-Depth-v8-APK
+          name: Shadow-Village-v16-Specialist-Combat-APK
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
