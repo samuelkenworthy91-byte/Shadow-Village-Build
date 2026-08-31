@@ -1,0 +1,77 @@
+from pathlib import Path
+import base64
+import gzip
+import re
+import subprocess
+
+root = Path('app')
+PAYLOAD = '''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'''
+raw = base64.b64decode(PAYLOAD)
+patch = gzip.decompress(raw)
+subprocess.run(['patch', '-p1'], cwd=root, input=patch, check=True)
+
+# Build-time progression integrity checks. The runtime also rejects duplicate
+# catalogue IDs, but CI should catch malformed content before an APK is produced.
+def literal_ids(path: Path) -> list[str]:
+    return re.findall(r'\bid\s*:\s*"([^"]+)"', path.read_text(encoding='utf-8'))
+
+for rel in ['src/game/jutsu.ts', 'src/game/genjutsu.ts']:
+    ids = literal_ids(root / rel)
+    dupes = sorted({x for x in ids if ids.count(x) > 1})
+    if dupes:
+        raise SystemExit(f'v14 duplicate progression IDs in {rel}: {dupes}')
+
+checks = {
+    root / 'src/game/types.ts': [
+        'techniqueTree?: string[][];',
+        'jutsuGranted?: string[];',
+    ],
+    root / 'src/game/perks.ts': [
+        'export function lockTechniqueTree',
+        'export function perkPurchaseCheck',
+        'if (n.techniqueTree?.length)',
+        'return { ok: false, reason: "Already mastered" };',
+    ],
+    root / 'src/game/engine.ts': [
+        'const check = perkPurchaseCheck(n, s.techs, perkId);',
+        'skillTrainingBlockReason(n, k)',
+        'lockTechniqueTree(n, s.techs, true);',
+        'recipient.jutsuGranted',
+    ],
+    root / 'src/game/jutsu.ts': [
+        'export function jutsuLearnBlockReason',
+        'const free = new Set(n.jutsuGranted ?? []);',
+        'Duplicate Jutsu id detected',
+    ],
+    root / 'src/game/genjutsu.ts': [
+        'export function genjutsuLearnBlockReason',
+        'Duplicate Genjutsu id detected',
+    ],
+    root / 'src/components/NinjaDetail.tsx': [
+        'Purchase blocked. Nothing was spent.',
+        'const ok = confirmSpend.kind === "skill"',
+        'disabled={skillTrainingBlockReason(n, k) !== null}',
+    ],
+    root / 'src/components/PerkTree.tsx': [
+        'const purchase = perkPurchaseCheck(n, techs, p.id);',
+        'disabled={!canPick}',
+    ],
+    root / 'public/sw.js': [
+        'shadow-village-depth-v1-jutsu-potential-v14-purchase-reliability',
+    ],
+}
+for path, needles in checks.items():
+    text = path.read_text(encoding='utf-8')
+    for needle in needles:
+        if needle not in text:
+            raise SystemExit(f'v14 validation failed: {needle} missing from {path}')
+
+# Explicitly ensure the old silent-confirm patterns are gone.
+perk_ui = (root / 'src/components/PerkTree.tsx').read_text(encoding='utf-8')
+detail = (root / 'src/components/NinjaDetail.tsx').read_text(encoding='utf-8')
+if 'disabled={!isActive}' in perk_ui:
+    raise SystemExit('v14 validation failed: Technique UI can still bypass centralized purchase validation')
+if 'else onPerk(confirmSpend.perkId, confirmSpend.rect);\n                      setConfirmSpend(null);' in detail:
+    raise SystemExit('v14 validation failed: confirmation still closes unconditionally after a rejected spend')
+
+print('Village depth v14 progression-purchase reliability pass applied and audited')
