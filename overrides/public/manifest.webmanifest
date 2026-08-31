@@ -1,7 +1,7 @@
 {
-  "name": "Shadow Village — Ninja Settlement",
-  "short_name": "Shadow Village",
-  "description": "Build a hidden ninja village, train shinobi, deploy squads on missions, and survive the raids.",
+  "name": "Kage Life",
+  "short_name": "Kage Life",
+  "description": "Lead a hidden ninja village, recruit and train shinobi, develop your settlement, take missions, survive raids, and hunt dangerous missing-nin through the Bingo Book.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
