@@ -2,11 +2,60 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 DIST = Path("app/dist")
 if not DIST.exists():
     raise SystemExit("app/dist was not found; run the browser build before finalizing the PWA")
+
+# Vite's public assets can still be referenced by application code with root-absolute
+# URLs. Convert the game-owned runtime assets to document-relative URLs so one build
+# works at a domain root, a GitHub Pages project subdirectory, LAN hosting, localhost,
+# or any other static directory.
+portable_assets = (
+    "ninjas/",
+    "raiders/",
+    "bg-village.jpg",
+    "bg-exam-arena.jpg",
+    "bg-raid-field.jpg",
+    "icon.png",
+    "manifest.webmanifest",
+    "register-sw.js",
+    "sw.js",
+)
+
+text_suffixes = {".html", ".js", ".css", ".json", ".webmanifest"}
+for path in sorted(p for p in DIST.rglob("*") if p.is_file() and p.suffix.lower() in text_suffixes):
+    text = path.read_text(encoding="utf-8")
+    original = text
+    for asset in portable_assets:
+        text = text.replace(f'"/{asset}', f'"./{asset}')
+        text = text.replace(f"'/{asset}", f"'./{asset}")
+        text = text.replace(f'`/{asset}', f'`./{asset}')
+        text = text.replace(f'url(/{asset}', f'url(./{asset}')
+
+    # The game does not need a network font request to function. Removing these two
+    # hints/stylesheets makes the downloadable build genuinely offline after caching.
+    if path.name == "index.html":
+        text = re.sub(r'\s*<link\b[^>]*rel=["\']preconnect["\'][^>]*fonts\.googleapis\.com[^>]*>', '', text, flags=re.I)
+        text = re.sub(r'\s*<link\b[^>]*rel=["\']preconnect["\'][^>]*fonts\.gstatic\.com[^>]*>', '', text, flags=re.I)
+        text = re.sub(r'\s*<link\b[^>]*href=["\']https://fonts\.googleapis\.com/[^"\']+["\'][^>]*>', '', text, flags=re.I)
+
+    if text != original:
+        path.write_text(text, encoding="utf-8")
+
+# Fail loudly if a future patch reintroduces one of the known root-absolute runtime
+# asset forms into the compiled browser output.
+compiled_text = "\n".join(
+    p.read_text(encoding="utf-8")
+    for p in sorted(DIST.rglob("*"))
+    if p.is_file() and p.suffix.lower() in text_suffixes
+)
+for asset in portable_assets:
+    forbidden = (f'"/{asset}', f"'/{asset}", f'`/{asset}', f'url(/{asset}')
+    if any(token in compiled_text for token in forbidden):
+        raise SystemExit(f"browser dist still contains a root-absolute runtime asset reference for {asset}")
 
 files: list[str] = []
 hash_state = hashlib.sha256()
@@ -99,4 +148,4 @@ self.addEventListener("fetch", (event) => {{
 (DIST / "sw.js").write_text(worker, encoding="utf-8")
 (DIST / ".nojekyll").write_text("", encoding="utf-8")
 
-print(f"Finalized browser PWA with cache {cache_version} and {len(files)} precached files.")
+print(f"Finalized portable browser PWA with cache {cache_version} and {len(files)} precached files.")
