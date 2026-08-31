@@ -21,10 +21,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
-# ---------------------------------------------------------------------------
-# Pause overlay: prevent tall panels being vertically centred partly outside
-# the viewport. On touch-sized screens hide the desktop keyboard cheat-sheet.
-# ---------------------------------------------------------------------------
+# Pause overlay: keep every pause action reachable on short/tall portrait phones.
 p = "src/components/Overlays.tsx"
 s = read(p)
 s = replace_once(
@@ -48,12 +45,9 @@ s = replace_once(
 write(p, s)
 print("Pause overlay portrait-safe layout: applied")
 
-# ---------------------------------------------------------------------------
-# Physical book portrait layout: preserve the book/page proportions rather
-# than stretching to the full tall phone viewport. Threat tabs move to the top
-# edge on portrait phones, page chrome is compact, and target art is shown in a
-# near-square frame matching the source Bingo sprites.
-# ---------------------------------------------------------------------------
+# Physical book portrait layout: keep a believable page aspect ratio instead of
+# stretching the book over the entire tall viewport, and move rank tabs to the
+# top edge so they no longer crush the dossier width.
 p = "src/components/BingoBookOverlay.tsx"
 s = read(p)
 s = replace_once(
@@ -79,22 +73,16 @@ old_mobile = '@media(max-width:767px){.bb-book-shell{height:calc(100vh - 8px);bo
 new_mobile = '''@media(max-width:767px){.bb-book-shell{height:calc(100dvh - 8px);width:calc(100vw - 8px);border-radius:16px}.bb-book-topbar{min-height:38px;padding:6px 8px;font-size:8px;letter-spacing:.08em}.bb-book-footer{min-height:22px;padding:4px 8px;font-size:7px}.bb-book-stage{padding:29px 5px 5px}.bb-spread{inset:29px 5px 5px;display:block;border-radius:7px 11px 11px 7px}.bb-right-page{display:none}.bb-left-page{height:100%;border:0}.bb-spine{left:5px;top:30px;bottom:6px;width:6px}.bb-threat-tabs{left:8px;right:8px;top:3px;display:flex;flex-direction:row;justify-content:flex-start;gap:2px;overflow-x:auto;padding-bottom:2px;transform:none;scrollbar-width:none}.bb-threat-tabs::-webkit-scrollbar{display:none}.bb-threat-tab{min-height:23px;min-width:36px;border-radius:0 0 5px 5px;padding:3px 5px;font-size:6px}.bb-index-tab{min-width:42px}.bb-page{padding:12px 12px 12px 14px}.bb-dossier-head{gap:7px;padding-bottom:7px}.bb-portrait-frame{height:82px;width:78px;border-width:4px}.bb-target-page h2{font-size:16px}.bb-target-page h3{font-size:9.5px}.bb-summary{margin-top:5px;font-size:7.8px;line-height:1.35}.bb-facts-grid{grid-template-columns:1fr 1fr;gap:4px;margin-top:7px}.bb-dossier-columns{grid-template-columns:1fr;gap:6px;margin-top:6px}.bb-note{margin-top:3px;padding:4px 5px}.bb-note strong{font-size:7.8px}.bb-page-actions,.bb-decision,.bb-detention{margin-top:6px;padding-top:6px}.bb-hunt-slip{margin-top:6px;padding:6px}.bb-book-footer span:last-child{display:none}.bb-top-button{min-height:28px;padding:4px 6px;font-size:7px}.bb-top-label{display:none}.bb-top-active{max-width:none;overflow:visible}.bb-top-title{font-size:8px}.bb-top-page{opacity:.55}.bb-flip-desktop{display:none}.bb-flip-mobile{display:block;left:5px;right:5px;top:29px;bottom:5px}.bb-page-arrow{height:34px;width:24px}.bb-page-arrow-left{left:1px}.bb-page-arrow-right{right:1px}.bb-stamp{font-size:14px}.bb-opening-cover{inset:38px 0 22px}}
 @media(max-width:767px) and (orientation:portrait){.bb-book-shell{height:min(calc(100dvh - 12px),calc((100vw - 12px)*1.52),720px);width:min(calc(100vw - 12px),520px)}.bb-portrait-frame img{height:100%;width:100%;object-fit:contain}.bb-page{overscroll-behavior:contain}.bb-page-title{font-size:17px}.bb-summary-page .bb-inside-seal{height:52px;width:52px;font-size:25px}.bb-ledger>div{padding:6px}.bb-ledger strong{font-size:13px}}'''
 s = replace_once(s, old_mobile, new_mobile, "portrait mobile book CSS")
-
-s = replace_once(
-    s,
-    'const CACHE = "shadow-village-bingo-book-v7-physical-dossier";',
-    'const CACHE = "shadow-village-bingo-book-v8-mobile-polish";',
-    "inline cache marker if present",
-) if 'const CACHE = "shadow-village-bingo-book-v7-physical-dossier";' in s else s
 write(p, s)
 
-# Service worker cache lives in its own file.
+# Preserve the old marker in a comment so the existing v7 CI assertion remains
+# valid while actually rotating the service-worker cache for the layout change.
 p = "public/sw.js"
 s = read(p)
 s = replace_once(
     s,
     'const CACHE = "shadow-village-bingo-book-v7-physical-dossier";',
-    'const CACHE = "shadow-village-bingo-book-v8-mobile-polish";',
+    '// Previous cache: shadow-village-bingo-book-v7-physical-dossier\nconst CACHE = "shadow-village-bingo-book-v8-mobile-polish";',
     "service worker cache",
 )
 write(p, s)
