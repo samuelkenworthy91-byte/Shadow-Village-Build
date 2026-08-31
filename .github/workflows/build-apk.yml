@@ -239,6 +239,16 @@ jobs:
           grep -q 'kind.startsWith("bingo_")' app/src/components/NinjaSprite.tsx
           grep -q 'shadow-village-bingo-book-v4-boss-battles' app/public/sw.js
 
+      - name: Apply Bingo detention and recruitment
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/apply_bingo_book_v5.py
+          grep -q 'bingoArt?: string | null' app/src/game/types.ts
+          grep -q 'export function recruitBingoPrisoner' app/src/game/engine.ts
+          grep -q 'export function interrogateBingoPrisoner' app/src/game/bingoHunt.ts
+          grep -q 'DETENTION FILE' app/src/components/BingoBookScreen.tsx
+          grep -q 'shadow-village-bingo-book-v5-detention-recruitment' app/public/sw.js
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
