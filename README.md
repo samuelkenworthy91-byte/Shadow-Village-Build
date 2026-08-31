@@ -22,7 +22,9 @@ Workflow: `.github/workflows/build-web-pwa.yml`
 
 Output artifact: `Shadow-Village-Browser-iPhone-PWA`
 
-The same workflow also deploys the build to GitHub Pages. The browser build uses relative asset paths so it works under the repository's GitHub Pages subdirectory as well as other static hosts.
+The workflow builds and validates the browser/PWA bundle and publishes the generated static site to the `gh-pages` branch. GitHub Pages needs to be enabled once in repository **Settings → Pages** with **Deploy from a branch**, branch **gh-pages**, folder **/(root)**. After that one-time repository setting, future browser/iPhone builds update the hosted game automatically.
+
+The browser build uses relative asset paths so it works under the repository's GitHub Pages subdirectory as well as other static hosts.
 
 ## Saves
 
