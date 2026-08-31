@@ -1,0 +1,254 @@
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -75,7 +75,7 @@
+   genjutsuEquipped?: string[];
+   /** Permanent potential increases earned from exceptional special missions. */
+   potentialRaises?: number;
+-  /** Stable generated technique-tree rows. Locked at recruitment so training/research can never reshuffle purchase choices. */
++  /** Personal technique rows frozen once their level requirement is reached. Future rows remain dynamic. */
+   techniqueTree?: string[][];
+   /** Jutsu granted by missions/events are free and must not consume shared JP. */
+   jutsuGranted?: string[];
+--- a/src/game/perks.ts
++++ b/src/game/perks.ts
+@@ -383,7 +383,7 @@
+  * Build this ninja's personal tree: 10 tiers x up to 3 choices,
+  * biased toward their nature / trait / best skills but never identical.
+  */
+-function buildTechniqueTree(n: Ninja, techs: VillageTechId[] = []): Perk[][] {
++function buildTechniqueTree(n: Ninja, techs: VillageTechId[] = [], frozenRows: string[][] = []): Perk[][] {
+   const rng = mulberry(n.id * 7919 + Math.floor(n.seed * 100000));
+   const favour: Skill[] = [BRANCH_OF[n.nature], "nin"];
+   if (n.secondaryNature) favour.push(BRANCH_OF[n.secondaryNature], "nin");
+@@ -397,7 +397,7 @@
+     const have = new Set<Nature>([n.nature, n.secondaryNature]);
+     return have.has(pair[0]) && have.has(pair[1]);
+   };
+-  const pool = ALL_IDS.filter((id) => {
++  const eligible = ALL_IDS.filter((id) => {
+     const p = PERKS[id];
+     if (p.branch === "doj" && !canDojutsu) return false;
+     if (p.requiresAnyTrait && !p.requiresAnyTrait.some((tr) => n.traits.includes(tr))) return false;
+@@ -405,65 +405,88 @@
+     if (p.requiresNaturePair && !pairMatches(p.requiresNaturePair)) return false;
+     return true;
+   });
+-  // weight: favoured branches float to the front
+-  pool.sort((a, b) => {
+-    const wa = (favour.includes(PERKS[a].branch as Skill) ? 2 : 0) + rng();
+-    const wb = (favour.includes(PERKS[b].branch as Skill) ? 2 : 0) + rng();
+-    return wb - wa;
+-  });
+ 
+-  // Legendary/unique shinobi keep their signature at tier 3 and also receive
+-  // two personal development choices later in the main tree.
++  // Stable per-candidate random score. Future rows may still change when favoured
++  // branches change, but repeated calls with the same ninja state never reshuffle
++  // just because Array.sort invoked its comparator in a different order.
++  const pool = eligible
++    .map((id) => ({ id, score: (favour.includes(PERKS[id].branch as Skill) ? 2 : 0) + rng() }))
++    .sort((a, b) => b.score - a.score)
++    .map((x) => x.id);
++
+   const legendPerk = n.legend ? LEGEND_PERK[n.legend] : null;
+   const legendExtras = n.legend ? (LEGEND_EXTRA_PERKS[n.legend] ?? []) : [];
++  const signatureMinTier = techs.includes("dojo_forbidden_archives") ? 1 : 2;
+ 
+   const tiers: Perk[][] = [];
+   const used = new Set<string>();
++  const pushUnique = (row: Perk[], p: Perk | null | undefined, want: number) => {
++    if (!p || row.length >= want || used.has(p.id)) return;
++    row.push(p);
++    used.add(p.id);
++  };
++
+   for (let t = 0; t < 10; t++) {
+-    const row: Perk[] = [];
+     const want = t === 0 ? 2 : 3;
++    const row: Perk[] = [];
++    const frozen = frozenRows[t];
++
++    if (frozen?.length) {
++      // Previously unlocked rows are authoritative. Filtering through the same global
++      // used-set also repairs malformed duplicate rows rather than showing a repeat.
++      for (const id of frozen) pushUnique(row, basePerkById(id), want);
++      tiers.push(row);
++      continue;
++    }
++
++    // Inject unique/legendary options before the generic pool so they obey the same
++    // no-repeat rule as every other technique.
++    if (legendPerk && t === 2 && innateLegendSignatureId(n) !== legendPerk.id) {
++      pushUnique(row, legendPerk, want);
++    }
++    const extra = t === 4 ? legendExtras[0] : t === 7 ? legendExtras[1] : null;
++    pushUnique(row, extra, want);
++
+     for (const id of pool) {
+       if (row.length >= want) break;
+       if (used.has(id)) continue;
+       const p = PERKS[id];
+       if (p.minTier != null && t < p.minTier) continue;
+-      // signatures normally appear from tier 3; Forbidden Archives opens them from tier 2.
+-      const signatureMinTier = techs.includes("dojo_forbidden_archives") ? 1 : 2;
+       if (p.kind === "signature" && t < signatureMinTier) continue;
+-      row.push(p);
+-      used.add(id);
+-    }
+-    if (legendPerk && t === 2 && innateLegendSignatureId(n) !== legendPerk.id) {
+-      row.unshift(legendPerk);
+-      if (row.length > 3) row.pop();
++      pushUnique(row, p, want);
+     }
+-    const extra = t === 4 ? legendExtras[0] : t === 7 ? legendExtras[1] : null;
+-    if (extra) {
+-      row.unshift(extra);
+-      if (row.length > 3) row.pop();
+-    }
+-    if (row.length) tiers.push(row);
++    tiers.push(row);
+   }
+   return tiers;
+ }
+ 
+-
+-/** Resolve a ninja's permanently locked technique rows. New recruits snapshot the
+- * generated rows once; later skill training, potential changes or village research
+- * cannot silently move already-offered choices to a different tier. */
++/**
++ * Unlocked rows are permanent; future rows are recalculated from the ninja's current
++ * skill profile. Because frozen row IDs are reserved before future rows are built,
++ * a technique shown at Level 2 can never reappear at Level 6, 8, etc.
++ */
+ export function perkTree(n: Ninja, techs: VillageTechId[] = []): Perk[][] {
+-  if (n.techniqueTree?.length) {
+-    return n.techniqueTree
+-      .map((row) => row.map((id) => basePerkById(id)).filter((p): p is Perk => !!p))
+-      .filter((row) => row.length > 0);
+-  }
+-  return buildTechniqueTree(n, techs);
++  return buildTechniqueTree(n, techs, n.techniqueTree ?? []);
+ }
+ 
++/** Freeze only rows whose level requirement has been reached. This deliberately does
++ * NOT snapshot the whole future tree: training can reshape tiers the ninja has not
++ * unlocked yet. `force` is retained for existing call sites but means "re-sanitise
++ * currently unlocked rows", never "freeze future rows".
++ */
+ export function lockTechniqueTree(n: Ninja, techs: VillageTechId[] = [], force = false): void {
+-  if (!force && n.techniqueTree?.length) return;
+-  const rows = buildTechniqueTree(n, techs);
+-  n.techniqueTree = rows.map((row) => row.map((p) => p.id));
++  const unlocked = Math.min(10, tiersUnlocked(n.level));
++  const frozen = force ? [] as string[][] : (n.techniqueTree ?? []).map((row) => [...row]);
++  // When force is used on an existing ninja, preserve already-unlocked authoritative
++  // rows rather than regenerating purchases/options from a changed skill profile.
++  if (force && n.techniqueTree?.length) frozen.push(...n.techniqueTree.slice(0, unlocked).map((row) => [...row]));
++  while (frozen.length < unlocked) {
++    const tree = buildTechniqueTree(n, techs, frozen);
++    const row = tree[frozen.length] ?? [];
++    if (!row.length) break;
++    frozen.push(row.map((p) => p.id));
++  }
++  n.techniqueTree = frozen;
+ }
+ 
+ /**
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -261,7 +261,6 @@
+     fatigue: 0, status: "ready", daysLeft: 0, missionId: null, runs: 0, wins: 0,
+     perks: [], legend: legendId ?? null, title: legend ? legend.title : null,
+   };
+-  lockTechniqueTree(n, s.techs, true);
+   return n;
+ }
+ 
+@@ -502,6 +501,9 @@
+ export function choosePerk(s: GameState, ninjaId: number, perkId: string, ev: Ev[]): boolean {
+   const n = s.ninjas.find((x) => x.id === ninjaId);
+   if (!n) return false;
++  // Defensive guard: an unlocked row becomes authoritative before the spend is
++  // validated, so no intervening state change can make a visible choice evaporate.
++  lockTechniqueTree(n, s.techs);
+   const check = perkPurchaseCheck(n, s.techs, perkId);
+   if (!check.ok) return false;
+   n.perks.push(perkId);
+@@ -550,6 +552,7 @@
+ export function trainSkill(s: GameState, ninjaId: number, k: Skill, ev: Ev[]): boolean {
+   const n = s.ninjas.find((x) => x.id === ninjaId);
+   if (!n || skillTrainingBlockReason(n, k)) return false;
++  lockTechniqueTree(n, s.techs);
+   n.sp--;
+   const gain = skillPointGain(n, k);
+   n.s[k] += gain;
+@@ -650,6 +653,7 @@
+     n.sp += sp;
+     s.stats.levels++;
+     for (const k of SKILLS) if (Math.random() < n.growth[k] * 0.4) n.s[k] += 1;
++    lockTechniqueTree(n, s.techs);
+     ev.push({ type: "ninja_level", name: n.name, level: n.level, sp, id: n.id });
+     pushLog(s, `${n.name} reached level ${n.level} (+${sp} SP)`, "good");
+   }
+@@ -690,9 +694,9 @@
+   }
+   const signature = LEGENDS[legendId]?.perk.id;
+   if (signature && !n.perks.includes(signature)) n.perks.push(signature);
+-  // Rare-order signatures are innate. Rebuild once after granting it so the
+-  // signature is never duplicated inside a normal level-gated technique row.
+-  lockTechniqueTree(n, s.techs, true);
++  // Rare-order signatures are innate. Freeze only the rows already unlocked by the
++  // recruit's starting level after granting it, so the signature cannot be duplicated.
++  lockTechniqueTree(n, s.techs);
+   return n;
+ }
+ 
+@@ -711,7 +715,7 @@
+   }
+   const recipient = squad.find((n) => specialRecipientEligible(def, n)); if (!recipient) return `No eligible shinobi could receive ${m.specialRewardLabel}.`;
+   if (def.reward.kind === "potential") { if (increaseNaturalPotential(recipient)) return `${recipient.name}'s natural Potential increased to ${recipient.pot}★.`; return `${recipient.name} reached the limit of this Potential training.`; }
+-  if (def.reward.kind === "trait") { if (!recipient.traits.includes(def.reward.trait)) recipient.traits.push(def.reward.trait); return `${recipient.name} gained the permanent trait ${TRAIT_META[def.reward.trait].name}.`; }
++  if (def.reward.kind === "trait") { lockTechniqueTree(recipient, s.techs); if (!recipient.traits.includes(def.reward.trait)) recipient.traits.push(def.reward.trait); return `${recipient.name} gained the permanent trait ${TRAIT_META[def.reward.trait].name}.`; }
+   const known = recipient.jutsuKnown ?? (recipient.jutsuKnown = []);
+   if (!known.includes(def.reward.jutsuId)) known.push(def.reward.jutsuId);
+   const granted = recipient.jutsuGranted ?? (recipient.jutsuGranted = []);
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -1,6 +1,6 @@
+ import type { BAction, Battle, Bld, GameState, Ninja, Unit } from "./types";
+ import { BUILDINGS, ENEMY_KINDS, NATURE_META, RANK_META, SKILLS, rankIndex } from "./content";
+-import { perkById, perkFx } from "./perks";
++import { lockTechniqueTree, perkById, perkFx } from "./perks";
+ import { applyEquipmentToBattleUnit, equipmentSkillBonus } from "./equipment";
+ import { JUTSU_BY_ID, jutsuPassiveFx, type JutsuDef } from "./jutsu";
+ import { GENJUTSU_BY_ID, type GenjutsuDef } from "./genjutsu";
+@@ -1083,6 +1083,7 @@
+       n.sp += sp;
+       s.stats.levels++;
+       for (const k of SKILLS) if (Math.random() < n.growth[k] * 0.4) n.s[k] += 1;
++      lockTechniqueTree(n, s.techs);
+       ev.push({ type: "ninja_level", name: n.name, level: n.level, sp, id: n.id });
+     }
+     if (!u.alive) {
+--- a/src/components/PerkTree.tsx
++++ b/src/components/PerkTree.tsx
+@@ -21,7 +21,7 @@
+             pending > 0 ? "animate-pulse bg-[#b46ae0]/25 text-[#cf9bf0] ring-1 ring-inset ring-[#b46ae0]/50" : "bg-black/30 text-paper/35"
+           )}
+         >
+-          {pending > 0 ? `${pending} NODE${pending > 1 ? "S" : ""} TO LEARN` : `NEXT AT LV ${(unlockedTiers + 1) * 2}`}
++          {pending > 0 ? `${pending} NODE${pending > 1 ? "S" : ""} TO LEARN` : unlockedTiers >= 10 ? "TREE COMPLETE" : `NEXT AT LV ${(unlockedTiers + 1) * 2}`}
+         </span>
+       </div>
+ 
+@@ -32,6 +32,10 @@
+         </div>
+       )}
+ 
++      <div className="mb-2 rounded-lg bg-black/25 px-2 py-1.5 ring-1 ring-inset ring-white/6">
++        <p className="text-[8.5px] font-semibold leading-snug text-paper/45">Rows lock when their level is reached. Future rows can evolve as this ninja's skills change. Once a technique has appeared in an earlier row, it is reserved and cannot appear again later.</p>
++      </div>
++
+       <div className="space-y-2">
+         {tree.map((row, t) => {
+           const taken = tierSelections[t];
