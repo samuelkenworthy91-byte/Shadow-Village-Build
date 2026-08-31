@@ -263,6 +263,22 @@ jobs:
           grep -q 'BINGO FALSE BODY' app/src/game/battle.ts
           grep -q 'shadow-village-bingo-book-v6-events-mechanics' app/public/sw.js
 
+      - name: Apply graphical physical Bingo Book v7
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/apply_bingo_book_v7.py
+          test -f app/src/components/BingoBookOverlay.tsx
+          grep -q 'export type BingoDiscoveryKey' app/src/game/bingo.ts
+          grep -q 'export function recordBingoDiscovery' app/src/game/bingo.ts
+          grep -q 'export function bingoUnreadCount' app/src/game/bingo.ts
+          grep -q 'recordBingoDiscovery' app/src/game/bingoHunt.ts
+          grep -q 'BingoBookOverlay' app/src/App.tsx
+          ! grep -q 'id: "bingo"' app/src/App.tsx
+          grep -q 'BINGO BOOK' app/src/components/Overlays.tsx
+          grep -q 'bbFlipNext' app/src/components/BingoBookOverlay.tsx
+          grep -q 'bb-stamp' app/src/components/BingoBookOverlay.tsx
+          grep -q 'shadow-village-bingo-book-v7-physical-dossier' app/public/sw.js
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
