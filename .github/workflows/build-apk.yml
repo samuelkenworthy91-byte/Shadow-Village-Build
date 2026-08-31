@@ -228,6 +228,17 @@ jobs:
           grep -q '80 unique targets · 10 Black Book superbosses' app/src/components/BingoBookScreen.tsx
           grep -q 'shadow-village-bingo-book-v3-80-targets' app/public/sw.js
 
+      - name: Apply Bingo Book lethal target battles
+        if: github.ref == 'refs/heads/feature/bingo-book-endgame'
+        run: |
+          python overrides/apply_bingo_book_v4.py
+          grep -q 'mode?: "raid" | "exam" | "bingo"' app/src/game/types.ts
+          grep -q 'export function startBingoBattle' app/src/game/battle.ts
+          grep -q 'export function beginBingoBossBattle' app/src/game/bingoHunt.ts
+          grep -q 'TARGET DEFEATED · FATE DECISION' app/src/components/BingoBookScreen.tsx
+          grep -q 'kind.startsWith("bingo_")' app/src/components/NinjaSprite.tsx
+          grep -q 'shadow-village-bingo-book-v4-boss-battles' app/public/sw.js
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
