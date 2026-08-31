@@ -1,0 +1,133 @@
+name: Build Kage Life Branch APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - kage-life-village-rename
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-kage-life:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Kage Life branch
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Keep debug signing key stable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: shadow-village-debug-keystore-v1
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+
+      - name: Download current main patched source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf app
+          mkdir -p app
+          RUN_ID="$(gh run list --workflow build-apk.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "$RUN_ID"
+          echo "Using successful main build run $RUN_ID"
+          gh run download "$RUN_ID" -n Shadow-Village-v16-Patched-Source -D app
+          test -f app/package.json
+          test -f app/src/App.tsx
+          test -f app/src/game/bingo.ts
+
+      - name: Apply Kage Life rename and village identity
+        run: |
+          set -euo pipefail
+          python overrides/apply_kage_life_rename.py
+          grep -q 'Kage Life — Ninja Village Management' app/index.html
+          grep -q 'villageName: string' app/src/game/types.ts
+          grep -q 'VILLAGE NAME' app/src/components/Overlays.tsx
+          grep -q 'KAGE LIFE · {s.villageName.toUpperCase()}' app/src/components/HUD.tsx
+          grep -q 'former ${s.villageName} shinobi' app/src/game/bingo.ts
+          ! grep -q 'This ninja will permanently leave Shadow Village' app/src/components/NinjaDetail.tsx
+
+      - name: Install Kage Life logo
+        run: |
+          set -euo pipefail
+          cat overrides/kage_life_logo_parts/part_* | tr -d '\n\r' | base64 --decode > /tmp/kage-life-logo.webp
+          identify /tmp/kage-life-logo.webp
+          magick /tmp/kage-life-logo.webp -alpha on -trim +repage -resize '900x900>' -gravity center -background none -extent 1024x1024 /tmp/kage-life-logo-square.png
+          magick /tmp/kage-life-logo-square.png -resize 512x512 app/public/icon.png
+          mkdir -p app/assets
+          cp /tmp/kage-life-logo-square.png app/assets/logo.png
+          identify app/public/icon.png
+          identify app/assets/logo.png
+
+      - name: Upload Kage Life patched source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-Patched-Source
+          path: app
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Install Capacitor build tools
+        working-directory: app
+        run: npm install --save-dev @capacitor/cli@8.5.0 @capacitor/assets
+
+      - name: Build game
+        working-directory: app
+        run: npm run build
+
+      - name: Create Android project
+        working-directory: app
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate Android Kage Life icon and splash
+        working-directory: app
+        run: |
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#0d0e1a' \
+            --iconBackgroundColorDark '#0d0e1a' \
+            --splashBackgroundColor '#0d0e1a' \
+            --splashBackgroundColorDark '#0d0e1a'
+
+      - name: Verify Android display name
+        working-directory: app
+        run: |
+          grep -q 'appName: "Kage Life"' capacitor.config.ts
+          grep -R -q 'Kage Life' android/app/src/main/res || true
+
+      - name: Build Kage Life APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload Kage Life APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-APK
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
