@@ -1,0 +1,184 @@
+name: Build Latest Arena V28 APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - build/v28-apk-temp
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-v28:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout V28 build branch
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Keep debug signing key stable
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: shadow-village-debug-keystore-v1
+
+      - name: Install image tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+
+      - name: Download current main patched source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf app
+          mkdir -p app
+          RUN_ID="$(gh run list --workflow build-apk.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "$RUN_ID"
+          echo "Using successful main patched-source run $RUN_ID"
+          gh run download "$RUN_ID" -n Shadow-Village-v16-Patched-Source -D app
+          test -f app/package.json
+          test -f app/src/App.tsx
+          test -f app/src/game/bingo.ts
+
+      - name: Verify Kage Life identity
+        run: |
+          set -euo pipefail
+          grep -q 'Kage Life — Ninja Village Management' app/index.html
+          grep -q 'villageName: string' app/src/game/types.ts
+          grep -q 'VILLAGE NAME' app/src/components/Overlays.tsx
+          grep -q 'You are the Kage' app/src/components/Overlays.tsx
+
+      - name: Apply v27 portrait expansion 251-310
+        run: |
+          set -euo pipefail
+          mkdir -p app/public/ninjas
+          test "$(find overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 60
+          for n in $(seq 251 310); do
+            src="overrides/ninja_assets_v27/direct/ninja_${n}.webp"
+            dest="app/public/ninjas/ninja_${n}.png"
+            test -f "$src"
+            dims="$(identify -format '%wx%h' "$src")"
+            if [ "$dims" = "240x536" ]; then
+              convert "$src" "PNG32:$dest"
+            else
+              convert "$src" -trim +repage -resize '230x520>' -gravity south -background none -extent 240x536 "PNG32:$dest"
+            fi
+          done
+          python overrides/apply_ninja_portraits_v27.py
+          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 310
+          grep -q 'length: 310' app/src/game/ninjaArt.ts
+
+      - name: Apply v17 technique tree overhaul
+        run: |
+          set -euo pipefail
+          python overrides/apply_village_depth_v17_technique_nodes.py
+          test -f app/src/game/techniques.ts
+          grep -q 'kage-life-v2-technique-depth' app/public/sw.js
+
+      - name: Apply v28 portrait expansion 311-370
+        run: |
+          set -euo pipefail
+          python overrides/apply_ninja_portraits_v28.py
+          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 370
+          grep -q 'length: 370' app/src/game/ninjaArt.ts
+
+      - name: Apply v18 elemental type advantage
+        run: |
+          set -euo pipefail
+          python overrides/apply_village_depth_v18_type_advantage.py
+
+      - name: Apply v19 dekanji and clarity pass
+        run: |
+          set -euo pipefail
+          python overrides/apply_village_depth_v19_dekanji.py
+          grep -q 'kage-life-v4-elemental-clarity' app/public/sw.js
+
+      - name: Validate latest Arena source
+        run: |
+          set -euo pipefail
+          test -f app/src/game/techniques.ts
+          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 370
+          grep -q 'length: 370' app/src/game/ninjaArt.ts
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          rx = re.compile(r'[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]')
+          roots = [Path('app/src'), Path('app/index.html'), Path('app/public/sw.js')]
+          bad = []
+          for root in roots:
+              files = root.rglob('*') if root.is_dir() else [root]
+              for p in files:
+                  if p.is_file() and p.suffix in {'.ts','.tsx','.css','.html','.js'}:
+                      text = p.read_text(encoding='utf-8', errors='ignore')
+                      if rx.search(text): bad.append(str(p))
+          if bad:
+              raise SystemExit('CJK remains in: ' + ', '.join(bad[:20]))
+          print('V28 source validation passed: 370 portraits and zero CJK')
+          PY
+
+      - name: Upload V28 patched source
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-V28-Patched-Source
+          path: app
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm install
+
+      - name: Install Capacitor build tools
+        working-directory: app
+        run: npm install --save-dev @capacitor/cli@8.5.0 @capacitor/assets
+
+      - name: Build game
+        working-directory: app
+        run: npm run build
+
+      - name: Create Android project
+        working-directory: app
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Generate Android Kage Life icon and splash
+        working-directory: app
+        run: |
+          npx capacitor-assets generate --android \
+            --iconBackgroundColor '#0d0e1a' \
+            --iconBackgroundColorDark '#0d0e1a' \
+            --splashBackgroundColor '#0d0e1a' \
+            --splashBackgroundColorDark '#0d0e1a'
+
+      - name: Verify Android display name
+        working-directory: app
+        run: |
+          grep -q 'appName: "Kage Life"' capacitor.config.ts
+
+      - name: Build V28 APK
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload V28 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-V28-APK
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
