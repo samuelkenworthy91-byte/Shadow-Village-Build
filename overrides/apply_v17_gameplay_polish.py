@@ -21,6 +21,11 @@ Applies one reviewed patch covering six player-reported problems:
      Scroll Archive) and sixteen new technologies feed the core loop: XP,
      recruitment quality, equipment economy, chakra costs, JP income, gold and
      an extra daily action.
+  7. Crit chance and dodge chance were capped in eight places at six different
+     values, so the sheet number was not the number combat rolled against. Both
+     now clamp to one shared 80% ceiling everywhere.
+  8. The personal screen shows what equipped gear contributes to HP, ATK, DEF,
+     CRIT, DODGE, CHAKRA and crit damage, not just to the nine skills.
 """
 
 from pathlib import Path
@@ -48,6 +53,11 @@ else:
     )
 
 CHECKS = {
+    "src/game/battle.ts": [
+        "export function bareUnitFromNinja",
+        "CRIT_CAP",
+        "DODGE_CAP",
+    ],
     "src/game/engine.ts": [
         "export const POTENTIAL_WEIGHTS",
         "export function rollPotential",
@@ -67,12 +77,17 @@ CHECKS = {
         "export function genjutsuMechanics",
     ],
     "src/game/equipment.ts": [
+        "export function gearStatDelta",
+        "Math.min(CRIT_CAP, u.crit + crit)",
+        "Math.min(DODGE_CAP, u.dodge + dodge)",
         "export type EquipmentArt",
         "export function itemBonusTags",
         "export function forgeDiscount",
         "Equipment is completely unrestricted",
     ],
     "src/game/content.ts": [
+        "export const CRIT_CAP = 0.80;",
+        "export const DODGE_CAP = 0.80;",
         '"academy", "forge", "market", "archive"',
         "academy_chakra_theory",
         "forge_masterwork_bench",
@@ -86,6 +101,7 @@ CHECKS = {
     "src/components/EquipmentArtwork.tsx": ["export default function EquipmentArtwork"],
     "src/components/Scene.tsx": ["function ResourceForecast"],
     "src/components/NinjaEquipment.tsx": ["ANY FOUR PIECES · NO RESTRICTIONS"],
+    "src/components/NinjaDetail.tsx": ["gearStatDelta(u, bare)", "fmtDeltaPct"],
     "src/components/JutsuTree.tsx": ["jutsuMechanics(j)"],
     "src/components/GenjutsuTree.tsx": ["genjutsuMechanics(g)"],
 }

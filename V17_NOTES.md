@@ -58,6 +58,31 @@ forbidden vault (+10% jutsu power); caravan routes (x1.30 market gold), bounty
 office (x1.20 mission gold and bingo bounties), rice exchange (+6 rice/day,
 x1.20 mission rice), war chest (+1 AP/day).
 
+**7. Crit and dodge unified at an 80% ceiling.** There *were* limits, and they
+were a mess: crit was clamped at 0.42, 0.48, 0.70, 0.85 and 0.92 in different
+code paths, dodge at 0.30, 0.34, 0.45, 0.55 and 0.60. Which one applied
+depended on whether the bonus came from skills, gear, a jutsu passive, raid
+threat scaling or the jutsu attack roll, so **the percentage on a ninja's sheet
+was not the percentage combat rolled against**. Both stats now clamp to single
+shared constants (`CRIT_CAP` / `DODGE_CAP` in `content.ts`) everywhere, so the
+displayed number is the real one.
+
+I capped at 80% rather than uncapping, for two reasons: an uncapped dodge build
+becomes literally unhittable and trivialises the raid and Bingo content, and an
+uncapped crit rate collides with the crit-damage multiplier to produce runaway
+scaling. 80% is reachable but expensive — roughly 105 SPD/DŌJ/TAC for dodge, or
+less with gear — and still leaves one hit in five landing. The personal screen
+now warns you when a stat is at the ceiling so you stop pouring points into a
+stat that is discarding them.
+
+**8. Gear contributions on the personal screen.** The battle profile shows the
+gear delta beneath every stat — HP, ATK, DEF, CRIT, DODGE, CHAKRA, plus crit
+damage. These are computed by building the unit twice, once geared and once
+with empty slots, and differencing the results, so the figures account for
+multiplicative stacking and the shared cap rather than naively re-adding item
+numbers. If gear pushes crit past the ceiling, the delta shows the portion that
+actually applied.
+
 ## Applying it
 
 `overrides/apply_v17_gameplay_polish.py` applies
