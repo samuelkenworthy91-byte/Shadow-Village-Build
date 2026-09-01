@@ -284,6 +284,20 @@ jobs:
           grep -q 'orientation:portrait' app/src/components/BingoBookOverlay.tsx
           grep -q 'shadow-village-main-polish-v1' app/public/sw.js
 
+      - name: Apply v17 gameplay polish
+        run: |
+          python overrides/apply_v17_gameplay_polish.py
+          grep -q 'export function rollPotential' app/src/game/engine.ts
+          grep -q 'export function jutsuMechanics' app/src/game/jutsu.ts
+          grep -q 'export function genjutsuMechanics' app/src/game/genjutsu.ts
+          grep -q 'export function itemBonusTags' app/src/game/equipment.ts
+          grep -q 'Equipment is completely unrestricted' app/src/game/equipment.ts
+          grep -q 'function ResourceForecast' app/src/components/Scene.tsx
+          test -f app/src/components/EquipmentArtwork.tsx
+          grep -q 'academy_chakra_theory' app/src/game/content.ts
+          grep -q 'market_war_chest' app/src/game/content.ts
+          grep -q 'kage-life-v17-gameplay-polish' app/public/sw.js
+
       - name: Upload v16 patched source snapshot
         uses: actions/upload-artifact@v4
         with:
