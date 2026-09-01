@@ -1,0 +1,1597 @@
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/BattleScreen.tsx b/src/components/BattleScreen.tsx
+--- a/src/components/BattleScreen.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/BattleScreen.tsx	2026-09-01 05:08:30.482097478 +0000
+@@ -4,8 +4,8 @@
+ import { COSTS, actionLabel, aliveAllies, aliveFoes, canUse, currentUnit, unitCombatPower } from "../game/battle";
+ import { combatTechniqueIds, perkById } from "../game/perks";
+ import { NATURE_META } from "../game/content";
+-import { JUTSU_BY_ID, jutsuCostForNinja, type JutsuDef } from "../game/jutsu";
+-import { GENJUTSU_BY_ID, genjutsuCost, genjutsuEquippedIds, type GenjutsuDef } from "../game/genjutsu";
++import { JUTSU_BY_ID, jutsuCostForNinja, jutsuFlavour, jutsuMechanics, type JutsuDef } from "../game/jutsu";
++import { GENJUTSU_BY_ID, genjutsuCost, genjutsuEquippedIds, genjutsuFlavour, genjutsuMechanics, type GenjutsuDef } from "../game/genjutsu";
+ import { activeEquipmentAbilities } from "../game/equipment";
+ import NinjaSprite, { EnemyArt } from "./NinjaSprite";
+ import { cn } from "../utils/cn";
+@@ -425,7 +425,8 @@
+                   return <button key={j.id} disabled={!affordable} onClick={() => chooseJutsu(j)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35">
+                     <div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{j.name}</span><span className="text-[8px] font-black text-[#7db9ec]">{cost}cp</span></div>
+                     <p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-gold/70">{j.target.replace(/_/g, " ")} · {j.effect}{j.effectValue ? ` ${j.effectValue}` : ""}</p>
+-                    <p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{j.desc}</p>
++                    <p className="mt-0.5 line-clamp-2 text-[7.5px] italic text-paper/35">{jutsuFlavour(j)}</p>
++                    <p className="mt-0.5 line-clamp-3 text-[7.5px] font-semibold text-[#9bd6ff]">{jutsuMechanics(j)}</p>
+                   </button>;
+                 })}
+               </div>
+@@ -445,7 +446,8 @@
+                   return <button key={g.id} disabled={!affordable} onClick={() => chooseGenjutsu(g)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35">
+                     <div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{g.name}</span><span className="text-[8px] font-black text-[#b46ae0]">{cost}cp</span></div>
+                     <p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-[#d9a8ff]">{g.pathLabel} · {tag}</p>
+-                    <p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{g.desc}</p>
++                    <p className="mt-0.5 line-clamp-2 text-[7.5px] italic text-paper/35">{genjutsuFlavour(g)}</p>
++                    <p className="mt-0.5 line-clamp-3 text-[7.5px] font-semibold text-[#e0bcff]">{genjutsuMechanics(g)}</p>
+                   </button>;
+                 })}
+               </div>
+@@ -453,12 +455,12 @@
+           ) : techniqueOpen && isPlayerTurn && cur ? (
+             <div className="space-y-1.5">
+               <div className="flex items-center gap-2"><span className="text-[9px] font-black tracking-[0.18em] text-gold">COMBAT TECHNIQUES</span><span className="text-[8.5px] text-paper/40">Skill-tree arts · all learned techniques remain usable</span><button onClick={() => setTechniqueOpen(false)} className="btn-ghost ml-auto h-7 rounded-lg px-2.5 text-[9px] font-black">BACK</button></div>
+-              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">{equippedTechniques.map((p:any) => <button key={p.id} disabled={cur.cp < COSTS.technique} onClick={() => chooseTechnique(p)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35"><div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{p.tech.name}</span><span className="text-[8px] font-black text-gold">{COSTS.technique}cp</span></div><p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-gold/70">{p.tech.hits} HIT{p.tech.hits===1?"":"S"} · {p.tech.power.toFixed(2)}× {String(p.tech.stat).toUpperCase()}</p><p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{p.tech.note}</p></button>)}</div>
++              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">{equippedTechniques.map((p:any) => <button key={p.id} disabled={cur.cp < COSTS.technique} onClick={() => chooseTechnique(p)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35"><div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{p.tech.name}</span><span className="text-[8px] font-black text-gold">{COSTS.technique}cp</span></div><p className="mt-0.5 line-clamp-2 text-[7.5px] italic text-paper/35">{p.tech.note}</p><p className="mt-0.5 text-[7.5px] font-semibold text-gold/80">{p.tech.hits} hit{p.tech.hits===1?"":"s"} at {p.tech.power.toFixed(2)}× {String(p.tech.stat).toUpperCase()} scaling · costs {COSTS.technique} chakra</p></button>)}</div>
+             </div>
+           ) : gearOpen && isPlayerTurn && cur ? (
+             <div className="space-y-1.5">
+               <div className="flex items-center gap-2"><span className="text-[9px] font-black tracking-[0.18em] text-[#78d8ff]">EQUIPPED GEAR TECHNIQUES</span><span className="text-[8.5px] text-paper/40">Every equipped item ability is available</span><button onClick={() => setGearOpen(false)} className="btn-ghost ml-auto h-7 rounded-lg px-2.5 text-[9px] font-black">BACK</button></div>
+-              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">{equippedGearTechniques.map((p:any) => <button key={p.id} disabled={cur.cp < COSTS.gear} onClick={() => chooseGear(p)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35"><div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{p.tech.name}</span><span className="text-[8px] font-black text-[#78d8ff]">{COSTS.gear}cp</span></div><p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-[#78d8ff]">{p.tech.hits} HIT{p.tech.hits===1?"":"S"} · {p.tech.power.toFixed(2)}× {String(p.tech.stat).toUpperCase()}</p><p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{p.tech.note}</p></button>)}</div>
++              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">{equippedGearTechniques.map((p:any) => <button key={p.id} disabled={cur.cp < COSTS.gear} onClick={() => chooseGear(p)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35"><div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{p.tech.name}</span><span className="text-[8px] font-black text-[#78d8ff]">{COSTS.gear}cp</span></div><p className="mt-0.5 line-clamp-2 text-[7.5px] italic text-paper/35">{p.tech.note}</p><p className="mt-0.5 text-[7.5px] font-semibold text-[#78d8ff]">{p.tech.hits} hit{p.tech.hits===1?"":"s"} at {p.tech.power.toFixed(2)}× {String(p.tech.stat).toUpperCase()} scaling · costs {COSTS.gear} chakra</p></button>)}</div>
+             </div>
+           ) : pending ? (
+             <div className="flex h-11 items-center gap-2">
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/Bits.tsx b/src/components/Bits.tsx
+--- a/src/components/Bits.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/Bits.tsx	2026-09-01 05:03:42.479870709 +0000
+@@ -20,7 +20,7 @@
+         ))}
+       </span>
+       <span className={cn("text-[8px] font-bold tracking-wider", known ? "text-gold/70" : "text-paper/35")}>
+-        {known ? "CONFIRMED" : `${lo}–${hi}?`}
++        {known ? `CONFIRMED ${hi}★` : `EST ${lo}–${hi}★`}
+       </span>
+     </span>
+   );
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/BuildMenu.tsx b/src/components/BuildMenu.tsx
+--- a/src/components/BuildMenu.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/BuildMenu.tsx	2026-09-01 05:15:49.445491580 +0000
+@@ -1,6 +1,7 @@
+ import { Coins, HeartPulse, Wheat } from "lucide-react";
+ import type { Bld, GameState, VillageTechId } from "../game/types";
+-import { BUILD_ORDER, BUILDINGS, REPAIR_COST, VILLAGE_TECHS } from "../game/content";
++import { BUILD_ORDER, BUILDINGS, VILLAGE_TECHS } from "../game/content";
++import { repairCost } from "../game/engine";
+ import { cn } from "../utils/cn";
+ import { securityOperationReduction, SECURITY_OPERATION_COST } from "../game/villageSecurity";
+ 
+@@ -145,8 +146,9 @@
+           {/* repair */}
+           {(() => {
+             const missing = s.hpMax - s.hp;
+-            const locked = s.ap < 1;
+-            const afford = s.gold >= REPAIR_COST.gold && s.rice >= REPAIR_COST.rice;
++            const cost = repairCost(s);
++            const locked = s.ap < cost.ap;
++            const afford = s.gold >= cost.gold && s.rice >= cost.rice;
+             const ok = missing > 0 && !locked && afford;
+             return (
+               <article className="flex items-center gap-2 rounded-lg bg-black/25 p-1.5 ring-1 ring-inset ring-white/5">
+@@ -156,7 +158,7 @@
+                 <div className="min-w-0 flex-1">
+                   <span className="block truncate text-[11.5px] font-bold text-paper/90">Repair Walls</span>
+                   <p className="truncate text-[9.5px] font-medium text-paper/45">
+-                    {missing === 0 ? "Village at full strength" : locked ? "No actions left today" : `1 action · ${REPAIR_COST.gold} gold · ${REPAIR_COST.rice} rice`}
++                    {missing === 0 ? "Village at full strength" : locked ? "No actions left today" : `${cost.ap === 0 ? "No action needed" : "1 action"} · ${cost.gold} gold · ${cost.rice} rice`}
+                   </p>
+                 </div>
+                 <button
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/EquipmentArtwork.tsx b/src/components/EquipmentArtwork.tsx
+--- a/src/components/EquipmentArtwork.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/components/EquipmentArtwork.tsx	2026-09-01 05:02:30.627315154 +0000
+@@ -0,0 +1,169 @@
++import type { EquipmentArt, EquipmentItem } from "../game/equipment";
++import { RARITY_META } from "../game/equipment";
++
++/**
++ * Small illustrated picture for a piece of equipment.
++ *
++ * Each drawing matches the item's written in-game appearance: the shape comes
++ * from the base type (headband, kunai, vest, ...) and the main colour comes
++ * from the item prefix, so a "Crimson Vest" is a red vest and an "Obsidian
++ * Kunai" is a black blade. The rarity colour is used for the metal fittings
++ * and the surrounding frame.
++ */
++export default function EquipmentArtwork({
++  item,
++  size = 36,
++  className,
++}: {
++  item: EquipmentItem;
++  size?: number;
++  className?: string;
++}) {
++  const r = RARITY_META[item.rarity];
++  const tint = item.tint ?? "#8a9099";
++  const dark = `color-mix(in srgb, ${tint} 55%, #05060a)`;
++  const light = `color-mix(in srgb, ${tint} 70%, #ffffff)`;
++
++  return (
++    <span
++      className={className}
++      style={{
++        display: "grid",
++        placeItems: "center",
++        width: size,
++        height: size,
++        borderRadius: Math.round(size * 0.26),
++        background: `radial-gradient(circle at 32% 24%, ${r.color}22, ${r.dark} 78%)`,
++        boxShadow: `inset 0 0 0 1px ${r.border}`,
++        flexShrink: 0,
++      }}
++      role="img"
++      aria-label={`${item.name} illustration`}
++      title={item.appearance}
++    >
++      <svg width={Math.round(size * 0.78)} height={Math.round(size * 0.78)} viewBox="0 0 32 32">
++        <Art art={item.art ?? "talisman"} tint={tint} dark={dark} light={light} metal={r.color} />
++      </svg>
++    </span>
++  );
++}
++
++function Art({ art, tint, dark, light, metal }: { art: EquipmentArt; tint: string; dark: string; light: string; metal: string }) {
++  switch (art) {
++    case "headband":
++      // Long cloth wrap centred on a reinforced metal plate.
++      return (
++        <g>
++          <path d="M2 13h28v6H2z" fill={tint} />
++          <path d="M2 17h28v2H2z" fill={dark} />
++          <path d="M4 19l-2 8 6-4z" fill={tint} />
++          <path d="M28 19l2 8-6-4z" fill={dark} />
++          <rect x="10" y="11" width="12" height="10" rx="2" fill={metal} />
++          <rect x="11.5" y="12.5" width="9" height="7" rx="1.5" fill={dark} opacity="0.35" />
++          <path d="M16 14.2l1.6 3.2-1.6-.9-1.6.9z" fill={light} />
++        </g>
++      );
++    case "kunai":
++      // Leaf-shaped throwing blade, wrapped grip, ring pommel.
++      return (
++        <g>
++          <path d="M16 1l5 9-5 5-5-5z" fill={metal} />
++          <path d="M16 1l5 9-5 5z" fill={light} opacity="0.55" />
++          <rect x="14" y="15" width="4" height="10" rx="1" fill={tint} />
++          <path d="M14 17h4M14 19.5h4M14 22h4" stroke={dark} strokeWidth="1" />
++          <circle cx="16" cy="27.5" r="3.2" fill="none" stroke={metal} strokeWidth="1.8" />
++        </g>
++      );
++    case "vest":
++      // Sleeveless shinobi vest with high shoulders and utility pockets.
++      return (
++        <g>
++          <path d="M8 5l8 4 8-4 4 4v18H4V9z" fill={tint} />
++          <path d="M16 9v18" stroke={dark} strokeWidth="1.4" />
++          <path d="M8 5l8 4-4 4-6-6z" fill={light} opacity="0.4" />
++          <rect x="5.5" y="17" width="6" height="5" rx="1" fill={dark} />
++          <rect x="20.5" y="17" width="6" height="5" rx="1" fill={dark} />
++        </g>
++      );
++    case "scroll":
++      // Tightly rolled field scroll with stiff end caps and cord.
++      return (
++        <g>
++          <rect x="4" y="11" width="24" height="10" rx="2" fill={tint} />
++          <rect x="2.5" y="9" width="4" height="14" rx="1.6" fill={metal} />
++          <rect x="25.5" y="9" width="4" height="14" rx="1.6" fill={metal} />
++          <path d="M9 14h14M9 17h10" stroke={dark} strokeWidth="1.2" />
++          <path d="M16 21v6" stroke={metal} strokeWidth="1.6" />
++          <circle cx="16" cy="28" r="1.8" fill={light} />
++        </g>
++      );
++    case "gloves":
++      // Combat gloves: reinforced knuckles, wrapped wrists.
++      return (
++        <g>
++          <path d="M7 10h13a4 4 0 014 4v6a4 4 0 01-4 4H7z" fill={tint} />
++          <rect x="4" y="19" width="6" height="7" rx="1.5" fill={dark} />
++          <circle cx="14" cy="14" r="1.7" fill={metal} />
++          <circle cx="19" cy="14" r="1.7" fill={metal} />
++          <circle cx="23.5" cy="15" r="1.5" fill={metal} />
++          <path d="M8 22h13" stroke={light} strokeWidth="1.1" opacity="0.6" />
++        </g>
++      );
++    case "tabi":
++      // Split-toe shinobi boots with layered soles.
++      return (
++        <g>
++          <path d="M9 4h8v13l7 6v4H9z" fill={tint} />
++          <path d="M9 27h15v3H9z" fill={dark} />
++          <path d="M17 17l7 6h-7z" fill={light} opacity="0.4" />
++          <path d="M9 9h8M9 13h8" stroke={dark} strokeWidth="1.1" />
++          <path d="M20.5 22.5v4" stroke={metal} strokeWidth="1.2" />
++        </g>
++      );
++    case "mask":
++      // Close-fitting half mask with ventilation cuts and rear ties.
++      return (
++        <g>
++          <path d="M6 10h20v7c0 5-4.5 9-10 9S6 22 6 17z" fill={tint} />
++          <path d="M6 10h20v4H6z" fill={dark} />
++          <path d="M11 18h10M12 21h8" stroke={dark} strokeWidth="1.3" />
++          <path d="M6 12L1 9v5zM26 12l5-3v5z" fill={metal} />
++        </g>
++      );
++    case "talisman":
++      // Layered paper-and-wood charm on braided cord with a seal plate.
++      return (
++        <g>
++          <path d="M16 2v6" stroke={metal} strokeWidth="1.4" />
++          <circle cx="16" cy="3" r="2" fill="none" stroke={metal} strokeWidth="1.3" />
++          <path d="M9 8h14v16l-7 6-7-6z" fill={tint} />
++          <path d="M9 8h14v3H9z" fill={dark} />
++          <rect x="12.5" y="13" width="7" height="7" rx="1" fill={metal} />
++          <path d="M14 15.5h4M14 18h4" stroke={dark} strokeWidth="1" />
++        </g>
++      );
++    case "sash":
++      // Broad folded waist sash with a reinforced knot.
++      return (
++        <g>
++          <path d="M1 11h30v10H1z" fill={tint} />
++          <path d="M1 15h30v2H1z" fill={dark} opacity="0.7" />
++          <path d="M12 9h8v14h-8z" fill={dark} />
++          <path d="M13 23l-3 7 6-3zM19 23l3 7-6-3z" fill={tint} />
++          <circle cx="16" cy="16" r="2.2" fill={metal} />
++        </g>
++      );
++    case "ring":
++      // Heavy shinobi ring with a flat engraved outer face.
++      return (
++        <g>
++          <circle cx="16" cy="18" r="10" fill="none" stroke={metal} strokeWidth="4" />
++          <circle cx="16" cy="18" r="10" fill="none" stroke={dark} strokeWidth="1" />
++          <path d="M10 9h12v6H10z" fill={tint} />
++          <rect x="12" y="10.2" width="8" height="3.6" rx="1" fill={light} opacity="0.65" />
++        </g>
++      );
++    default:
++      return <circle cx="16" cy="16" r="10" fill={tint} />;
++  }
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/EquipmentScreen.tsx b/src/components/EquipmentScreen.tsx
+--- a/src/components/EquipmentScreen.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/EquipmentScreen.tsx	2026-09-01 05:02:49.411460431 +0000
+@@ -7,20 +7,36 @@
+   RARITY_META,
+   ensureEquipmentState,
+   gachaCost,
++  itemBonusTags,
+   ownedUniqueCount,
+   pullEquipment,
+   type EquipmentItem,
+   type EquipmentRarity,
+ } from "../game/equipment";
++import EquipmentArtwork from "./EquipmentArtwork";
+ 
+ const RARITIES: EquipmentRarity[] = ["legendary", "epic", "rare", "uncommon", "common"];
+ 
++/** The numeric bonuses are always shown, on every equipment card. */
++export function BonusTags({ item, className }: { item: EquipmentItem; className?: string }) {
++  const tags = itemBonusTags(item);
++  if (tags.length === 0) return null;
++  const r = RARITY_META[item.rarity];
++  return (
++    <span className={className ?? "mt-1 flex flex-wrap gap-1"}>
++      {tags.map((x) => (
++        <span key={x} className="rounded px-1.5 py-[1px] text-[8px] font-black tracking-wide" style={{ color: r.color, background: `${r.color}1c`, boxShadow: `inset 0 0 0 1px ${r.color}33` }}>{x}</span>
++      ))}
++    </span>
++  );
++}
++
+ function ItemRow({ item, count }: { item: EquipmentItem; count: number }) {
+   const r = RARITY_META[item.rarity];
+   return (
+     <div className="relative overflow-hidden rounded-xl border p-2.5" style={{ background: `linear-gradient(135deg, ${r.dark}ee, #10121dcc 70%)`, borderColor: r.border, boxShadow: `inset 3px 0 0 ${r.color}` }}>
+       <div className="flex items-start gap-2.5">
+-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg font-display text-lg font-black ring-1 ring-inset" style={{ color: r.color, background: `${r.color}22`, borderColor: r.border }}>{item.icon}</span>
++        <EquipmentArtwork item={item} size={38} />
+         <div className="min-w-0 flex-1">
+           <div className="flex items-center gap-1.5">
+             <p className="truncate text-[11px] font-black text-paper">{item.name}</p>
+@@ -29,6 +45,7 @@
+           </div>
+           <p className="mt-1 line-clamp-2 text-[8.5px] font-semibold italic leading-relaxed text-paper/42">{item.appearance}</p>
+           <p className="mt-1 text-[9.5px] font-semibold leading-relaxed text-paper/60">{item.desc}</p>
++          <BonusTags item={item} />
+         </div>
+       </div>
+     </div>
+@@ -69,7 +86,7 @@
+               return (
+                 <div key={item.id} className={isSingle ? "relative overflow-hidden rounded-3xl border p-5 shadow-2xl" : "relative overflow-hidden rounded-xl border p-3"} style={{ background: `linear-gradient(145deg, ${r.dark}, #0d0f19 72%)`, borderColor: r.border, boxShadow: `inset 4px 0 0 ${r.color}, 0 14px 40px #0008` }}>
+                   <div className="flex items-start gap-3">
+-                    <span className={isSingle ? "grid h-16 w-16 shrink-0 place-items-center rounded-2xl font-display text-3xl font-black ring-1 ring-inset" : "grid h-11 w-11 shrink-0 place-items-center rounded-xl font-display text-xl font-black ring-1 ring-inset"} style={{ color: r.color, background: `${r.color}22`, borderColor: r.border }}>{item.icon}</span>
++                    <EquipmentArtwork item={item} size={isSingle ? 64 : 44} />
+                     <div className="min-w-0 flex-1">
+                       <div className="flex flex-wrap items-center gap-1.5">
+                         <span className="rounded px-1.5 py-0.5 text-[8px] font-black tracking-wider" style={{ color: "#0b0c12", background: r.color }}>{r.name.toUpperCase()}</span>
+@@ -88,6 +105,7 @@
+                     <div className="border-t pt-3" style={{ borderColor: `${r.color}30` }}>
+                       <p className="text-[8px] font-black tracking-[0.18em]" style={{ color: r.color }}>MECHANICS</p>
+                       <p className={isSingle ? "mt-1.5 text-[12px] font-bold leading-relaxed text-paper/90" : "mt-1 text-[9.5px] font-bold leading-relaxed text-paper/82"}>{item.desc}</p>
++                      <BonusTags item={item} className="mt-2 flex flex-wrap gap-1" />
+                     </div>
+                   </div>
+ 
+@@ -147,7 +165,7 @@
+             <div className="min-w-0 flex-1">
+               <p className="text-[9px] font-black tracking-[0.2em] text-gold/70">EQUIPMENT GACHA</p>
+               <h2 className="text-lg font-black text-paper">Shinobi Supply Draw</h2>
+-              <p className="text-[9.5px] font-semibold text-paper/45">400 pieces · four unrestricted slots · one item per rarity per ninja</p>
++              <p className="text-[9.5px] font-semibold text-paper/45">400 pieces · four fully unrestricted slots · any four pieces on any ninja</p>
+             </div>
+             <div className="rounded-lg bg-black/30 px-2.5 py-1.5 text-right ring-1 ring-white/8">
+               <p className="text-[8px] font-black tracking-wider text-paper/35">COLLECTION</p>
+@@ -201,7 +219,7 @@
+           <div className="flex items-end gap-2">
+             <div>
+               <p className="text-[9px] font-black tracking-[0.18em] text-paper/50">OWNED EQUIPMENT</p>
+-              <p className="mt-0.5 text-[10px] font-semibold text-paper/40">Tap a ninja portrait to equip four pieces. Each ninja can equip only one item of each rarity.</p>
++              <p className="mt-0.5 text-[10px] font-semibold text-paper/40">Tap a ninja portrait to equip four pieces. There are no restrictions: any four owned items, in any combination of rarities, can be worn together.</p>
+             </div>
+             <p className="ml-auto text-[9px] font-black tabular-nums text-paper/45">{st.totalPulls.toLocaleString()} total pulls</p>
+           </div>
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/GenjutsuTree.tsx b/src/components/GenjutsuTree.tsx
+--- a/src/components/GenjutsuTree.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/GenjutsuTree.tsx	2026-09-01 05:08:01.277871756 +0000
+@@ -1,6 +1,6 @@
+ import type { Ninja } from "../game/types";
+ import { jutsuPointsAvailable } from "../game/jutsu";
+-import { GENJUTSU, canLearnGenjutsu, genjutsuEquippedIds, genjutsuKnownIds, genjutsuLearnBlockReason, learnGenjutsu, toggleGenjutsuEquip, type GenjutsuDef } from "../game/genjutsu";
++import { GENJUTSU, canLearnGenjutsu, genjutsuEquippedIds, genjutsuKnownIds, genjutsuLearnBlockReason, genjutsuFlavour, genjutsuMechanics, learnGenjutsu, toggleGenjutsuEquip, type GenjutsuDef } from "../game/genjutsu";
+ import { cn } from "../utils/cn";
+ 
+ const PATH_META = {
+@@ -31,7 +31,9 @@
+     const reason = genjutsuLearnBlockReason(n,g.id) ?? "Locked";
+     return <div key={g.id} className={cn("rounded-lg bg-black/20 p-2 ring-1 ring-white/7",has&&"bg-[#b46ae0]/8 ring-[#b46ae0]/20",!has&&!can&&"opacity-55")}>
+       <div className="flex items-center justify-between gap-1"><span className="rounded bg-[#b46ae0]/12 px-1.5 py-[2px] text-[7px] font-black tracking-wider text-[#d9a8ff]">T{g.tier} · {g.pathLabel.toUpperCase()}</span>{eq&&<span className="rounded bg-gold/15 px-1 py-[1px] text-[7px] font-black text-gold">EQUIPPED</span>}</div>
+-      <p className="mt-1 text-[9px] font-black text-paper">{g.name}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/50">{g.desc}</p>
++      <p className="mt-1 text-[9px] font-black text-paper">{g.name}</p>
++      <p className="mt-1 text-[8px] italic leading-relaxed text-paper/50">{genjutsuFlavour(g)}</p>
++      <p className="mt-1 rounded bg-black/25 p-1 text-[7.5px] font-semibold leading-relaxed text-[#e0bcff]"><span className="font-black tracking-[0.14em] text-[#d9a8ff]">EFFECT · </span>{genjutsuMechanics(g)}</p>
+       <div className="mt-1 flex flex-wrap gap-1"><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">Lv {g.levelReq}</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-[#7db9ec]">{g.chakra} CP</span>{mechanics(g).map(x=><span key={x} className="rounded bg-[#b46ae0]/10 px-1 py-[1px] text-[7px] font-black text-[#d9a8ff]">{x}</span>)}</div>
+       <div className="mt-2">{!has?<button disabled={!can} onClick={()=>{if(learnGenjutsu(n,g.id))onChanged();}} className="w-full rounded-lg bg-[#b46ae0] px-2 py-1.5 text-[8px] font-black text-white disabled:bg-white/8 disabled:text-paper/25">{can?"LEARN · 1 SHARED JP":reason}</button>:<button onClick={()=>{if(toggleGenjutsuEquip(n,g.id))onChanged();}} className={cn("w-full rounded-lg px-2 py-1.5 text-[8px] font-black ring-1",eq?"bg-vermil/15 text-vermil ring-vermil/25":"bg-black/30 text-paper/60 ring-white/10")}>{eq?"REMOVE":equipped.size>=4?"4/4 EQUIPPED":"EQUIP"}</button>}</div>
+     </div>;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/HUD.tsx b/src/components/HUD.tsx
+--- a/src/components/HUD.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/HUD.tsx	2026-09-01 05:15:49.445491580 +0000
+@@ -1,7 +1,6 @@
+ import { Coins, Flame, Menu, Trophy, Volume2, VolumeX, Wheat, Zap } from "lucide-react";
+ import type { GameState } from "../game/types";
+-import { EAT_PER_DAY, FARM_RICE, TEA_GOLD } from "../game/content";
+-import { apMax, hasTech, streakMult } from "../game/engine";
++import { apMax, dailyGoldIncome, dailyRiceConsumption, dailyRiceIncome, streakMult } from "../game/engine";
+ import { cn } from "../utils/cn";
+ import type { ReactNode } from "react";
+ 
+@@ -29,6 +28,7 @@
+   warn?: boolean;
+ }) {
+   const hasDelta = gain !== undefined || loss !== undefined;
++  const net = (gain ?? 0) - (loss ?? 0);
+ 
+   return (
+     <span
+@@ -36,17 +36,22 @@
+       title={title}
+       className={cn(
+         "inline-flex shrink-0 items-center rounded-lg bg-black/30 font-semibold tabular-nums ring-1 ring-inset ring-white/5",
+-        hasDelta ? "h-7 gap-0.5 px-1 text-[11px] sm:h-8 sm:gap-1 sm:px-1.5 sm:text-[12px]" : "h-7 gap-1 px-1.5 text-[11px] sm:px-2 sm:text-[13px]",
++        hasDelta ? "h-9 gap-0.5 px-1 text-[11px] sm:h-9 sm:gap-1 sm:px-1.5 sm:text-[12px]" : "h-7 gap-1 px-1.5 text-[11px] sm:px-2 sm:text-[13px]",
+         warn && "animate-pulse"
+       )}
+     >
+       {icon}
+       {hasDelta ? (
+-        <span className="flex min-w-0 flex-col items-start leading-none sm:min-w-[34px]">
++        <span className="flex min-w-0 flex-col items-start leading-none min-w-[34px]">
+           <span className="whitespace-nowrap">{value}</span>
+-          <span className="mt-0.5 hidden items-center gap-1 whitespace-nowrap text-[8px] font-extrabold leading-none sm:flex">
++          <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[8px] font-extrabold leading-none">
+             {gain !== undefined && <span className="text-[#8fce6a]">+{formatGain(gain)}</span>}
+             {loss !== undefined && <span className="text-vermil">−{formatGain(loss)}</span>}
++            {gain !== undefined && loss !== undefined && (
++              <span className={net >= 0 ? "text-[#8fce6a]/70" : "text-vermil/80"}>
++                ({net >= 0 ? "+" : "−"}{formatGain(Math.abs(net))})
++              </span>
++            )}
+           </span>
+         </span>
+       ) : (
+@@ -68,9 +73,9 @@
+   onPause: () => void;
+ }) {
+   const max = apMax(s);
+-  const nextGoldFromBuildings = TEA_GOLD * s.b.tea * (hasTech(s, "tea_merchant_contacts") ? 1.25 : 1);
+-  const nextRiceFromBuildings = FARM_RICE * s.b.farm * (hasTech(s, "farm_efficiency") ? 1.25 : 1);
+-  const nextRiceConsumption = EAT_PER_DAY * s.ninjas.length * (hasTech(s, "farm_ration_stores") ? 0.75 : 1);
++  const nextGoldFromBuildings = dailyGoldIncome(s);
++  const nextRiceFromBuildings = dailyRiceIncome(s);
++  const nextRiceConsumption = dailyRiceConsumption(s);
+ 
+   return (
+     <header className="flex h-11 min-w-0 shrink-0 items-center gap-0.5 rounded-xl bg-[#151728]/85 px-1 ring-1 ring-white/10 backdrop-blur sm:gap-2 sm:px-3">
+@@ -85,7 +90,7 @@
+         icon={<Coins size={13} className="text-gold" />}
+         value={Math.floor(s.gold).toLocaleString()}
+         gain={nextGoldFromBuildings}
+-        title={`Next day from Tea Houses: +${formatGain(nextGoldFromBuildings)} gold`}
++        title={`Next day: +${formatGain(nextGoldFromBuildings)} gold from Tea Houses and the Merchant Quarter`}
+       />
+       <Chip
+         id="hud-rice"
+@@ -93,7 +98,7 @@
+         value={Math.floor(s.rice).toLocaleString()}
+         gain={nextRiceFromBuildings}
+         loss={nextRiceConsumption}
+-        title={`Next day: +${formatGain(nextRiceFromBuildings)} rice from Paddies −${formatGain(nextRiceConsumption)} rice consumed by ${s.ninjas.length} ninja`}
++        title={`Next day: +${formatGain(nextRiceFromBuildings)} rice produced −${formatGain(nextRiceConsumption)} rice consumed by ${s.ninjas.length} ninja = ${formatGain(nextRiceFromBuildings - nextRiceConsumption)} net`}
+         warn={s.hungry}
+       />
+       <span className="hidden md:inline-flex"><Chip icon={<Trophy size={13} className="text-[#ffe9b8]" />} value={s.score.toLocaleString()} /></span>
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/JutsuTree.tsx b/src/components/JutsuTree.tsx
+--- a/src/components/JutsuTree.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/JutsuTree.tsx	2026-09-01 05:08:01.277871756 +0000
+@@ -1,5 +1,5 @@
+ import type { Ninja, TraitId } from "../game/types";
+-import { JUTSU, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
++import { JUTSU, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, jutsuFlavour, jutsuMechanics, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
+ import { NATURE_META, TRAIT_META, KEKKEI_META } from "../game/content";
+ import { LEGENDS } from "../game/perks";
+ import { dojutsuFamilyLabel } from "../game/clanBloodlines";
+@@ -57,7 +57,9 @@
+     const reason = j.tier === 0 ? "INNATE FOUNDATION" : (jutsuLearnBlockReason(n, j.id) ?? "Locked");
+     return <div key={j.id} className={cn("rounded-lg p-2 ring-1 ring-inset", has ? "bg-jade/8 ring-jade/20" : "bg-black/20 ring-white/6", locked && "opacity-55")}>
+       <div className="mb-1 flex items-center justify-between gap-1"><span className="rounded bg-black/35 px-1.5 py-[2px] text-[7px] font-black uppercase tracking-wider text-gold/80">{j.pathLabel}</span>{j.passive && <span className="rounded bg-[#79cf69]/15 px-1 py-[1px] text-[7px] font-black text-[#9bea8f]">PASSIVE</span>}{eq && <span className="rounded bg-gold/15 px-1 py-[1px] text-[7px] font-black text-gold">EQUIPPED</span>}</div>
+-      <p className="text-[9px] font-black leading-tight text-paper">{j.name}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/52">{j.desc}</p>
++      <p className="text-[9px] font-black leading-tight text-paper">{j.name}</p>
++      <p className="mt-1 text-[8px] italic leading-relaxed text-paper/52">{jutsuFlavour(j)}</p>
++      <p className="mt-1 rounded bg-black/25 p-1 text-[7.5px] font-semibold leading-relaxed text-[#9bd6ff]"><span className="font-black tracking-[0.14em] text-[#7db9ec]">EFFECT · </span>{jutsuMechanics(j)}</p>
+       <div className="mt-1 flex flex-wrap gap-1"><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">Lv {j.levelReq}</span>{!j.passive && <><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-[#75bfff]">{j.chakra} CP</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.power.toFixed(2)}×</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.effect.toUpperCase()}</span></>}{passiveText(j).map(x => <span key={x} className="rounded bg-jade/10 px-1 py-[1px] text-[7px] font-black text-jade">{x}</span>)}{specialText(j).map(x => <span key={x} className="rounded bg-[#9b7cff]/10 px-1 py-[1px] text-[7px] font-black text-[#c5b7ff]">{x}</span>)}</div>
+       <p className="mt-1 text-[7px] font-bold uppercase tracking-wide text-paper/30">{j.pathSummary}</p><div className="mt-2">
+         {!has && j.tier > 0 && <button disabled={!learnable} onClick={() => learn(j.id)} className="w-full rounded-lg bg-gold px-2 py-1.5 text-[8px] font-black text-[#2b2118] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-paper/25">{learnable ? "LEARN · 1 JP" : reason}</button>}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/NinjaEquipment.tsx b/src/components/NinjaEquipment.tsx
+--- a/src/components/NinjaEquipment.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/NinjaEquipment.tsx	2026-09-01 05:03:03.203567028 +0000
+@@ -5,7 +5,6 @@
+   EQUIPMENT_CATALOG,
+   RARITY_META,
+   availableCount,
+-  canEquipRarity,
+   equipItem,
+   equipmentSlots,
+   equipmentSummary,
+@@ -14,6 +13,8 @@
+   type EquipmentItem,
+ } from "../game/equipment";
+ import NinjaSprite from "./NinjaSprite";
++import EquipmentArtwork from "./EquipmentArtwork";
++import { BonusTags } from "./EquipmentScreen";
+ 
+ export default function NinjaEquipment({ s, n, onClose, onChanged }: { s: GameState; n: Ninja; onClose: () => void; onChanged: () => void }) {
+   const [, redraw] = useState(0);
+@@ -44,7 +45,7 @@
+           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg bg-black/25 text-paper/60 ring-1 ring-white/8"><ChevronLeft size={16} /></button>
+           <div className="min-w-0 flex-1">
+             <p className="truncate text-[12px] font-black text-paper">{n.name}</p>
+-            <p className="text-[8px] font-black tracking-[0.18em] text-gold/65">EQUIPMENT LOADOUT · FOUR PIECES · NO REPEATED RARITY</p>
++            <p className="text-[8px] font-black tracking-[0.18em] text-gold/65">EQUIPMENT LOADOUT · ANY FOUR PIECES · NO RESTRICTIONS</p>
+           </div>
+           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg bg-black/25 text-paper/55 ring-1 ring-white/8"><X size={15} /></button>
+         </div>
+@@ -70,13 +71,14 @@
+                   return (
+                     <button key={slot} onClick={() => setPickSlot(slot)} className="min-h-28 rounded-xl border p-2.5 text-left transition hover:brightness-110" style={{ background: rarity ? `linear-gradient(135deg, ${rarity.dark}e6, #11131ddd 75%)` : "rgba(0,0,0,.25)", borderColor: rarity?.border ?? "rgba(255,255,255,.09)", boxShadow: rarity ? `inset 3px 0 0 ${rarity.color}` : undefined }}>
+                       <div className="flex items-center gap-2">
+-                        <span className="grid h-8 w-8 place-items-center rounded-lg bg-black/35 font-display text-base font-black" style={{ color: rarity?.color ?? "#717784" }}>{item?.icon ?? "+"}</span>
++                        {item ? <EquipmentArtwork item={item} size={34} /> : <span className="grid h-[34px] w-[34px] place-items-center rounded-lg bg-black/35 text-base font-black text-paper/30">+</span>}
+                         <div className="min-w-0">
+                           <p className="text-[8px] font-black tracking-wider text-paper/30">SLOT {slot + 1}</p>
+                           <p className="truncate text-[10px] font-black" style={{ color: rarity?.color ?? "#d7d9df" }}>{item?.name ?? "Empty"}</p>
+                         </div>
+                       </div>
+                       <p className="mt-2 line-clamp-3 text-[8.5px] font-semibold leading-relaxed text-paper/50">{item?.desc ?? "Tap to choose any owned equipment."}</p>
++                      {item && <BonusTags item={item} className="mt-1.5 flex flex-wrap gap-1" />}
+                       {item && (
+                         <span onClick={(e) => { e.stopPropagation(); remove(slot); }} className="mt-2 inline-flex rounded bg-vermil/12 px-1.5 py-1 text-[8px] font-black text-vermil/80">UNEQUIP</span>
+                       )}
+@@ -86,7 +88,7 @@
+               </div>
+ 
+               <div className="mt-3 rounded-xl bg-black/20 p-2.5 text-[9px] font-semibold leading-relaxed text-paper/45 ring-1 ring-inset ring-white/6">
+-                Equipment has no class, rank, weapon or armour restrictions, but a ninja cannot equip two pieces of the same rarity. Stat bonuses and combat passives apply normally. Technique gear grants a separate Gear Signature command in battle, so it can be used alongside a personal, legendary or jinchūriki 奥義.
++                Equipment is completely unrestricted: any four owned pieces fit any ninja, in any slot, including four of the same rarity or four of the same type. Every bonus a piece gives is listed on its card and all four stack. Technique gear grants a separate Gear Signature command in battle, so it can be used alongside a personal, legendary or jinchūriki 奥義.
+               </div>
+             </div>
+           </div>
+@@ -100,12 +102,12 @@
+                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                   {owned.map((item) => {
+                     const avail = availableCount(s, item.id);
+-                    const rarityOk = canEquipRarity(n, pickSlot, item.id);
+                     const r = RARITY_META[item.rarity];
+                     return (
+-                      <button key={item.id} disabled={avail <= 0 || !rarityOk} onClick={() => choose(item)} className="rounded-xl border p-2.5 text-left disabled:opacity-25" style={{ background: `linear-gradient(135deg, ${r.dark}e6, #11131ddd 75%)`, borderColor: r.border, boxShadow: `inset 3px 0 0 ${r.color}` }}>
+-                        <div className="flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-lg font-display font-black" style={{ color: r.color, background: `${r.color}16` }}>{item.icon}</span><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-black text-paper">{item.name}</p><p className="text-[8px] font-black" style={{ color: r.color }}>{r.name.toUpperCase()} · {avail} AVAILABLE{!rarityOk ? " · RARITY ALREADY EQUIPPED" : ""}</p></div></div>
++                      <button key={item.id} disabled={avail <= 0} onClick={() => choose(item)} className="rounded-xl border p-2.5 text-left disabled:opacity-25" style={{ background: `linear-gradient(135deg, ${r.dark}e6, #11131ddd 75%)`, borderColor: r.border, boxShadow: `inset 3px 0 0 ${r.color}` }}>
++                        <div className="flex items-center gap-2"><EquipmentArtwork item={item} size={34} /><div className="min-w-0 flex-1"><p className="truncate text-[10px] font-black text-paper">{item.name}</p><p className="text-[8px] font-black" style={{ color: r.color }}>{r.name.toUpperCase()} · {avail} AVAILABLE</p></div></div>
+                         <p className="mt-1.5 text-[8.5px] font-semibold leading-relaxed text-paper/50">{item.desc}</p>
++                        <BonusTags item={item} className="mt-1.5 flex flex-wrap gap-1" />
+                       </button>
+                     );
+                   })}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/PerkTree.tsx b/src/components/PerkTree.tsx
+--- a/src/components/PerkTree.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/PerkTree.tsx	2026-09-01 05:08:46.658222558 +0000
+@@ -90,6 +90,7 @@
+                         {p.kind === "signature" && <Sparkles size={9} className="shrink-0 text-gold" />}
+                         {locked && !taken && <Lock size={9} className="ml-auto shrink-0 text-paper/30" />}
+                       </span>
++                      <span className="mt-1 line-clamp-3 text-[8.5px] italic leading-snug text-paper/45">{p.desc}</span>
+                       <span className="mt-1 text-[8px] font-black tracking-[0.14em] text-jade/75">MECHANICS</span>
+                       <span className="mt-0.5 line-clamp-4 text-[9px] font-semibold leading-snug text-paper/65">{perkMechanics(p)}</span>
+                       {p.kind === "signature" && (
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/components/Scene.tsx b/src/components/Scene.tsx
+--- a/src/components/Scene.tsx	2026-09-01 05:00:37.302438972 +0000
++++ b/src/components/Scene.tsx	2026-09-01 05:16:19.785726162 +0000
+@@ -1,12 +1,54 @@
+ import { useMemo } from "react";
+-import { ChevronsRight } from "lucide-react";
++import { ChevronsRight, Coins, Wheat } from "lucide-react";
+ import type { GameState, Ninja } from "../game/types";
+ import { BUILDINGS } from "../game/content";
+ import { raidForecast } from "../game/battle";
++import { dailyGoldIncome, dailyRiceConsumption, dailyRiceIncome } from "../game/engine";
+ import NinjaSprite from "./NinjaSprite";
+ import { cn } from "../utils/cn";
+ 
+-const DISPLAY_ORDER = ["tea", "farm", "hall", "dojo", "tower", "shrine", "intel", "hospital", "embassy", "anbu"] as const;
++const DISPLAY_ORDER = [
++  "tea", "farm", "hall", "dojo", "tower", "shrine",
++  "academy", "forge", "market", "archive",
++  "intel", "hospital", "embassy", "anbu",
++] as const;
++
++function fmt(v: number): string {
++  return Number.isInteger(v) ? v.toLocaleString() : v.toLocaleString(undefined, { maximumFractionDigits: 1 });
++}
++
++/**
++ * Home-screen resource forecast. Each total carries the next day's prediction
++ * directly underneath it, so the player never has to open another screen to
++ * see whether the village is gaining or losing food and gold.
++ */
++function ResourceForecast({ s }: { s: GameState }) {
++  const gold = dailyGoldIncome(s);
++  const riceIn = dailyRiceIncome(s);
++  const riceOut = dailyRiceConsumption(s);
++  const riceNet = riceIn - riceOut;
++
++  return (
++    <div className="absolute left-2.5 top-9 flex gap-1.5">
++      <div className="rounded-md bg-black/45 px-2 py-1 text-left backdrop-blur-sm ring-1 ring-white/8">
++        <p className="flex items-center gap-1 text-[11px] font-black tabular-nums leading-none text-gold">
++          <Coins size={11} />{Math.floor(s.gold).toLocaleString()}
++        </p>
++        <p className="mt-0.5 text-[8px] font-black tabular-nums leading-none text-[#8fce6a]">+{fmt(gold)}/day</p>
++      </div>
++      <div className="rounded-md bg-black/45 px-2 py-1 text-left backdrop-blur-sm ring-1 ring-white/8">
++        <p className={cn("flex items-center gap-1 text-[11px] font-black tabular-nums leading-none", s.hungry ? "text-vermil" : "text-[#a8dd86]")}>
++          <Wheat size={11} />{Math.floor(s.rice).toLocaleString()}
++        </p>
++        <p className="mt-0.5 flex gap-1 text-[8px] font-black tabular-nums leading-none">
++          <span className="text-[#8fce6a]">+{fmt(riceIn)}</span>
++          <span className="text-vermil">−{fmt(riceOut)}</span>
++          <span className={riceNet >= 0 ? "text-[#8fce6a]/80" : "text-vermil"}>({riceNet >= 0 ? "+" : "−"}{fmt(Math.abs(riceNet))})</span>
++        </p>
++      </div>
++    </div>
++  );
++}
+ 
+ export default function Scene({ s, onEndDay, busy }: { s: GameState; onEndDay: () => void; busy: boolean }) {
+   const stars = useMemo(
+@@ -52,6 +94,8 @@
+         ))}
+       </div>
+ 
++      <ResourceForecast s={s} />
++
+       {/* threat + transparent raid intel */}
+       <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
+         <div className="flex items-center gap-1.5 rounded-md bg-black/35 px-1.5 py-1 backdrop-blur-sm ring-1 ring-white/10">
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/battle.ts b/src/game/battle.ts
+--- a/src/game/battle.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/battle.ts	2026-09-01 05:14:25.992846310 +0000
+@@ -224,7 +224,7 @@
+   const relative = raidRelativeMultiplier(s);
+   const enemyPower = strongest * relative * count;
+   const homePower = raidDefenders(s.ninjas.filter((n) => n.status === "ready"))
+-    .map(unitFromNinja)
++    .map((n) => unitFromNinja(n, s))
+     .reduce((sum, u) => sum + unitCombatPower(u), 0);
+   const strongestLevel = s.ninjas.length ? Math.max(...s.ninjas.map((n) => n.level)) : 1;
+   const dailyThreat = raidThreatPerDay(s);
+@@ -242,7 +242,7 @@
+   const templatePower = raidEnemyPower(s);
+   // Preserve the player's selection/order. No automatic strongest-four swap.
+   const chosenDefenders = defenders.slice(0, 4);
+-  const allies = chosenDefenders.map(unitFromNinja);
++  const allies = chosenDefenders.map((n) => unitFromNinja(n, s));
+   // Will of Fire style team auras only count the shinobi actually defending.
+   let teamAtk = 1;
+   for (const n of chosenDefenders) teamAtk *= perkFx(n).allyAtk;
+@@ -293,8 +293,7 @@
+ 
+ /** Start a promotion exam: exactly one candidate versus one generated rival. */
+ export function startExamBattle(s: GameState, candidate: Ninja, rival: Ninja, targetRank: Ninja["rank"]): Battle {
+-  const ally = unitFromNinja(candidate);
+-  if (s.techs.includes("shrine_chakra_restoration")) { ally.maxCp = Math.round(ally.maxCp * 1.15); ally.cp = ally.maxCp; }
++  const ally = unitFromNinja(candidate, s);
+   const foe = unitFromNinja(rival);
+   foe.uid = "e0";
+   foe.foe = true;
+@@ -354,7 +353,7 @@
+  * missing-nin and exactly the three hunters whose resources survived the hunt.
+  */
+ export function startBingoBattle(s: GameState, defenders: Ninja[], cfg: BingoBattleConfig): Battle {
+-  const allies = defenders.slice(0, 3).map(unitFromNinja);
++  const allies = defenders.slice(0, 3).map((n) => unitFromNinja(n, s));
+   for (const ally of allies) {
+     const carried = cfg.members.find((m) => m.ninjaId === ally.ninjaId);
+     if (!carried) continue;
+@@ -783,7 +782,7 @@
+ 
+ function useElementalJutsu(b: Battle, u: Unit, j: JutsuDef, targetUid?: string): { kind: string; targets: string[] } {
+   if (j.passive) return { kind: "none", targets: [] };
+-  const actualCost = Math.max(1, Math.round(j.chakra * (u.jutsuChakraCost ?? 1)));
++  const actualCost = Math.max(1, Math.round(j.chakra * (u.jutsuChakraCost ?? 1) * (u.villageChakraDiscount ?? 1)));
+   if (u.cp < actualCost) return { kind: "none", targets: [] };
+   const foesSide = u.foe ? aliveAllies(b) : aliveFoes(b);
+   const alliesSide = u.foe ? aliveFoes(b) : aliveAllies(b);
+@@ -1017,7 +1016,7 @@
+   const defence = t.gen + t.doj * 0.38 + t.tac * 0.16;
+   const skillDelta = (offence - defence) * 0.009;
+   const aoePenalty = g.target === "all_foes" ? 0.08 : 0;
+-  return clamp(g.chance + skillDelta - aoePenalty, 0.14, 0.95);
++  return clamp(g.chance + skillDelta - aoePenalty + (u.villageGenjutsuBonus ?? 0), 0.14, 0.95);
+ }
+ 
+ function useLearnedGenjutsu(b: Battle, u: Unit, g: GenjutsuDef, targetUid?: string): { kind: string; targets: string[] } {
+@@ -1035,7 +1034,7 @@
+     if (chosen) targets = [chosen];
+   }
+   if (!targets.length) return { kind: "none", targets: [] };
+-  u.cp -= g.chakra;
++  u.cp -= Math.max(1, Math.round(g.chakra * (u.villageChakraDiscount ?? 1)));
+   const landed: string[] = [];
+   for (const t of targets) {
+     const friendly = t.foe === u.foe;
+@@ -1566,10 +1565,10 @@
+ export { RANK_META };
+ 
+ 
+-export function unitFromNinja(n: Ninja): Unit {
++export function unitFromNinja(n: Ninja, s?: Pick<GameState, "b" | "techs">): Unit {
+   const equipped = { ...n, s: { ...n.s } };
+   const gearSkills = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"] as const;
+-  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k);
++  for (const k of gearSkills) equipped.s[k] += equipmentSkillBonus(n, k, s);
+   const u = applyEquipmentToBattleUnit(n, baseUnitFromNinja(equipped)) as Unit;
+   const jf = jutsuPassiveFx(n);
+   u.maxHp = Math.max(1, Math.round(u.maxHp * jf.hp)); u.hp = u.maxHp;
+@@ -1583,5 +1582,16 @@
+   u.jutsuPierceBonus = jf.pierceBonus; u.jutsuStunBonus = jf.stunBonus; u.jutsuChakraCost = jf.chakraCost;
+   u.jutsuShredBonus = jf.shredBonus; u.jutsuBraceAmp = jf.braceAmp; u.jutsuTauntBonus = jf.tauntBonus;
+   u.jutsuRetaliationBonus = jf.retaliationBonus; u.jutsuExtraTurnBonus = jf.extraTurnBonus;
++
++  // Village research: Scroll Archive doctrine applies to every village shinobi.
++  if (s) {
++    if (s.techs.includes("archive_forbidden_vault")) u.jutsuPower *= 1.10;
++    if (s.techs.includes("archive_scroll_catalogue")) u.villageChakraDiscount = 0.90;
++    if (s.techs.includes("archive_illusion_studies")) u.villageGenjutsuBonus = 0.08;
++    if (s.techs.includes("shrine_chakra_restoration")) { u.maxCp = Math.round(u.maxCp * 1.15); u.cp = u.maxCp; }
++    const forgeCombat = 1 + (s.b.forge ?? 0) * 0.02;
++    u.atk *= forgeCombat;
++    u.def *= forgeCombat;
++  }
+   return u;
+ }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/bingoHunt.ts b/src/game/bingoHunt.ts
+--- a/src/game/bingoHunt.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/bingoHunt.ts	2026-09-01 05:15:29.269335555 +0000
+@@ -284,9 +284,10 @@
+     progress.locationKnown = false;
+     progress.rewardsClaimed = true;
+     progress.pendingCaptureBonus = undefined;
+-    s.gold += target.bountyDead;
++    const paidDead = Math.round(target.bountyDead * (s.techs.includes("market_bounty_office") ? 1.20 : 1));
++    s.gold += paidDead;
+     s.score += Math.round(target.bountyDead / 150);
+-    const result = `${target.name} was killed. Dead bounty collected: ${target.bountyDead.toLocaleString()} gold.`;
++    const result = `${target.name} was killed. Dead bounty collected: ${paidDead.toLocaleString()} gold.`;
+     s.log.push({ txt: result, kind: "great", id: Date.now() });
+     return { ok: true, result, captured: false };
+   }
+@@ -299,9 +300,10 @@
+     progress.rewardsClaimed = true;
+     progress.pendingCaptureBonus = undefined;
+     if (!bingo.detention.prisonerIds.includes(targetId)) bingo.detention.prisonerIds.push(targetId);
+-    s.gold += target.bountyAlive;
++    const paidAlive = Math.round(target.bountyAlive * (s.techs.includes("market_bounty_office") ? 1.20 : 1));
++    s.gold += paidAlive;
+     s.score += Math.round(target.bountyAlive / 125);
+-    const result = `${target.name} was captured alive. Live bounty collected: ${target.bountyAlive.toLocaleString()} gold.`;
++    const result = `${target.name} was captured alive. Live bounty collected: ${paidAlive.toLocaleString()} gold.`;
+     s.log.push({ txt: result, kind: "great", id: Date.now() });
+     return { ok: true, result, captured: true };
+   }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/content.ts b/src/game/content.ts
+--- a/src/game/content.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/content.ts	2026-09-01 05:11:55.959686303 +0000
+@@ -8,6 +8,8 @@
+ 
+ export const FARM_RICE = 8;
+ export const TEA_GOLD = 7;
++export const MARKET_GOLD = 9;   // gold per Merchant Quarter level each day
++export const MARKET_RICE = 6;   // rice per day once the Rice Exchange is open
+ export const TOWER_DEF = 1;
+ export const EAT_PER_DAY = 0.9;
+ 
+@@ -216,7 +218,11 @@
+   requires?: { bld: Bld; level: number };
+ }
+ 
+-export const BUILD_ORDER: Bld[] = ["farm", "tea", "dojo", "tower", "shrine", "hall", "intel", "hospital", "embassy", "anbu"];
++export const BUILD_ORDER: Bld[] = [
++  "farm", "tea", "dojo", "tower", "shrine", "hall",
++  "academy", "forge", "market", "archive",
++  "intel", "hospital", "embassy", "anbu",
++];
+ 
+ export const BUILDINGS: Record<Bld, BldMeta> = {
+   farm: {
+@@ -279,6 +285,32 @@
+     costs: [{ gold: 280, rice: 85 }, { gold: 470, rice: 145 }],
+     max: 2, hotkey: "A", requires: { bld: "hall", level: 3 },
+   },
++
++  /* ---- later-game infrastructure ---- */
++  academy: {
++    name: "Ninja Academy", kanji: "学", color: "#7fc9e8",
++    desc: "+10% XP per level for every ninja · cheaper scouting",
++    costs: [{ gold: 150, rice: 40 }, { gold: 260, rice: 80 }, { gold: 420, rice: 130 }],
++    max: 3, hotkey: "N", requires: { bld: "dojo", level: 2 },
++  },
++  forge: {
++    name: "Armourer's Forge", kanji: "鍛", color: "#d98a5a",
++    desc: "equipment gacha costs -8% per level · +2% battle ATK and DEF per level",
++    costs: [{ gold: 170, rice: 45 }, { gold: 300, rice: 90 }, { gold: 470, rice: 140 }],
++    max: 3, hotkey: "G", requires: { bld: "tea", level: 2 },
++  },
++  market: {
++    name: "Merchant Quarter", kanji: "市", color: "#e3c46a",
++    desc: "+9 gold each day per level · mission pay +4% per level",
++    costs: [{ gold: 160, rice: 35 }, { gold: 280, rice: 75 }, { gold: 450, rice: 125 }],
++    max: 3, hotkey: "K", requires: { bld: "tea", level: 2 },
++  },
++  archive: {
++    name: "Scroll Archive", kanji: "書", color: "#a99bd6",
++    desc: "ninja gain 1 extra shared JP at every 3rd level per archive level",
++    costs: [{ gold: 240, rice: 70 }, { gold: 400, rice: 120 }],
++    max: 2, hotkey: "R", requires: { bld: "academy", level: 2 },
++  },
+ };
+ 
+ export interface VillageTechMeta {
+@@ -319,7 +351,27 @@
+   { id: "shrine_recovery_ward", branch: "shrine", name: "Recovery Ward", desc: "+12 additional fatigue recovery for resting ninja each day.", requiresLevel: 1, cost: { gold: 80, rice: 20 } },
+   { id: "shrine_field_medicine", branch: "shrine", name: "Field Medicine", desc: "Mission injuries recover 1 additional day faster.", requiresLevel: 2, cost: { gold: 130, rice: 35 } },
+   { id: "shrine_chakra_restoration", branch: "shrine", name: "Chakra Restoration", desc: "All village ninja enter battles with +15% maximum chakra.", requiresLevel: 2, cost: { gold: 150, rice: 40 } },
+-  { id: "shrine_trauma_care", branch: "shrine", name: "Trauma Care", desc: "Reduces mission injury chance by 25%.", requiresLevel: 3, cost: { gold: 230, rice: 70 } },
++  { id: "shrine_trauma_care", branch: "shrine", name: "Trauma Care", desc: "Reduces mission injury recovery by a further day and softens severe wounds.", requiresLevel: 3, cost: { gold: 230, rice: 70 } },
++
++  { id: "academy_standard_curriculum", branch: "academy", name: "Standard Curriculum", desc: "+20% XP from missions and Dōjō training for every ninja in the village.", requiresLevel: 1, cost: { gold: 110, rice: 25 } },
++  { id: "academy_graduation_exams", branch: "academy", name: "Graduation Exams", desc: "Newly recruited genin start at Level 3 with the matching skill points.", requiresLevel: 2, cost: { gold: 175, rice: 45 } },
++  { id: "academy_clan_outreach", branch: "academy", name: "Clan Outreach", desc: "+1 to the better of two potential rolls on scouted recruits, and +4pp unique-trait chance.", requiresLevel: 2, cost: { gold: 220, rice: 55 } },
++  { id: "academy_chakra_theory", branch: "academy", name: "Chakra Theory", desc: "Every ninja earns 1 extra shared JP for Jutsu and Genjutsu at Lv 6, 12, 18 and 24.", requiresLevel: 3, cost: { gold: 300, rice: 85 } },
++
++  { id: "forge_village_smithy", branch: "forge", name: "Village Smithy", desc: "Equipment gacha bundles cost 15% less gold and rice.", requiresLevel: 1, cost: { gold: 120, rice: 30 } },
++  { id: "forge_chakra_tempering", branch: "forge", name: "Chakra Tempering", desc: "Equipped gear stat bonuses are increased by 25%.", requiresLevel: 2, cost: { gold: 210, rice: 60 } },
++  { id: "forge_supply_line", branch: "forge", name: "Standing Supply Line", desc: "Wall repairs cost no action, and repair resource cost is halved.", requiresLevel: 2, cost: { gold: 165, rice: 50 } },
++  { id: "forge_masterwork_bench", branch: "forge", name: "Masterwork Bench", desc: "+6pp chance that any gacha pull is upgraded one rarity step.", requiresLevel: 3, cost: { gold: 340, rice: 100 } },
++
++  { id: "archive_scroll_catalogue", branch: "archive", name: "Scroll Catalogue", desc: "All Jutsu and Genjutsu chakra costs are reduced by 10%.", requiresLevel: 1, cost: { gold: 180, rice: 50 } },
++  { id: "archive_illusion_studies", branch: "archive", name: "Illusion Studies", desc: "Village Genjutsu lands 8 percentage points more often.", requiresLevel: 1, cost: { gold: 200, rice: 55 } },
++  { id: "archive_field_manuals", branch: "archive", name: "Field Manuals", desc: "Mission success chance +4pp and squads gain +6% mission XP.", requiresLevel: 1, cost: { gold: 190, rice: 60 } },
++  { id: "archive_forbidden_vault", branch: "archive", name: "Forbidden Vault", desc: "Jutsu damage +10% for every village ninja.", requiresLevel: 2, cost: { gold: 380, rice: 115 } },
++
++  { id: "market_caravan_routes", branch: "market", name: "Caravan Routes", desc: "+30% daily gold income from the Merchant Quarter.", requiresLevel: 1, cost: { gold: 130, rice: 30 } },
++  { id: "market_bounty_office", branch: "market", name: "Bounty Office", desc: "Bingo Book bounties and mission gold pay 20% more.", requiresLevel: 2, cost: { gold: 250, rice: 65 } },
++  { id: "market_rice_exchange", branch: "market", name: "Rice Exchange", desc: "+6 rice each day; mission rice rewards increase 20%.", requiresLevel: 2, cost: { gold: 200, rice: 40 } },
++  { id: "market_war_chest", branch: "market", name: "Village War Chest", desc: "+1 action point each day.", requiresLevel: 3, cost: { gold: 420, rice: 140 } },
+ ];
+ 
+ export const TECH_BY_ID = Object.fromEntries(VILLAGE_TECHS.map((t) => [t.id, t])) as Record<VillageTechId, VillageTechMeta>;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/engine.ts b/src/game/engine.ts
+--- a/src/game/engine.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/engine.ts	2026-09-01 05:15:11.257196322 +0000
+@@ -2,7 +2,7 @@
+ import {
+   AP_BASE, BAND_COLORS, BUILDINGS, CLANS, DOJO_CHANCE, DOJO_XP_DAY, EAT_PER_DAY,
+   FARM_RICE, FATIGUE_PER_DAY_OUT, HAIR_COLORS, MISSION_CAP, MISSION_MIN_RANK,
+-  MISSION_TEMPLATES, NATURE_META, NINJA_NAMES, OUTFIT_COLORS, RANK_META, REPAIR_COST,
++  MARKET_GOLD, MARKET_RICE, MISSION_TEMPLATES, NATURE_META, NINJA_NAMES, OUTFIT_COLORS, RANK_META, REPAIR_COST,
+   REST_PER_DAY, SCOUT_COST, SHRINE_REST, SKILLS, SKILL_META, SKIN_TONES, SURNAMES, TEA_GOLD,
+   TRAIT_IDS, TRAIT_META, TECH_BY_ID, nextRank, rankIndex,
+ } from "./content";
+@@ -54,7 +54,12 @@
+ }
+ export function missionCap(s: GameState): number { return MISSION_CAP + (hasTech(s, "hall_mission_admin") ? 2 : 0); }
+ export function scoutCost(s: GameState) {
+-  return hasTech(s, "tea_recruitment_rumours") ? { gold: Math.max(0, SCOUT_COST.gold - 10), rice: Math.max(0, SCOUT_COST.rice - 5) } : SCOUT_COST;
++  const base = hasTech(s, "tea_recruitment_rumours")
++    ? { gold: Math.max(0, SCOUT_COST.gold - 10), rice: Math.max(0, SCOUT_COST.rice - 5) }
++    : SCOUT_COST;
++  // The Academy trains its own intake, so outside recruitment gets cheaper.
++  const discount = 1 - Math.min(0.30, s.b.academy * 0.10);
++  return { gold: Math.round(base.gold * discount), rice: Math.round(base.rice * discount) };
+ }
+ 
+ function rollTraits(s: GameState, pot: number, legendId?: string): import("./types").TraitId[] {
+@@ -76,7 +81,8 @@
+   // and no normal recruit can receive more than one UNIQUE trait.
+   if (!legendId && unique.length) {
+     const uniqueChance = (pot >= 5 ? 0.090 : pot >= 4 ? 0.052 : pot >= 3 ? 0.020 : pot >= 2 ? 0.004 : 0)
+-      + (hasTech(s, "hall_elite_recruitment") ? 0.012 : 0);
++      + (hasTech(s, "hall_elite_recruitment") ? 0.012 : 0)
++      + (hasTech(s, "academy_clan_outreach") ? 0.040 : 0);
+     if (Math.random() < uniqueChance) {
+       const candidates = unique.filter((id) => pot >= 5 || !MYTHIC_UNIQUE_TRAITS.has(id));
+       let total = candidates.reduce((sum, id) => sum + uniqueTraitWeight(id), 0);
+@@ -103,8 +109,36 @@
+   return 4 + s.b.hall * 2 + (hasTech(s, "hall_expanded_roster") ? 2 : 0);
+ }
+ 
++/** Gold produced by all village infrastructure at the start of the next day. */
++export function dailyGoldIncome(s: GameState): number {
++  const tea = TEA_GOLD * s.b.tea * (hasTech(s, "tea_merchant_contacts") ? 1.25 : 1);
++  const market = MARKET_GOLD * s.b.market * (hasTech(s, "market_caravan_routes") ? 1.30 : 1);
++  return tea + market;
++}
++
++/** Rice produced by all village infrastructure at the start of the next day. */
++export function dailyRiceIncome(s: GameState): number {
++  const farm = FARM_RICE * s.b.farm * (hasTech(s, "farm_efficiency") ? 1.25 : 1);
++  const exchange = hasTech(s, "market_rice_exchange") ? MARKET_RICE : 0;
++  return farm + exchange;
++}
++
++/** Rice eaten by the roster at the start of the next day. */
++export function dailyRiceConsumption(s: GameState): number {
++  return EAT_PER_DAY * s.ninjas.length * (hasTech(s, "farm_ration_stores") ? 0.75 : 1);
++}
++
++/** Merchant Quarter and Bounty Office increase what contracts actually pay. */
++export function missionGoldMultiplier(s: GameState): number {
++  return (1 + s.b.market * 0.04) * (hasTech(s, "market_bounty_office") ? 1.20 : 1);
++}
++
++export function missionRiceMultiplier(s: GameState): number {
++  return 1 + (hasTech(s, "market_rice_exchange") ? 0.20 : 0);
++}
++
+ export function apMax(s: GameState): number {
+-  return AP_BASE + (s.b.hall - 1);
++  return AP_BASE + (s.b.hall - 1) + (hasTech(s, "market_war_chest") ? 1 : 0);
+ }
+ 
+ /* ---------------- ninja math ---------------- */
+@@ -127,9 +161,31 @@
+   return [...SKILLS].filter((k) => k !== "doj" || dojutsuAwakened(n)).sort((a, b) => n.s[b] - n.s[a]).slice(0, count);
+ }
+ 
++/**
++ * Natural potential distribution.
++ *
++ * Audit note: potential used to be a flat 1-5 roll, so 20% of every recruit was
++ * a genuine 5-star and the Talent Scouts technology pushed that to ~36%. Since
++ * the uncertainty band also displayed five stars for anyone who *might* be a 5,
++ * effectively every scouted ninja looked like maximum potential. Potential is
++ * meant to be the biggest long-term differentiator in the game, so it is now a
++ * weighted roll where 5-star is genuinely rare.
++ */
++export const POTENTIAL_WEIGHTS: Record<number, number> = { 1: 14, 2: 28, 3: 34, 4: 18, 5: 6 };
++
++export function rollPotential(): number {
++  const total = Object.values(POTENTIAL_WEIGHTS).reduce((a, b) => a + b, 0);
++  let roll = Math.random() * total;
++  for (const [value, weight] of Object.entries(POTENTIAL_WEIGHTS)) {
++    roll -= weight;
++    if (roll <= 0) return Number(value);
++  }
++  return 3;
++}
++
+ /** Scouted potential is uncertain and narrows as the ninja gains levels. */
+ export function potRange(n: Ninja): { lo: number; hi: number; known: boolean } {
+-  const spread = Math.max(0, 2 - Math.floor(n.level / 3));
++  const spread = n.level >= 10 ? 0 : n.level >= 5 ? 1 : 2;
+   return {
+     lo: clamp(n.pot - spread, 1, 5),
+     hi: clamp(n.pot + spread, 1, 5),
+@@ -170,6 +226,7 @@
+   if (fill < 1) ch -= (1 - fill) * 0.22;
+   ch += s.b.dojo * DOJO_CHANCE;
+   if (hasTech(s, "tower_scout_network")) ch += 0.05;
++  if (hasTech(s, "archive_field_manuals")) ch += 0.04;
+   if (hasTech(s, "tower_sensor_corps") && squad.some(dojutsuAwakened)) ch += 0.08;
+   if (squad.some((n) => hasTrait(n, "lucky"))) ch += 0.08;
+   for (const n of squad) ch += perkFx(n).missionBonus;
+@@ -216,8 +273,10 @@
+   const first = pool.length ? pick(pool) : pick(NINJA_NAMES);
+   let nature = pick(Object.keys(NATURE_META)) as Nature;
+   const legend = legendId ? LEGENDS[legendId] : null;
+-  let pot = legend?.pot ?? ri(1, 5);
+-  if (!legend && hasTech(s, "hall_talent_scouts")) pot = Math.max(pot, ri(1, 5));
++  let pot = legend?.pot ?? rollPotential();
++  if (!legend && hasTech(s, "hall_talent_scouts")) pot = Math.max(pot, rollPotential());
++  // Clan Outreach: the Academy's family connections bring in better raw talent.
++  if (!legend && hasTech(s, "academy_clan_outreach")) pot = Math.min(5, Math.max(pot, rollPotential()) + 1);
+   const traits = rollTraits(s, pot, legendId);
+   let secondaryNature = traits.includes("kekkeiTalent")
+     ? pick((Object.keys(NATURE_META) as Nature[]).filter((x) => x !== nature))
+@@ -263,6 +322,14 @@
+     fatigue: 0, status: "ready", daysLeft: 0, missionId: null, runs: 0, wins: 0,
+     perks: [], legend: legendId ?? null, title: legend ? legend.title : null,
+   };
++  // Graduation Exams: recruits have already completed formal academy training.
++  if (hasTech(s, "academy_graduation_exams")) {
++    for (let lv = 1; lv < 3; lv++) {
++      n.level++;
++      n.sp += 1 + (Math.random() < (n.pot - 1) / 4.5 ? 1 : 0);
++      for (const k of SKILLS) if (n.growth[k] > 0 && Math.random() < n.growth[k] * 0.4) n.s[k] += 1;
++    }
++  }
+   return n;
+ }
+ 
+@@ -429,7 +496,7 @@
+     hungry: false,
+     ninjas: [],
+     missions: [],
+-    b: { hall: 1, farm: 1, tea: 0, dojo: 0, tower: 0, shrine: 0, intel: 0, anbu: 0, hospital: 0, embassy: 0 },
++    b: { hall: 1, farm: 1, tea: 0, dojo: 0, tower: 0, shrine: 0, intel: 0, anbu: 0, hospital: 0, embassy: 0, academy: 0, forge: 0, archive: 0, market: 0 },
+     techs: [],
+     nextId: 100,
+     raids: 0,
+@@ -489,6 +556,22 @@
+   return true;
+ }
+ 
++/**
++ * Extra shared Jutsu/Genjutsu points a ninja receives from village research.
++ * The Scroll Archive grants one per archive level for every third level, and
++ * Chakra Theory adds one at Lv 6/12/18/24. This is recomputed rather than
++ * accumulated so buildings, research and level-ups can never double-count.
++ */
++export function bonusJpFor(s: GameState, n: Ninja): number {
++  const archive = s.b.archive * Math.floor(n.level / 3);
++  const theory = hasTech(s, "academy_chakra_theory") ? Math.min(4, Math.floor(n.level / 6)) : 0;
++  return archive + theory;
++}
++
++export function syncBonusJp(s: GameState): void {
++  for (const n of s.ninjas) n.bonusJp = bonusJpFor(s, n);
++}
++
+ export function build(s: GameState, type: Bld, ev: Ev[]): boolean {
+   const meta = BUILDINGS[type];
+   const lvl = s.b[type];
+@@ -500,6 +583,7 @@
+   s.rice -= cost.rice;
+   s.b[type] = lvl + 1;
+   s.ap -= 1;
++  syncBonusJp(s);
+   ev.push({ type: "build", bld: type, lvl: lvl + 1 });
+   pushLog(s, `${meta.name} raised to level ${lvl + 1}`, "good");
+   return true;
+@@ -514,6 +598,7 @@
+   s.rice -= meta.cost.rice;
+   s.ap -= 1;
+   s.techs.push(id);
++  syncBonusJp(s);
+   ev.push({ type: "tech", tech: id, name: meta.name });
+   pushLog(s, `Research complete — ${meta.name}`, "great");
+   return true;
+@@ -597,12 +682,23 @@
+   s.scout = null;
+ }
+ 
++/** A Standing Supply Line makes wall repairs free of actions and half price. */
++export function repairCost(s: GameState): { gold: number; rice: number; ap: number } {
++  const cheap = hasTech(s, "forge_supply_line");
++  return {
++    gold: Math.round(REPAIR_COST.gold * (cheap ? 0.5 : 1)),
++    rice: Math.round(REPAIR_COST.rice * (cheap ? 0.5 : 1)),
++    ap: cheap ? 0 : 1,
++  };
++}
++
+ export function repair(s: GameState, ev: Ev[]): boolean {
+-  if (s.hp >= s.hpMax || s.ap < 1) return false;
+-  if (s.gold < REPAIR_COST.gold || s.rice < REPAIR_COST.rice) return false;
+-  s.gold -= REPAIR_COST.gold;
+-  s.rice -= REPAIR_COST.rice;
+-  s.ap -= 1;
++  const cost = repairCost(s);
++  if (s.hp >= s.hpMax || s.ap < cost.ap) return false;
++  if (s.gold < cost.gold || s.rice < cost.rice) return false;
++  s.gold -= cost.gold;
++  s.rice -= cost.rice;
++  s.ap -= cost.ap;
+   s.hp += 1;
+   ev.push({ type: "repair" });
+   pushLog(s, "Village walls repaired", "good");
+@@ -710,8 +806,15 @@
+ 
+ /* ---------------- day advance ---------------- */
+ 
++/** Village-wide XP multiplier from the Academy branch of infrastructure. */
++export function villageXpMultiplier(s: GameState): number {
++  return (1 + s.b.academy * 0.10)
++    * (hasTech(s, "academy_standard_curriculum") ? 1.20 : 1)
++    * (hasTech(s, "archive_field_manuals") ? 1.06 : 1);
++}
++
+ function gainXp(s: GameState, n: Ninja, amount: number, ev: Ev[]): void {
+-  const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) * perkFx(n).xp;
++  const mult = (hasTrait(n, "prodigy") ? 1.4 : 1) * perkFx(n).xp * villageXpMultiplier(s);
+   n.xp += amount * mult;
+   while (n.xp >= xpNext(n.level)) {
+     n.xp -= xpNext(n.level);
+@@ -724,6 +827,7 @@
+     s.stats.levels++;
+     for (const k of SKILLS) if (Math.random() < n.growth[k] * 0.4) n.s[k] += 1;
+     lockTechniqueTree(n, s.techs);
++    n.bonusJp = bonusJpFor(s, n);
+     ev.push({ type: "ninja_level", name: n.name, level: n.level, sp, id: n.id });
+     pushLog(s, `${n.name} reached level ${n.level} (+${sp} SP)`, "good");
+   }
+@@ -909,8 +1013,8 @@
+   const pts = win ? Math.round(m.score * streakMult(s)) : 0;
+   if (win) {
+     s.streak++;
+-    s.gold += m.gold;
+-    s.rice += m.rice;
++    s.gold += Math.round(m.gold * missionGoldMultiplier(s));
++    s.rice += Math.round(m.rice * missionRiceMultiplier(s));
+     s.score += pts;
+     s.stats.done++;
+     s.stats.earned += m.gold;
+@@ -978,9 +1082,9 @@
+   maybeAddSpecialMission(s);
+ 
+   // 4. economy
+-  s.gold += TEA_GOLD * s.b.tea * (hasTech(s, "tea_merchant_contacts") ? 1.25 : 1);
+-  s.rice += FARM_RICE * s.b.farm * (hasTech(s, "farm_efficiency") ? 1.25 : 1);
+-  s.rice -= EAT_PER_DAY * s.ninjas.length * (hasTech(s, "farm_ration_stores") ? 0.75 : 1);
++  s.gold += dailyGoldIncome(s);
++  s.rice += dailyRiceIncome(s);
++  s.rice -= dailyRiceConsumption(s);
+   if (s.rice <= 0) {
+     s.rice = 0;
+     if (!s.hungry) {
+@@ -1014,6 +1118,7 @@
+   }
+ 
+   // 6. action points refresh
++  syncBonusJp(s);
+   s.ap = apMax(s);
+ 
+   // 7. threat & raids
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/equipment.ts b/src/game/equipment.ts
+--- a/src/game/equipment.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/equipment.ts	2026-09-01 05:12:50.724109737 +0000
+@@ -1,6 +1,10 @@
+ import type { GameState, Ninja, Skill } from "./types";
+ 
+ export type EquipmentRarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
++/** Drawable artwork key. Each one matches the item's written appearance. */
++export type EquipmentArt =
++  | "headband" | "kunai" | "vest" | "scroll" | "gloves"
++  | "tabi" | "mask" | "talisman" | "sash" | "ring";
+ export type EquipmentKind = "stat" | "passive" | "technique";
+ 
+ export interface EquipmentAbility {
+@@ -19,6 +23,10 @@
+   rarity: EquipmentRarity;
+   kind: EquipmentKind;
+   icon: string;
++  /** Small illustrated picture shown on the item card in place of the kanji. */
++  art: EquipmentArt;
++  /** Material colour taken from the written appearance, used by the artwork. */
++  tint: string;
+   appearance: string;
+   desc: string;
+   skill?: Partial<Record<Skill, number>>;
+@@ -82,6 +90,18 @@
+   "River", "Sand", "Scarlet", "Shadow", "Silent", "Silver", "Smoke", "Storm", "Sun", "White",
+ ];
+ const BASES = ["Headband", "Kunai", "Vest", "Scroll", "Gloves", "Tabi", "Mask", "Talisman", "Sash", "Ring"];
++const BASE_ART: EquipmentArt[] = ["headband", "kunai", "vest", "scroll", "gloves", "tabi", "mask", "talisman", "sash", "ring"];
++/** One colour per PREFIX, matching the wording used in PREFIX_LOOK below. */
++const PREFIX_TINT = [
++  "#4a4b52", "#c8bd8a", "#20222a", "#f07032", "#7c1f2a",
++  "#2f4bb0", "#e6e0d0", "#b07b3c", "#9fb2c4", "#c4322f",
++  "#f4b39a", "#8a6a9c", "#e2622a", "#b9c2cc", "#c4562f",
++  "#cfe6f2", "#9aa0a6", "#e6bd52", "#40474f", "#31353c",
++  "#6f7780", "#3f9c72", "#f2e05a", "#a9b0b8", "#e8ecf5",
++  "#1b2340", "#26282f", "#ded6c4", "#7f95a6", "#d8342c",
++  "#3f9fa8", "#d8bf8e", "#d02a3c", "#2a2438", "#3a3f47",
++  "#c6ccd4", "#5e6168", "#3c5a8c", "#f0c96a", "#f2f0ea",
++];
+ const ICONS = ["鉢", "苦", "衣", "巻", "手", "足", "面", "符", "帯", "輪"];
+ const STAT_CYCLE: Skill[] = ["nin", "tai", "gen", "ste", "med", "spd", "ken", "doj", "tac"];
+ 
+@@ -178,6 +198,8 @@
+   const baseIndex = Math.floor((i % 200) / PREFIXES.length) + bank * 5;
+   const base = BASES[baseIndex];
+   const icon = ICONS[baseIndex];
++  const art = BASE_ART[baseIndex];
++  const tint = PREFIX_TINT[i % PREFIXES.length];
+   const primary = STAT_CYCLE[i % STAT_CYCLE.length];
+   const secondary = STAT_CYCLE[(i * 5 + 3) % STAT_CYCLE.length];
+   const mode = i % 5;
+@@ -191,7 +213,7 @@
+     const skill: Partial<Record<Skill, number>> = { [primary]: primaryGain };
+     if (secondary !== primary && rarity !== "common") skill[secondary] = secondaryGain;
+     return {
+-      id, name, rarity, kind: "stat", icon, appearance,
++      id, name, rarity, kind: "stat", icon, art, tint, appearance,
+       desc: `Equipped: +${primaryGain} ${SKILL_LABEL[primary]}${skill[secondary] ? ` and +${skill[secondary]} ${SKILL_LABEL[secondary]}` : ""}.`,
+       skill,
+     };
+@@ -209,7 +231,7 @@
+     if (shape === 5) { battle.dodge = 0.01 * tier; text = `Dodge chance +${Math.round(battle.dodge * 100)}pp`; }
+     if (shape === 6) { battle.lifesteal = 0.014 * tier; text = `Heal for ${Math.round(battle.lifesteal * 100)}% of damage dealt`; }
+     if (shape === 7) { battle.counter = 0.02 * tier; text = `Counter for ${Math.round(battle.counter * 100)}% of damage received`; }
+-    return { id, name, rarity, kind: "passive", icon, appearance, desc: `Equipped: ${text}.`, battle };
++    return { id, name, rarity, kind: "passive", icon, art, tint, appearance, desc: `Equipped: ${text}.`, battle };
+   }
+ 
+   const abilityStat = STAT_CYCLE[(i * 7 + 2) % STAT_CYCLE.length];
+@@ -226,7 +248,7 @@
+     note: `${name} releases a stored combat technique`,
+   };
+   return {
+-    id, name, rarity, kind: "technique", icon, appearance,
++    id, name, rarity, kind: "technique", icon, art, tint, appearance,
+     desc: `Equipped: grants gear signature ${ability.name} (${hits} hit${hits === 1 ? "" : "s"}, ${power.toFixed(2)}× ${SKILL_LABEL[abilityStat]} scaling). This is separate from the ninja's personal 奥義.`,
+     battle: rarity === "legendary" ? { crit: 0.04, cp: 1.08 } : { cp: 1 + 0.018 * tier },
+     ability,
+@@ -235,12 +257,12 @@
+ 
+ 
+ export const MISSION_UNIQUE_GEAR: EquipmentItem[] = [
+-  { id: "uniq_smokeveil_mask", name: "Smokeveil Mask", rarity: "rare", kind: "passive", icon: "煙", missionOnly: true, appearance: "A charcoal half-mask woven with silver-grey chakra thread; its edges seem to blur whenever the wearer moves.", desc: "Mission exclusive. +4 STE, +2 SPD and +5 percentage points dodge.", skill: { ste: 4, spd: 2 }, battle: { dodge: 0.05 } },
+-  { id: "uniq_iron_leaf_bracers", name: "Iron Leaf Bracers", rarity: "rare", kind: "stat", icon: "鉄", missionOnly: true, appearance: "Heavy forearm guards of layered dark steel, each plate stamped with an old leaf-shaped maker's seal.", desc: "Mission exclusive. +4 TAI, +2 KEN and +8% battle ATK.", skill: { tai: 4, ken: 2 }, battle: { atk: 1.08 } },
+-  { id: "uniq_stormglass_ring", name: "Stormglass Ring", rarity: "epic", kind: "technique", icon: "雷", missionOnly: true, appearance: "A translucent blue-black ring with a lightning-shaped flaw trapped inside the stone; static crawls across it when chakra is fed through the band.", desc: "Mission exclusive. +5 NIN, +3 SPD, +15% chakra, +4pp crit and grants Thunderclap Seal.", skill: { nin: 5, spd: 3 }, battle: { cp: 1.15, crit: 0.04 }, ability: { id: "geartech_stormglass", name: "Thunderclap Seal", kanji: "雷", power: 0.82, stat: "nin", hits: 2, note: "The Stormglass Ring discharges a stored two-hit lightning seal" } },
+-  { id: "uniq_white_heron_cloak", name: "White Heron Cloak", rarity: "epic", kind: "passive", icon: "鷺", missionOnly: true, appearance: "A pale travel cloak with feather-like layered panels, dark inner lining and tiny weighted hems that never seem to catch the wind.", desc: "Mission exclusive. +5 STE, +3 TAC and +7 percentage points dodge.", skill: { ste: 5, tac: 3 }, battle: { dodge: 0.07 } },
+-  { id: "uniq_kagebreaker_blade", name: "Kagebreaker Blade", rarity: "legendary", kind: "technique", icon: "影", missionOnly: true, appearance: "A short blackened blade with a broken gold line running through the steel and a guard made from two opposing crescent shapes.", desc: "Mission exclusive. +7 KEN, +3 TAC, +12% ATK, +6pp crit and grants Kagebreaker Draw.", skill: { ken: 7, tac: 3 }, battle: { atk: 1.12, crit: 0.06 }, ability: { id: "geartech_kagebreaker", name: "Kagebreaker Draw", kanji: "断", power: 1.18, stat: "ken", hits: 2, note: "A two-part draw cut released from the Kagebreaker Blade" } },
+-  { id: "uniq_nine_seal_talisman", name: "Nine-Seal Talisman", rarity: "legendary", kind: "passive", icon: "封", missionOnly: true, appearance: "Nine tiny lacquered seal plates hang from braided crimson cord around a central jade token covered in microscopic script.", desc: "Mission exclusive. +7 NIN, +4 MED, +25% chakra, +8% DEF and regenerates 3 HP each round.", skill: { nin: 7, med: 4 }, battle: { cp: 1.25, def: 1.08, regen: 3 } },
++  { id: "uniq_smokeveil_mask", name: "Smokeveil Mask", rarity: "rare", kind: "passive", icon: "煙", art: "mask", tint: "#5b6068", missionOnly: true, appearance: "A charcoal half-mask woven with silver-grey chakra thread; its edges seem to blur whenever the wearer moves.", desc: "Mission exclusive. +4 STE, +2 SPD and +5 percentage points dodge.", skill: { ste: 4, spd: 2 }, battle: { dodge: 0.05 } },
++  { id: "uniq_iron_leaf_bracers", name: "Iron Leaf Bracers", rarity: "rare", kind: "stat", icon: "鉄", art: "gloves", tint: "#78808c", missionOnly: true, appearance: "Heavy forearm guards of layered dark steel, each plate stamped with an old leaf-shaped maker's seal.", desc: "Mission exclusive. +4 TAI, +2 KEN and +8% battle ATK.", skill: { tai: 4, ken: 2 }, battle: { atk: 1.08 } },
++  { id: "uniq_stormglass_ring", name: "Stormglass Ring", rarity: "epic", kind: "technique", icon: "雷", art: "ring", tint: "#4f6ad8", missionOnly: true, appearance: "A translucent blue-black ring with a lightning-shaped flaw trapped inside the stone; static crawls across it when chakra is fed through the band.", desc: "Mission exclusive. +5 NIN, +3 SPD, +15% chakra, +4pp crit and grants Thunderclap Seal.", skill: { nin: 5, spd: 3 }, battle: { cp: 1.15, crit: 0.04 }, ability: { id: "geartech_stormglass", name: "Thunderclap Seal", kanji: "雷", power: 0.82, stat: "nin", hits: 2, note: "The Stormglass Ring discharges a stored two-hit lightning seal" } },
++  { id: "uniq_white_heron_cloak", name: "White Heron Cloak", rarity: "epic", kind: "passive", icon: "鷺", art: "vest", tint: "#eef1f6", missionOnly: true, appearance: "A pale travel cloak with feather-like layered panels, dark inner lining and tiny weighted hems that never seem to catch the wind.", desc: "Mission exclusive. +5 STE, +3 TAC and +7 percentage points dodge.", skill: { ste: 5, tac: 3 }, battle: { dodge: 0.07 } },
++  { id: "uniq_kagebreaker_blade", name: "Kagebreaker Blade", rarity: "legendary", kind: "technique", icon: "影", art: "kunai", tint: "#2b2b31", missionOnly: true, appearance: "A short blackened blade with a broken gold line running through the steel and a guard made from two opposing crescent shapes.", desc: "Mission exclusive. +7 KEN, +3 TAC, +12% ATK, +6pp crit and grants Kagebreaker Draw.", skill: { ken: 7, tac: 3 }, battle: { atk: 1.12, crit: 0.06 }, ability: { id: "geartech_kagebreaker", name: "Kagebreaker Draw", kanji: "断", power: 1.18, stat: "ken", hits: 2, note: "A two-part draw cut released from the Kagebreaker Blade" } },
++  { id: "uniq_nine_seal_talisman", name: "Nine-Seal Talisman", rarity: "legendary", kind: "passive", icon: "封", art: "talisman", tint: "#c0392b", missionOnly: true, appearance: "Nine tiny lacquered seal plates hang from braided crimson cord around a central jade token covered in microscopic script.", desc: "Mission exclusive. +7 NIN, +4 MED, +25% chakra, +8% DEF and regenerates 3 HP each round.", skill: { nin: 7, med: 4 }, battle: { cp: 1.25, def: 1.08, regen: 3 } },
+ ];
+ 
+ export const EQUIPMENT_CATALOG: EquipmentItem[] = [...Array.from({ length: 400 }, (_, i) => makeItem(i)), ...MISSION_UNIQUE_GEAR];
+@@ -261,22 +283,22 @@
+   while (carrier.equipmentSlots.length < 4) carrier.equipmentSlots.push(null);
+   if (carrier.equipmentSlots.length > 4) carrier.equipmentSlots = carrier.equipmentSlots.slice(0, 4);
+ 
+-  // One item of each rarity per ninja. Older conflicting saves keep the first slot.
+-  const seen = new Set<EquipmentRarity>();
++  // Equipment is completely unrestricted: any four owned pieces may be worn
++  // together, including four of the same rarity. Only unknown ids are cleared.
+   for (let i = 0; i < carrier.equipmentSlots.length; i++) {
+     const id = carrier.equipmentSlots[i];
+-    const rarity = id ? EQUIPMENT_BY_ID[id]?.rarity : null;
+-    if (!rarity) continue;
+-    if (seen.has(rarity)) carrier.equipmentSlots[i] = null;
+-    else seen.add(rarity);
++    if (id && !EQUIPMENT_BY_ID[id]) carrier.equipmentSlots[i] = null;
+   }
+   return carrier.equipmentSlots;
+ }
+ 
+-export function canEquipRarity(n: Ninja, slot: number, itemId: string): boolean {
+-  const item = EQUIPMENT_BY_ID[itemId];
+-  if (!item || slot < 0 || slot > 3) return false;
+-  return !equipmentSlots(n).some((id, i) => i !== slot && id && EQUIPMENT_BY_ID[id]?.rarity === item.rarity);
++/**
++ * Equipment has no restrictions at all: any owned piece may go in any of the
++ * four slots regardless of rarity, kind, ninja rank or what else is worn.
++ * Kept as an exported function so existing callers keep working.
++ */
++export function canEquipRarity(_n: Ninja, slot: number, itemId: string): boolean {
++  return !!EQUIPMENT_BY_ID[itemId] && slot >= 0 && slot <= 3;
+ }
+ 
+ export function equippedCount(s: GameState, itemId: string): number {
+@@ -293,7 +315,6 @@
+   const slots = equipmentSlots(n);
+   if (slots[slot] === itemId) return true;
+   if (availableCount(s, itemId) <= 0) return false;
+-  if (!canEquipRarity(n, slot, itemId)) return false;
+   slots[slot] = itemId;
+   return true;
+ }
+@@ -318,18 +339,30 @@
+   return pool[Math.floor(Math.random() * pool.length)];
+ }
+ 
+-export function gachaCost(pulls: 1 | 10 | 100): { gold: number; rice: number; discount: number } {
++/**
++ * Armourer's Forge infrastructure discount. Each Forge level shaves 8% off
++ * supply-draw costs and the Village Smithy technology takes a further 15%.
++ */
++export function forgeDiscount(s?: Pick<GameState, "b" | "techs">): number {
++  if (!s) return 0;
++  const levels = Math.min(0.24, (s.b.forge ?? 0) * 0.08);
++  const smithy = s.techs.includes("forge_village_smithy") ? 0.15 : 0;
++  return Math.min(0.45, levels + smithy);
++}
++
++export function gachaCost(pulls: 1 | 10 | 100, s?: Pick<GameState, "b" | "techs">): { gold: number; rice: number; discount: number } {
+   const pack = GACHA_PACKS.find((x) => x.pulls === pulls)!;
+-  const mult = 1 - pack.discount;
++  const infra = forgeDiscount(s);
++  const mult = (1 - pack.discount) * (1 - infra);
+   return {
+     gold: Math.round(GACHA_BASE_GOLD * pulls * mult),
+     rice: Math.round(GACHA_BASE_RICE * pulls * mult),
+-    discount: pack.discount,
++    discount: pack.discount + infra,
+   };
+ }
+ 
+ export function pullEquipment(s: GameState, pulls: 1 | 10 | 100): { ok: boolean; error?: string; items: EquipmentItem[]; newIds: string[] } {
+-  const cost = gachaCost(pulls);
++  const cost = gachaCost(pulls, s);
+   if (s.ap < 1) return { ok: false, error: "No actions remaining today.", items: [], newIds: [] };
+   if (s.gold < cost.gold) return { ok: false, error: `Need ${cost.gold.toLocaleString()} gold.`, items: [], newIds: [] };
+   if (s.rice < cost.rice) return { ok: false, error: `Need ${cost.rice.toLocaleString()} rice.`, items: [], newIds: [] };
+@@ -340,8 +373,14 @@
+   s.rice -= cost.rice;
+   const items: EquipmentItem[] = [];
+   const newIds: string[] = [];
++  const upgradeChance = s.techs.includes("forge_masterwork_bench") ? 0.06 : 0;
++  const LADDER: EquipmentRarity[] = ["common", "uncommon", "rare", "epic", "legendary"];
+   for (let i = 0; i < pulls; i++) {
+-    const item = randomOfRarity(rollRarity());
++    let rarity = rollRarity();
++    if (upgradeChance > 0 && Math.random() < upgradeChance) {
++      rarity = LADDER[Math.min(LADDER.length - 1, LADDER.indexOf(rarity) + 1)];
++    }
++    const item = randomOfRarity(rarity);
+     if (!st.inventory[item.id]) newIds.push(item.id);
+     st.inventory[item.id] = (st.inventory[item.id] ?? 0) + 1;
+     items.push(item);
+@@ -356,8 +395,10 @@
+   return Object.keys(inv).filter((id) => (inv[id] ?? 0) > 0).length;
+ }
+ 
+-export function equipmentSkillBonus(n: Ninja, k: Skill): number {
+-  return equipmentSlots(n).reduce((sum, id) => sum + (id ? (EQUIPMENT_BY_ID[id]?.skill?.[k] ?? 0) : 0), 0);
++export function equipmentSkillBonus(n: Ninja, k: Skill, s?: Pick<GameState, "techs">): number {
++  const raw = equipmentSlots(n).reduce((sum, id) => sum + (id ? (EQUIPMENT_BY_ID[id]?.skill?.[k] ?? 0) : 0), 0);
++  // Chakra Tempering re-forges village gear so its stat lines hit harder.
++  return s?.techs.includes("forge_chakra_tempering") ? Math.round(raw * 1.25) : raw;
+ }
+ 
+ export function equippedItems(n: Ninja): EquipmentItem[] {
+@@ -452,3 +493,32 @@
+     tech: { name: a.name, power: a.power, stat: a.stat, hits: a.hits, note: a.note },
+   };
+ }
++
++/**
++ * Every numeric bonus a single piece grants, as short "+X" tags.
++ * The UI shows these on every card so the pluses are always visible, whether
++ * the item is in the gacha reveal, the inventory list or an equipped slot.
++ */
++export function itemBonusTags(item: EquipmentItem): string[] {
++  const out: string[] = [];
++  for (const k of SKILLS) {
++    const v = item.skill?.[k] ?? 0;
++    if (v) out.push(`+${v} ${SKILL_LABEL[k]}`);
++  }
++  const b = item.battle;
++  if (b) {
++    if (b.hp && b.hp !== 1) out.push(`+${pct(b.hp - 1)} HP`);
++    if (b.cp && b.cp !== 1) out.push(`+${pct(b.cp - 1)} CHAKRA`);
++    if (b.atk && b.atk !== 1) out.push(`+${pct(b.atk - 1)} ATK`);
++    if (b.def && b.def !== 1) out.push(`+${pct(b.def - 1)} DEF`);
++    if (b.spd && b.spd !== 1) out.push(`+${pct(b.spd - 1)} SPD`);
++    if (b.crit) out.push(`+${Math.round(b.crit * 100)}pp CRIT`);
++    if (b.critMult) out.push(`+${Math.round(b.critMult * 100)}% CRIT DMG`);
++    if (b.dodge) out.push(`+${Math.round(b.dodge * 100)}pp DODGE`);
++    if (b.lifesteal) out.push(`+${Math.round(b.lifesteal * 100)}% LIFESTEAL`);
++    if (b.counter) out.push(`+${Math.round(b.counter * 100)}% COUNTER`);
++    if (b.regen) out.push(`+${b.regen} HP/ROUND`);
++  }
++  if (item.ability) out.push(`TECHNIQUE · ${item.ability.name}`);
++  return out;
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/genjutsu.ts b/src/game/genjutsu.ts
+--- a/src/game/genjutsu.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/genjutsu.ts	2026-09-01 05:07:38.409694928 +0000
+@@ -69,6 +69,37 @@
+ export const genjutsuKnownIds = (n: Ninja): string[] => Array.from(new Set(n.genjutsuKnown ?? [])).filter((id) => !!GENJUTSU_BY_ID[id]);
+ export const genjutsuEquippedIds = (n: Ninja): string[] => (n.genjutsuEquipped ?? []).filter((id) => genjutsuKnownIds(n).includes(id)).slice(0, 4);
+ 
++/**
++ * Genjutsu also carries both halves of its description: the authored flavour
++ * line, and a mechanical line generated from the same numbers the illusion
++ * resolver uses at runtime.
++ */
++const GEN_TARGET_LABEL: Record<GenjutsuTarget, string> = {
++  foe: "one enemy",
++  all_foes: "every enemy",
++  ally: "one ally",
++  self: "the caster",
++};
++
++export function genjutsuFlavour(g: GenjutsuDef): string {
++  if (g.desc && g.desc.trim().length > 0) return g.desc;
++  return `${g.name} is a ${g.pathLabel.toLowerCase()} illusion built around ${g.pathSummary.toLowerCase()}.`;
++}
++
++export function genjutsuMechanics(g: GenjutsuDef): string {
++  const out: string[] = [];
++  out.push(`Cast at ${GEN_TARGET_LABEL[g.target]} with a ${Math.round(g.chance * 100)}% base success chance (resisted by enemy GEN and DŌJ)`);
++  if (g.power) out.push(`Deals ${g.power.toFixed(2)}× Genjutsu damage on a successful cast`);
++  if (g.bindRounds) out.push(`Hard-binds the target for ${g.bindRounds} round${g.bindRounds === 1 ? "" : "s"} — it loses its turns entirely`);
++  if (g.fearRounds) out.push(`Fear for ${g.fearRounds} rounds: the victim is ${Math.round((g.fearAvoidPct ?? 0.5) * 100)}% less likely to target the caster`);
++  if (g.fearWardRounds) out.push(`Wards the chosen ally for ${g.fearWardRounds} rounds: enemies are ${Math.round((g.fearWardPct ?? 0.5) * 100)}% less likely to attack them`);
++  if (g.confusionRounds) out.push(`Confusion for ${g.confusionRounds} rounds: each turn there is a ${Math.round((g.confusionChance ?? 0.3) * 100)}% chance the victim attacks its own side`);
++  if (g.missRounds) out.push(`Distortion for ${g.missRounds} rounds: +${Math.round((g.missChance ?? 0.2) * 100)}% chance the victim's offensive actions miss`);
++  if (g.chakraLockRounds) out.push(`Chakra lock for ${g.chakraLockRounds} round(s): the victim cannot use chakra techniques`);
++  out.push(`Costs ${g.chakra} chakra · unlocks at Lv ${g.levelReq} · occupies 1 of 4 battle Genjutsu slots`);
++  return `${out.join(". ")}.`;
++}
++
+ export function prerequisiteGenjutsu(id: string): GenjutsuDef | undefined {
+   const g = GENJUTSU_BY_ID[id];
+   if (!g || g.tier <= 1) return undefined;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/jutsu.ts b/src/game/jutsu.ts
+--- a/src/game/jutsu.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/jutsu.ts	2026-09-01 05:15:01.089117620 +0000
+@@ -1423,6 +1423,127 @@
+   throw new Error("Duplicate Jutsu id detected; progression catalogue is invalid");
+ }
+ 
++/* ------------------------------------------------------------------ *
++ * Flavour text + mechanical text
++ *
++ * Every Jutsu, specialist technique and mastery passive must tell the player
++ * two separate things: what it IS (flavour) and what it DOES (mechanics).
++ * The authored `desc` field is used as the flavour line, and the mechanical
++ * line below is generated from the same structured numbers combat actually
++ * uses, so the two can never drift apart.
++ * ------------------------------------------------------------------ */
++
++const STAT_LABEL: Record<string, string> = {
++  nin: "Ninjutsu", gen: "Genjutsu", ken: "Kenjutsu", tac: "Tactics", doj: "Dōjutsu",
++  med: "Medical", spd: "Speed", ste: "Stealth", atk: "Attack",
++};
++
++const TARGET_LABEL: Record<JutsuTarget, string> = {
++  foe: "one enemy",
++  all_foes: "every enemy",
++  ally: "one ally",
++  all_allies: "the whole squad",
++  self: "the caster",
++};
++
++const EFFECT_TEXT: Record<JutsuEffect, (j: JutsuDef) => string | null> = {
++  burn: (j) => `applies Burn for ${j.effectValue ?? 2} round${(j.effectValue ?? 2) === 1 ? "" : "s"}`,
++  poison: (j) => `applies Poison for ${j.effectValue ?? 2} rounds`,
++  bleed: (j) => `applies Bleed for ${j.effectValue ?? 2} rounds`,
++  slow: (j) => `slows the target for ${Math.max(1, j.effectValue ?? 1)} round(s), cutting its initiative`,
++  guard: (j) => `grants a chakra barrier for ${j.effectValue ?? 2} rounds`,
++  brace: (j) => `grants a Guard stance for ${j.braceRounds ?? j.effectValue ?? 2} rounds`,
++  taunt: (j) => `forces enemies to prefer this target for ${j.tauntRounds ?? 2} rounds`,
++  retaliate: (j) => `returns ${Math.round((j.retaliationPct ?? 0.2) * 100)}% of damage taken for ${j.retaliationRounds ?? 2} rounds`,
++  shred: (j) => `reduces DEF by ${Math.round((j.shredPct ?? 0.1) * 100)}% for ${j.shredRounds ?? 2} rounds`,
++  stun: (j) => `attempts to stun for ${j.effectValue ?? 1} round(s)`,
++  pierce: (j) => `ignores ${j.effectValue ?? 0}% of the target's defence`,
++  crit: (j) => `adds +${j.effectValue ?? 10} percentage points critical chance`,
++  cleanse: () => "clears negative status effects",
++  regen: (j) => `applies regeneration for ${j.effectValue ?? 2} rounds`,
++  flow: () => "keeps the caster's chakra circulating",
++  tempo: () => "shifts the turn order in the caster's favour",
++  none: () => null,
++};
++
++function passiveMechanicParts(p: JutsuPassive): string[] {
++  const out: string[] = [];
++  const mult = (v: number) => `${v >= 1 ? "+" : ""}${Math.round((v - 1) * 100)}%`;
++  if (p.hp) out.push(`${mult(p.hp)} max HP`);
++  if (p.cp) out.push(`${mult(p.cp)} max chakra`);
++  if (p.atk) out.push(`${mult(p.atk)} battle ATK`);
++  if (p.def) out.push(`${mult(p.def)} battle DEF`);
++  if (p.spd) out.push(`${mult(p.spd)} battle speed`);
++  if (p.jutsuPower) out.push(`${mult(p.jutsuPower)} Jutsu damage`);
++  if (p.crit) out.push(`+${Math.round(p.crit * 100)}pp crit chance`);
++  if (p.dodge) out.push(`+${Math.round(p.dodge * 100)}pp dodge`);
++  if (p.counter) out.push(`+${Math.round(p.counter * 100)}% counter damage`);
++  if (p.burnAmp) out.push(`${mult(p.burnAmp)} Burn damage`);
++  if (p.burnRounds) out.push(`+${p.burnRounds} Burn round(s)`);
++  if (p.guardAmp) out.push(`${mult(p.guardAmp)} barrier absorption`);
++  if (p.braceAmp) out.push(`${mult(p.braceAmp)} Guard-stance strength`);
++  if (p.regenAmp) out.push(`${mult(p.regenAmp)} regeneration`);
++  if (p.pierceBonus) out.push(`+${Math.round(p.pierceBonus * 100)}pp armour pierce`);
++  if (p.stunBonus) out.push(`+${Math.round(p.stunBonus * 100)}pp stun chance`);
++  if (p.shredBonus) out.push(`+${Math.round(p.shredBonus * 100)}pp armour shred`);
++  if (p.tauntBonus) out.push(`+${Math.round(p.tauntBonus * 100)}pp taunt strength`);
++  if (p.retaliationBonus) out.push(`+${Math.round(p.retaliationBonus * 100)}pp retaliation`);
++  if (p.extraTurnBonus) out.push(`+${Math.round(p.extraTurnBonus * 100)}pp bonus-turn chance`);
++  if (p.chakraCost) out.push(`active Jutsu cost ${Math.round((1 - p.chakraCost) * 100)}% less chakra`);
++  return out;
++}
++
++/** What the technique looks and feels like in the fiction. */
++export function jutsuFlavour(j: JutsuDef): string {
++  if (j.desc && j.desc.trim().length > 0 && !/^PASSIVE:/i.test(j.desc)) return j.desc;
++  if (j.passive) {
++    return `${j.name} is not a technique that is thrown at an enemy: it is drilled until the body performs it without thought, permanently reshaping how this shinobi's ${j.pathLabel.toLowerCase()} work behaves.`;
++  }
++  return `${j.name} is a ${j.pathLabel.toLowerCase()} technique from the ${j.pathSummary.toLowerCase()} discipline, shaped by long repetition of the same hand seals.`;
++}
++
++/** Exactly what the technique does in combat, generated from its own numbers. */
++export function jutsuMechanics(j: JutsuDef): string {
++  if (j.passive) {
++    const parts = passiveMechanicParts(j.passive);
++    return `PASSIVE (no slot, no chakra): ${parts.length ? parts.join(", ") : "no numeric modifier"}.`;
++  }
++
++  const out: string[] = [];
++  const stat = j.stat ? STAT_LABEL[j.stat] ?? j.stat.toUpperCase() : "Ninjutsu";
++  const friendly = j.target === "ally" || j.target === "all_allies" || j.target === "self";
++
++  if (j.power > 0) {
++    const hits = j.hits ?? 1;
++    out.push(
++      friendly
++        ? `Heals ${TARGET_LABEL[j.target]} for ${j.power.toFixed(2)}× the caster's Ninjutsu/Medical scaling`
++        : `Deals ${j.power.toFixed(2)}× ${stat} damage${hits > 1 ? ` ×${hits} separate hits` : ""} to ${TARGET_LABEL[j.target]}`
++    );
++  } else {
++    out.push(`Targets ${TARGET_LABEL[j.target]} with no direct damage`);
++  }
++
++  const eff = EFFECT_TEXT[j.effect]?.(j);
++  if (eff) out.push(eff.charAt(0).toUpperCase() + eff.slice(1));
++
++  if (j.executeBelow) out.push(`Instantly finishes a target left below ${Math.round(j.executeBelow * 100)}% HP`);
++  if (j.recoilPct) out.push(`Costs the caster ${Math.round(j.recoilPct * 100)}% of their max HP`);
++  if (j.selfHealPct) out.push(`Heals the caster for ${Math.round(j.selfHealPct * 100)}% of damage dealt`);
++  if (j.allyHealPct) out.push(`Heals every ally for ${Math.round(j.allyHealPct * 100)}% of their max HP`);
++  if (j.cpDrainPct) out.push(`Drains ${Math.round(j.cpDrainPct * 100)}% of the target's chakra`);
++  if (j.cpRestorePct) out.push(`Restores ${Math.round(j.cpRestorePct * 100)}% of the caster's chakra`);
++  if (j.allyCpRestorePct) out.push(`Restores ${Math.round(j.allyCpRestorePct * 100)}% chakra to affected allies`);
++  if (j.speedBuffPct) out.push(`Grants +${Math.round(j.speedBuffPct * 100)}% speed for ${j.speedBuffRounds ?? 2} rounds`);
++  if (j.braceStrength && j.effect !== "brace") out.push(`Guard stance reduces damage by ${Math.round(j.braceStrength * 100)}% for ${j.braceRounds ?? 2} rounds`);
++  if (j.tauntStrength && j.effect !== "taunt") out.push(`Draws enemy attacks for ${j.tauntRounds ?? 2} rounds`);
++  if (j.extraTurnChance) out.push(`${Math.round(j.extraTurnChance * 100)}% chance of an immediate extra turn`);
++  if (j.ranged) out.push("Ranged: bypasses Guard stances and chakra barriers");
++
++  out.push(`Costs ${j.chakra} chakra · unlocks at Lv ${j.levelReq} · occupies 1 of 4 battle Jutsu slots`);
++  return `${out.join(". ")}.`;
++}
++
+ export function ninjaNatures(n: Ninja): Nature[] {
+   const out: Nature[] = [n.nature];
+   if (n.secondaryNature && !out.includes(n.secondaryNature)) out.push(n.secondaryNature);
+@@ -1493,7 +1614,9 @@
+ }
+ 
+ export function jutsuPointsTotal(n: Ninja): number {
+-  return Math.floor(n.level / 3);
++  // Base progression plus any extra points granted by village infrastructure
++  // (Scroll Archive levels and the Academy's Chakra Theory research).
++  return Math.floor(n.level / 3) + Math.max(0, n.bonusJp ?? 0);
+ }
+ 
+ export function jutsuPointsSpent(n: Ninja): number {
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/save.ts b/src/game/save.ts
+--- a/src/game/save.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/save.ts	2026-09-01 05:11:16.403380429 +0000
+@@ -71,11 +71,15 @@
+     if (!state.stats) state.stats = { done: 0, failed: 0, raids: 0, earned: 0, levels: 0, promos: 0 };
+     if (!state.battle) state.battle = null;
+     if (!state.scout) state.scout = null;
+-    if (!state.b) state.b = { hall: 1, farm: 1, tea: 0, dojo: 0, tower: 0, shrine: 0, intel: 0, anbu: 0, hospital: 0, embassy: 0 };
++    if (!state.b) state.b = { hall: 1, farm: 1, tea: 0, dojo: 0, tower: 0, shrine: 0, intel: 0, anbu: 0, hospital: 0, embassy: 0, academy: 0, forge: 0, archive: 0, market: 0 };
+     if (typeof state.b.intel !== "number") state.b.intel = 0;
+     if (typeof state.b.anbu !== "number") state.b.anbu = 0;
+     if (typeof state.b.hospital !== "number") state.b.hospital = 0;
+     if (typeof state.b.embassy !== "number") state.b.embassy = 0;
++    // Later-game infrastructure added after these saves were written.
++    for (const later of ["academy", "forge", "archive", "market"] as const) {
++      if (typeof state.b[later] !== "number") state.b[later] = 0;
++    }
+     if (typeof state.raidGraceDays !== "number") state.raidGraceDays = 0;
+     if (!Array.isArray(state.techs)) state.techs = [];
+     if (!Array.isArray(state.log)) state.log = [];
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=vite.config.ts' a/src/game/types.ts b/src/game/types.ts
+--- a/src/game/types.ts	2026-09-01 05:00:37.302438972 +0000
++++ b/src/game/types.ts	2026-09-01 05:15:01.085117589 +0000
+@@ -1,14 +1,21 @@
+ export type Phase = "menu" | "playing" | "paused" | "over" | "raid_select" | "battle";
+ export type Rank = "D" | "C" | "B" | "A" | "S";
+ export type NinRank = "genin" | "chunin" | "jonin" | "anbu" | "kage";
+-export type Bld = "hall" | "farm" | "tea" | "dojo" | "tower" | "shrine" | "intel" | "anbu" | "hospital" | "embassy";
++export type Bld =
++  | "hall" | "farm" | "tea" | "dojo" | "tower" | "shrine" | "intel" | "anbu" | "hospital" | "embassy"
++  // Later-game infrastructure that deepens the training / economy / hunt loops.
++  | "academy" | "forge" | "archive" | "market";
+ export type VillageTechId =
+   | "hall_mission_admin" | "hall_expanded_roster" | "hall_talent_scouts" | "hall_elite_recruitment"
+   | "farm_efficiency" | "farm_ration_stores" | "farm_campaign_supplies" | "farm_emergency_granary"
+   | "tea_merchant_contacts" | "tea_contract_network" | "tea_recruitment_rumours" | "tea_black_market"
+   | "dojo_advanced_drills" | "dojo_kenjutsu_hall" | "dojo_tactical_classroom" | "dojo_forbidden_archives"
+   | "tower_scout_network" | "tower_raid_forecast" | "tower_sensor_corps" | "tower_rapid_response"
+-  | "shrine_recovery_ward" | "shrine_field_medicine" | "shrine_chakra_restoration" | "shrine_trauma_care";
++  | "shrine_recovery_ward" | "shrine_field_medicine" | "shrine_chakra_restoration" | "shrine_trauma_care"
++  | "academy_standard_curriculum" | "academy_graduation_exams" | "academy_clan_outreach" | "academy_chakra_theory"
++  | "forge_village_smithy" | "forge_chakra_tempering" | "forge_supply_line" | "forge_masterwork_bench"
++  | "archive_scroll_catalogue" | "archive_illusion_studies" | "archive_field_manuals" | "archive_forbidden_vault"
++  | "market_caravan_routes" | "market_bounty_office" | "market_rice_exchange" | "market_war_chest";
+ export type NinjaStatus = "ready" | "mission" | "injured";
+ 
+ export type Skill = "nin" | "tai" | "gen" | "ste" | "med" | "spd" | "ken" | "doj" | "tac";
+@@ -77,6 +84,8 @@
+   potentialRaises?: number;
+   /** Personal technique rows frozen once their level requirement is reached. Future rows remain dynamic. */
+   techniqueTree?: string[][];
++  /** Extra shared JP granted by Scroll Archive infrastructure and Academy research. */
++  bonusJp?: number;
+   /** Jutsu granted by missions/events are free and must not consume shared JP. */
+   jutsuGranted?: string[];
+   /** unlocked tech-tree node ids */
+@@ -242,6 +251,9 @@
+   genjutsuMissChance?: number;
+   chakraLockRounds?: number;
+   genjutsuEquipped?: string[];
++  /** Village-research bonuses applied when the unit enters a battle. */
++  villageGenjutsuBonus?: number;
++  villageChakraDiscount?: number;
+   perks: string[];
+   legend: string | null;
+ }

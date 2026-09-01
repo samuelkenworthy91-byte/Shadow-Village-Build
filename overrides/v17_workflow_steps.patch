@@ -1,0 +1,50 @@
+diff --git a/.github/workflows/build-apk.yml b/.github/workflows/build-apk.yml
+index a666a14..0a2e19a 100644
+--- a/.github/workflows/build-apk.yml
++++ b/.github/workflows/build-apk.yml
+@@ -284,6 +284,20 @@ jobs:
+           grep -q 'orientation:portrait' app/src/components/BingoBookOverlay.tsx
+           grep -q 'shadow-village-main-polish-v1' app/public/sw.js
+ 
++      - name: Apply v17 gameplay polish
++        run: |
++          python overrides/apply_v17_gameplay_polish.py
++          grep -q 'export function rollPotential' app/src/game/engine.ts
++          grep -q 'export function jutsuMechanics' app/src/game/jutsu.ts
++          grep -q 'export function genjutsuMechanics' app/src/game/genjutsu.ts
++          grep -q 'export function itemBonusTags' app/src/game/equipment.ts
++          grep -q 'Equipment is completely unrestricted' app/src/game/equipment.ts
++          grep -q 'function ResourceForecast' app/src/components/Scene.tsx
++          test -f app/src/components/EquipmentArtwork.tsx
++          grep -q 'academy_chakra_theory' app/src/game/content.ts
++          grep -q 'market_war_chest' app/src/game/content.ts
++          grep -q 'kage-life-v17-gameplay-polish' app/public/sw.js
++
+       - name: Upload v16 patched source snapshot
+         uses: actions/upload-artifact@v4
+         with:
+diff --git a/.github/workflows/build-kage-life-branch.yml b/.github/workflows/build-kage-life-branch.yml
+index b704fd7..3200408 100644
+--- a/.github/workflows/build-kage-life-branch.yml
++++ b/.github/workflows/build-kage-life-branch.yml
+@@ -71,6 +71,20 @@ jobs:
+           grep -q 'former ${s.villageName} shinobi' app/src/game/bingo.ts
+           ! grep -q 'This ninja will permanently leave Shadow Village' app/src/components/NinjaDetail.tsx
+ 
++      - name: Apply v17 gameplay polish
++        run: |
++          python overrides/apply_v17_gameplay_polish.py
++          grep -q 'export function rollPotential' app/src/game/engine.ts
++          grep -q 'export function jutsuMechanics' app/src/game/jutsu.ts
++          grep -q 'export function genjutsuMechanics' app/src/game/genjutsu.ts
++          grep -q 'export function itemBonusTags' app/src/game/equipment.ts
++          grep -q 'Equipment is completely unrestricted' app/src/game/equipment.ts
++          grep -q 'function ResourceForecast' app/src/components/Scene.tsx
++          test -f app/src/components/EquipmentArtwork.tsx
++          grep -q 'academy_chakra_theory' app/src/game/content.ts
++          grep -q 'market_war_chest' app/src/game/content.ts
++          grep -q 'kage-life-v17-gameplay-polish' app/public/sw.js
++
+       - name: Verify uploaded Kage Life logo
+         run: |
+           set -euo pipefail
