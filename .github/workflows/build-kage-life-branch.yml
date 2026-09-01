@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - kage-life-village-rename
+      - arena/01a05b52-shadow-village-build
 
 permissions:
   contents: read
