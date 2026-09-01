@@ -33,6 +33,7 @@ Applies one reviewed patch covering six player-reported problems:
 
 from pathlib import Path
 import subprocess
+import sys
 
 ROOT = Path("app")
 PATCH = Path("overrides/v17_gameplay_polish.patch")
@@ -130,3 +131,11 @@ if "kage-life-v17-gameplay-polish" not in sw_text:
     )
 
 print("v17 gameplay polish applied")
+
+# Arena v18 ships its own reviewed, idempotent patch runner. Chain it here so
+# both existing APK workflows pick up V18 even where workflow-file writes are
+# restricted. Once the dedicated V18 workflow step is merged, running both is
+# still safe because the V18 runner verifies an already-applied expansion.
+v18_runner = Path("overrides/apply_v18_content_expansion.py")
+if v18_runner.exists():
+    subprocess.run([sys.executable, str(v18_runner)], check=True)
