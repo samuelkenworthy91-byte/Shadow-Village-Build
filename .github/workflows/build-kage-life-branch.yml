@@ -59,6 +59,21 @@ jobs:
           test -f app/src/App.tsx
           test -f app/src/game/bingo.ts
 
+      - name: Normalize legacy branding input
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('app/index.html')
+          s = p.read_text(encoding='utf-8')
+          expected = '<meta name="description" content="Shadow Village — build a hidden ninja settlement, train shinobi, deploy squads on skill-based missions, and survive the raids." />'
+          if expected not in s:
+              s, n = re.subn(r'<meta name="description" content="[^"]*"\s*/>', expected, s, count=1)
+              if n != 1:
+                  raise SystemExit(f'Could not normalize index description: {n} matches')
+              p.write_text(s, encoding='utf-8')
+          PY
+
       - name: Apply Kage Life identity and final messaging
         run: |
           set -euo pipefail
