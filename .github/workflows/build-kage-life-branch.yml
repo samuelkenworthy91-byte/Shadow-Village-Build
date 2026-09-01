@@ -63,15 +63,57 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import json
           import re
-          p = Path('app/index.html')
-          s = p.read_text(encoding='utf-8')
-          expected = '<meta name="description" content="Shadow Village — build a hidden ninja settlement, train shinobi, deploy squads on skill-based missions, and survive the raids." />'
-          if expected not in s:
-              s, n = re.subn(r'<meta name="description" content="[^"]*"\s*/>', expected, s, count=1)
+
+          def normalize(path: str, pattern: str, replacement: str, label: str) -> None:
+              p = Path(path)
+              s = p.read_text(encoding='utf-8')
+              if replacement in s:
+                  return
+              s, n = re.subn(pattern, lambda _m: replacement, s, count=1)
               if n != 1:
-                  raise SystemExit(f'Could not normalize index description: {n} matches')
+                  raise SystemExit(f'Could not normalize {label}: {n} matches')
               p.write_text(s, encoding='utf-8')
+
+          normalize(
+              'app/index.html',
+              r'<meta name="description" content="[^"]*"\s*/>',
+              '<meta name="description" content="Shadow Village — build a hidden ninja settlement, train shinobi, deploy squads on skill-based missions, and survive the raids." />',
+              'index description',
+          )
+          normalize(
+              'app/index.html',
+              r'<title>[^<]*</title>',
+              '<title>Shadow Village — Ninja Settlement</title>',
+              'index title',
+          )
+          normalize(
+              'app/index.html',
+              r'<meta name="apple-mobile-web-app-title" content="[^"]*"\s*/>',
+              '<meta name="apple-mobile-web-app-title" content="Shadow Village" />',
+              'apple title',
+          )
+          normalize(
+              'app/index.html',
+              r'<meta name="application-name" content="[^"]*"\s*/>',
+              '<meta name="application-name" content="Shadow Village" />',
+              'application name',
+          )
+
+          manifest_path = Path('app/public/manifest.webmanifest')
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['name'] = 'Shadow Village — Ninja Settlement'
+          manifest['short_name'] = 'Shadow Village'
+          manifest['description'] = 'Build a hidden ninja village, train shinobi, deploy squads on missions, and survive the raids.'
+          manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          normalize(
+              'app/capacitor.config.ts',
+              r'appName:\s*"[^"]*",',
+              'appName: "Shadow Village — Progression Dev",',
+              'capacitor app name',
+          )
           PY
 
       - name: Apply Kage Life identity and final messaging
