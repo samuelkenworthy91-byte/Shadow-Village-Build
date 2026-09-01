@@ -26,6 +26,9 @@ Applies one reviewed patch covering six player-reported problems:
      now clamp to one shared 80% ceiling everywhere.
   8. The personal screen shows what equipped gear contributes to HP, ATK, DEF,
      CRIT, DODGE, CHAKRA and crit damage, not just to the nine skills.
+  9. Gold, rice and energy were rendered twice — as HUD chips and as scene
+     forecast cards. They now live only on the scene, in one shared card, each
+     with its next-day prediction; raid intel uses that same card language.
 """
 
 from pathlib import Path
@@ -99,7 +102,13 @@ CHECKS = {
         "bonusJp?: number;",
     ],
     "src/components/EquipmentArtwork.tsx": ["export default function EquipmentArtwork"],
-    "src/components/Scene.tsx": ["function ResourceForecast"],
+    "src/components/Scene.tsx": [
+        "function StatCard",
+        "function ResourceForecast",
+        'id="hud-gold"',
+        'id="hud-rice"',
+        'id="hud-ap"',
+    ],
     "src/components/NinjaEquipment.tsx": ["ANY FOUR PIECES · NO RESTRICTIONS"],
     "src/components/NinjaDetail.tsx": ["gearStatDelta(u, bare)", "fmtDeltaPct"],
     "src/components/JutsuTree.tsx": ["jutsuMechanics(j)"],

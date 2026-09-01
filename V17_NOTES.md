@@ -83,6 +83,23 @@ multiplicative stacking and the shared cap rather than naively re-adding item
 numbers. If gear pushes crit past the ceiling, the delta shows the portion that
 actually applied.
 
+**9. One card language for the whole home screen.** Gold, rice and energy were
+being rendered twice — as chips in the top HUD bar and again as forecast cards
+on the village scene — in two different visual styles. The HUD copies are gone;
+those three now live only on the scene, in a single shared `StatCard` shape:
+value on top, prediction underneath.
+
+Energy joins them, and gains a forecast it never had: the old pip strip showed
+how many actions remained but never what tomorrow would refill to, which is the
+number that actually matters when deciding whether to end the day. Raid threat
+and raid intel were restyled into the same card, so the left and right sides of
+the scene now match instead of using separate bar-and-panel treatments.
+
+The top bar keeps only what has no per-day forecast: village identity, score,
+win streak, day counter and controls. The `hud-gold` / `hud-rice` / `hud-ap`
+element ids moved with the cards, so the coin-burst and out-of-actions particle
+effects still anchor to the right spot on screen.
+
 ## Applying it
 
 `overrides/apply_v17_gameplay_polish.py` applies

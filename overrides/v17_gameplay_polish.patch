@@ -2,7 +2,7 @@ Binary files a/assets/logo.png and b/assets/logo.png differ
 Binary files a/public/icon.png and b/public/icon.png differ
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/public/sw.js b/public/sw.js
 --- a/public/sw.js	2026-09-01 05:00:37.298438941 +0000
-+++ b/public/sw.js	2026-09-01 05:18:05.706545127 +0000
++++ b/public/sw.js	2026-09-01 05:29:57.917083124 +0000
 @@ -1,7 +1,7 @@
  // Offline shell for Kage Life. Ninja portraits are external PNG assets,
  // so pre-cache the complete 80-character art library as well as the app shell.
@@ -14,7 +14,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
  const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/bg-exam-arena.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/BattleScreen.tsx b/src/components/BattleScreen.tsx
 --- a/src/components/BattleScreen.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/BattleScreen.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/BattleScreen.tsx	2026-09-01 05:29:57.917083124 +0000
 @@ -4,8 +4,8 @@
  import { COSTS, actionLabel, aliveAllies, aliveFoes, canUse, currentUnit, unitCombatPower } from "../game/battle";
  import { combatTechniqueIds, perkById } from "../game/perks";
@@ -63,7 +63,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
              <div className="flex h-11 items-center gap-2">
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/Bits.tsx b/src/components/Bits.tsx
 --- a/src/components/Bits.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/Bits.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/Bits.tsx	2026-09-01 05:29:57.917083124 +0000
 @@ -20,7 +20,7 @@
          ))}
        </span>
@@ -75,7 +75,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
    );
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/BuildMenu.tsx b/src/components/BuildMenu.tsx
 --- a/src/components/BuildMenu.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/BuildMenu.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/BuildMenu.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -1,6 +1,7 @@
  import { Coins, HeartPulse, Wheat } from "lucide-react";
  import type { Bld, GameState, VillageTechId } from "../game/types";
@@ -108,7 +108,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
                  <button
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/EquipmentArtwork.tsx b/src/components/EquipmentArtwork.tsx
 --- a/src/components/EquipmentArtwork.tsx	1970-01-01 00:00:00.000000000 +0000
-+++ b/src/components/EquipmentArtwork.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/EquipmentArtwork.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -0,0 +1,169 @@
 +import type { EquipmentArt, EquipmentItem } from "../game/equipment";
 +import { RARITY_META } from "../game/equipment";
@@ -281,7 +281,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
 +}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/EquipmentScreen.tsx b/src/components/EquipmentScreen.tsx
 --- a/src/components/EquipmentScreen.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/EquipmentScreen.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/EquipmentScreen.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -7,20 +7,36 @@
    RARITY_META,
    ensureEquipmentState,
@@ -365,7 +365,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
            </div>
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/GenjutsuTree.tsx b/src/components/GenjutsuTree.tsx
 --- a/src/components/GenjutsuTree.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/GenjutsuTree.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/GenjutsuTree.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -1,6 +1,6 @@
  import type { Ninja } from "../game/types";
  import { jutsuPointsAvailable } from "../game/jutsu";
@@ -387,84 +387,162 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
      </div>;
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/HUD.tsx b/src/components/HUD.tsx
 --- a/src/components/HUD.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/HUD.tsx	2026-09-01 05:18:05.698545066 +0000
-@@ -1,7 +1,6 @@
- import { Coins, Flame, Menu, Trophy, Volume2, VolumeX, Wheat, Zap } from "lucide-react";
++++ b/src/components/HUD.tsx	2026-09-01 06:03:18.091793524 +0000
+@@ -1,57 +1,25 @@
+-import { Coins, Flame, Menu, Trophy, Volume2, VolumeX, Wheat, Zap } from "lucide-react";
++import { Flame, Menu, Trophy, Volume2, VolumeX } from "lucide-react";
  import type { GameState } from "../game/types";
 -import { EAT_PER_DAY, FARM_RICE, TEA_GOLD } from "../game/content";
 -import { apMax, hasTech, streakMult } from "../game/engine";
-+import { apMax, dailyGoldIncome, dailyRiceConsumption, dailyRiceIncome, streakMult } from "../game/engine";
++import { streakMult } from "../game/engine";
  import { cn } from "../utils/cn";
  import type { ReactNode } from "react";
  
-@@ -29,6 +28,7 @@
-   warn?: boolean;
- }) {
-   const hasDelta = gain !== undefined || loss !== undefined;
-+  const net = (gain ?? 0) - (loss ?? 0);
- 
+-function formatGain(value: number): string {
+-  return Number.isInteger(value)
+-    ? value.toLocaleString()
+-    : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+-}
+-
+-function Chip({
+-  id,
+-  icon,
+-  value,
+-  gain,
+-  loss,
+-  title,
+-  warn,
+-}: {
+-  id?: string;
+-  icon: ReactNode;
+-  value: string;
+-  gain?: number;
+-  loss?: number;
+-  title?: string;
+-  warn?: boolean;
+-}) {
+-  const hasDelta = gain !== undefined || loss !== undefined;
+-
++/**
++ * Slim top bar: identity, score, day and controls.
++ *
++ * Gold, rice and energy used to live here as chips *and* on the village scene
++ * as forecast cards, so the same three numbers were on screen twice in two
++ * different styles. They now live only on the scene, where each one carries its
++ * next-day prediction. What stays here is what has no per-day forecast to show.
++ */
++function Chip({ icon, value, title }: { icon: ReactNode; value: string; title?: string }) {
    return (
      <span
-@@ -36,17 +36,22 @@
+-      id={id}
        title={title}
-       className={cn(
-         "inline-flex shrink-0 items-center rounded-lg bg-black/30 font-semibold tabular-nums ring-1 ring-inset ring-white/5",
+-      className={cn(
+-        "inline-flex shrink-0 items-center rounded-lg bg-black/30 font-semibold tabular-nums ring-1 ring-inset ring-white/5",
 -        hasDelta ? "h-7 gap-0.5 px-1 text-[11px] sm:h-8 sm:gap-1 sm:px-1.5 sm:text-[12px]" : "h-7 gap-1 px-1.5 text-[11px] sm:px-2 sm:text-[13px]",
-+        hasDelta ? "h-9 gap-0.5 px-1 text-[11px] sm:h-9 sm:gap-1 sm:px-1.5 sm:text-[12px]" : "h-7 gap-1 px-1.5 text-[11px] sm:px-2 sm:text-[13px]",
-         warn && "animate-pulse"
-       )}
+-        warn && "animate-pulse"
+-      )}
++      className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-black/30 px-1.5 text-[11px] font-semibold tabular-nums ring-1 ring-inset ring-white/5 sm:px-2 sm:text-[13px]"
      >
        {icon}
-       {hasDelta ? (
+-      {hasDelta ? (
 -        <span className="flex min-w-0 flex-col items-start leading-none sm:min-w-[34px]">
-+        <span className="flex min-w-0 flex-col items-start leading-none min-w-[34px]">
-           <span className="whitespace-nowrap">{value}</span>
+-          <span className="whitespace-nowrap">{value}</span>
 -          <span className="mt-0.5 hidden items-center gap-1 whitespace-nowrap text-[8px] font-extrabold leading-none sm:flex">
-+          <span className="mt-0.5 flex items-center gap-1 whitespace-nowrap text-[8px] font-extrabold leading-none">
-             {gain !== undefined && <span className="text-[#8fce6a]">+{formatGain(gain)}</span>}
-             {loss !== undefined && <span className="text-vermil">−{formatGain(loss)}</span>}
-+            {gain !== undefined && loss !== undefined && (
-+              <span className={net >= 0 ? "text-[#8fce6a]/70" : "text-vermil/80"}>
-+                ({net >= 0 ? "+" : "−"}{formatGain(Math.abs(net))})
-+              </span>
-+            )}
-           </span>
-         </span>
-       ) : (
-@@ -68,9 +73,9 @@
+-            {gain !== undefined && <span className="text-[#8fce6a]">+{formatGain(gain)}</span>}
+-            {loss !== undefined && <span className="text-vermil">−{formatGain(loss)}</span>}
+-          </span>
+-        </span>
+-      ) : (
+-        <span className="whitespace-nowrap">{value}</span>
+-      )}
++      <span className="whitespace-nowrap">{value}</span>
+     </span>
+   );
+ }
+@@ -67,56 +35,33 @@
+   onMute: () => void;
    onPause: () => void;
  }) {
-   const max = apMax(s);
+-  const max = apMax(s);
 -  const nextGoldFromBuildings = TEA_GOLD * s.b.tea * (hasTech(s, "tea_merchant_contacts") ? 1.25 : 1);
 -  const nextRiceFromBuildings = FARM_RICE * s.b.farm * (hasTech(s, "farm_efficiency") ? 1.25 : 1);
 -  const nextRiceConsumption = EAT_PER_DAY * s.ninjas.length * (hasTech(s, "farm_ration_stores") ? 0.75 : 1);
-+  const nextGoldFromBuildings = dailyGoldIncome(s);
-+  const nextRiceFromBuildings = dailyRiceIncome(s);
-+  const nextRiceConsumption = dailyRiceConsumption(s);
- 
+-
    return (
-     <header className="flex h-11 min-w-0 shrink-0 items-center gap-0.5 rounded-xl bg-[#151728]/85 px-1 ring-1 ring-white/10 backdrop-blur sm:gap-2 sm:px-3">
-@@ -85,7 +90,7 @@
-         icon={<Coins size={13} className="text-gold" />}
-         value={Math.floor(s.gold).toLocaleString()}
-         gain={nextGoldFromBuildings}
--        title={`Next day from Tea Houses: +${formatGain(nextGoldFromBuildings)} gold`}
-+        title={`Next day: +${formatGain(nextGoldFromBuildings)} gold from Tea Houses and the Merchant Quarter`}
-       />
+-    <header className="flex h-11 min-w-0 shrink-0 items-center gap-0.5 rounded-xl bg-[#151728]/85 px-1 ring-1 ring-white/10 backdrop-blur sm:gap-2 sm:px-3">
+-      <span className="hidden h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#0d0e1a] ring-1 ring-white/10 shadow-[0_0_14px_rgba(226,69,47,0.25)] sm:grid">
++    <header className="flex h-11 min-w-0 shrink-0 items-center gap-1 rounded-xl bg-[#151728]/85 px-1 ring-1 ring-white/10 backdrop-blur sm:gap-2 sm:px-3">
++      <span className="grid h-7 w-7 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#0d0e1a] ring-1 ring-white/10 shadow-[0_0_14px_rgba(226,69,47,0.25)]">
+         <img src="/icon.png" alt="" className="h-full w-full object-cover" draggable={false} />
+       </span>
+-      <span className="hidden max-w-[280px] truncate font-display text-[13px] font-bold tracking-[0.16em] text-paper/90 xl:block">KAGE LIFE · {s.villageName.toUpperCase()}</span>
+-      <div className="mx-0.5 hidden h-5 w-px bg-white/10 xl:block" />
++      <span className="hidden max-w-[280px] truncate font-display text-[13px] font-bold tracking-[0.16em] text-paper/90 sm:block">
++        KAGE LIFE · {s.villageName.toUpperCase()}
++      </span>
++
++      <div className="min-w-0 flex-1" />
+ 
        <Chip
-         id="hud-rice"
-@@ -93,7 +98,7 @@
-         value={Math.floor(s.rice).toLocaleString()}
-         gain={nextRiceFromBuildings}
-         loss={nextRiceConsumption}
+-        id="hud-gold"
+-        icon={<Coins size={13} className="text-gold" />}
+-        value={Math.floor(s.gold).toLocaleString()}
+-        gain={nextGoldFromBuildings}
+-        title={`Next day from Tea Houses: +${formatGain(nextGoldFromBuildings)} gold`}
+-      />
+-      <Chip
+-        id="hud-rice"
+-        icon={<Wheat size={13} className={s.hungry ? "text-vermil" : "text-[#8fce6a]"} />}
+-        value={Math.floor(s.rice).toLocaleString()}
+-        gain={nextRiceFromBuildings}
+-        loss={nextRiceConsumption}
 -        title={`Next day: +${formatGain(nextRiceFromBuildings)} rice from Paddies −${formatGain(nextRiceConsumption)} rice consumed by ${s.ninjas.length} ninja`}
-+        title={`Next day: +${formatGain(nextRiceFromBuildings)} rice produced −${formatGain(nextRiceConsumption)} rice consumed by ${s.ninjas.length} ninja = ${formatGain(nextRiceFromBuildings - nextRiceConsumption)} net`}
-         warn={s.hungry}
+-        warn={s.hungry}
++        icon={<Trophy size={13} className="text-[#ffe9b8]" />}
++        value={s.score.toLocaleString()}
++        title="Village score"
        />
-       <span className="hidden md:inline-flex"><Chip icon={<Trophy size={13} className="text-[#ffe9b8]" />} value={s.score.toLocaleString()} /></span>
+-      <span className="hidden md:inline-flex"><Chip icon={<Trophy size={13} className="text-[#ffe9b8]" />} value={s.score.toLocaleString()} /></span>
+-
+-      <span id="hud-ap" className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-lg bg-black/30 px-1 ring-1 ring-inset ring-white/5 sm:gap-1 sm:px-1.5" title={`${s.ap} of ${max} actions left today`}>
+-        <Zap size={12} className={s.ap > 0 ? "text-gold" : "text-paper/25"} />
+-        <span className="text-[10px] font-black tabular-nums text-paper/80 sm:hidden">{s.ap}/{max}</span>
+-        <span className="hidden gap-[3px] sm:flex">
+-          {Array.from({ length: max }, (_, i) => (
+-            <i key={i} className={cn("block h-3 w-[5px] rounded-sm transition-colors", i < s.ap ? "bg-gold" : "bg-white/12")} />
+-          ))}
+-        </span>
+-      </span>
+ 
+       {s.streak >= 2 && (
+-        <span className="hidden h-7 items-center gap-1 rounded-lg bg-gold/15 px-2 text-[12px] font-bold text-gold ring-1 ring-inset ring-gold/30 sm:inline-flex">
++        <span
++          title={`${s.streak} successful missions in a row — rewards ×${streakMult(s).toFixed(1)}`}
++          className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-gold/15 px-2 text-[12px] font-bold text-gold ring-1 ring-inset ring-gold/30"
++        >
+           <Flame size={12} />×{streakMult(s).toFixed(1)}
+         </span>
+       )}
+ 
+-      <div className="min-w-0 flex-1" />
+-
+-      <span className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded-lg bg-black/30 px-1 text-[10px] font-semibold ring-1 ring-inset ring-white/5 sm:gap-1 sm:px-1.5 sm:text-[11px]">
++      <span className="inline-flex h-7 shrink-0 items-center gap-1 rounded-lg bg-black/30 px-1.5 text-[11px] font-semibold ring-1 ring-inset ring-white/5">
+         <span className="font-display text-gold">日</span>
+         <span className="whitespace-nowrap tabular-nums text-paper/90"><span className="hidden sm:inline">Day </span>{s.day}</span>
+       </span>
+@@ -124,7 +69,7 @@
+       <button
+         onClick={onMute}
+         aria-label="Toggle sound"
+-        className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-black/30 text-paper/70 ring-1 ring-inset ring-white/5 transition hover:text-paper active:scale-90"
++        className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-black/30 text-paper/70 ring-1 ring-inset ring-white/5 transition hover:text-paper active:scale-90")}
+       >
+         {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+       </button>
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/JutsuTree.tsx b/src/components/JutsuTree.tsx
 --- a/src/components/JutsuTree.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/JutsuTree.tsx	2026-09-01 05:18:05.698545066 +0000
++++ b/src/components/JutsuTree.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -1,5 +1,5 @@
  import type { Ninja, TraitId } from "../game/types";
 -import { JUTSU, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
@@ -485,7 +563,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
          {!has && j.tier > 0 && <button disabled={!learnable} onClick={() => learn(j.id)} className="w-full rounded-lg bg-gold px-2 py-1.5 text-[8px] font-black text-[#2b2118] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-paper/25">{learnable ? "LEARN · 1 JP" : reason}</button>}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/NinjaDetail.tsx b/src/components/NinjaDetail.tsx
 --- a/src/components/NinjaDetail.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/NinjaDetail.tsx	2026-09-01 05:29:06.452685182 +0000
++++ b/src/components/NinjaDetail.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -1,7 +1,7 @@
  import { useState } from "react";
  import { Check, Plus, Star, TrendingUp, X } from "lucide-react";
@@ -585,7 +663,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
 +}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/NinjaEquipment.tsx b/src/components/NinjaEquipment.tsx
 --- a/src/components/NinjaEquipment.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/NinjaEquipment.tsx	2026-09-01 05:18:05.702545096 +0000
++++ b/src/components/NinjaEquipment.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -5,7 +5,6 @@
    EQUIPMENT_CATALOG,
    RARITY_META,
@@ -655,7 +733,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
                    })}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/PerkTree.tsx b/src/components/PerkTree.tsx
 --- a/src/components/PerkTree.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/PerkTree.tsx	2026-09-01 05:18:05.702545096 +0000
++++ b/src/components/PerkTree.tsx	2026-09-01 05:29:57.921083155 +0000
 @@ -90,6 +90,7 @@
                          {p.kind === "signature" && <Sparkles size={9} className="shrink-0 text-gold" />}
                          {locked && !taken && <Lock size={9} className="ml-auto shrink-0 text-paper/30" />}
@@ -666,15 +744,16 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
                        {p.kind === "signature" && (
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/components/Scene.tsx b/src/components/Scene.tsx
 --- a/src/components/Scene.tsx	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/components/Scene.tsx	2026-09-01 05:18:05.702545096 +0000
-@@ -1,12 +1,54 @@
- import { useMemo } from "react";
++++ b/src/components/Scene.tsx	2026-09-01 06:02:53.435602932 +0000
+@@ -1,12 +1,121 @@
+-import { useMemo } from "react";
 -import { ChevronsRight } from "lucide-react";
-+import { ChevronsRight, Coins, Wheat } from "lucide-react";
++import { useMemo, type ReactNode } from "react";
++import { ChevronsRight, Coins, Wheat, Zap } from "lucide-react";
  import type { GameState, Ninja } from "../game/types";
  import { BUILDINGS } from "../game/content";
  import { raidForecast } from "../game/battle";
-+import { dailyGoldIncome, dailyRiceConsumption, dailyRiceIncome } from "../game/engine";
++import { apMax, dailyGoldIncome, dailyRiceConsumption, dailyRiceIncome } from "../game/engine";
  import NinjaSprite from "./NinjaSprite";
  import { cn } from "../utils/cn";
  
@@ -690,52 +769,178 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
 +}
 +
 +/**
-+ * Home-screen resource forecast. Each total carries the next day's prediction
-+ * directly underneath it, so the player never has to open another screen to
-+ * see whether the village is gaining or losing food and gold.
++ * One shared card for every at-a-glance village stat.
++ *
++ * The HUD used to carry gold, rice and energy in its own chip style while the
++ * scene carried the forecast in another, so the same numbers appeared twice in
++ * two different visual languages. Everything the player watches per-day now
++ * lives in the scene in this one card shape: a value on top, the prediction or
++ * breakdown underneath.
++ */
++function StatCard({
++  id,
++  icon,
++  value,
++  tone,
++  children,
++  title,
++  warn,
++}: {
++  id?: string;
++  icon?: ReactNode;
++  value: ReactNode;
++  tone: string;
++  children?: ReactNode;
++  title?: string;
++  warn?: boolean;
++}) {
++  return (
++    <div
++      id={id}
++      title={title}
++      className={cn(
++        "rounded-md bg-black/45 px-2 py-1 text-left backdrop-blur-sm ring-1 ring-white/8",
++        warn && "animate-pulse ring-vermil/40"
++      )}
++    >
++      <p className={cn("flex items-center gap-1 text-[11px] font-black tabular-nums leading-none", tone)}>
++        {icon}{value}
++      </p>
++      {children && <div className="mt-0.5 text-[8px] font-black tabular-nums leading-none">{children}</div>}
++    </div>
++  );
++}
++
++/**
++ * Gold, rice and energy, each with the next day's prediction underneath.
++ * Energy joins the other two here: its refill is as much a daily planning
++ * number as food and income, and the old HUD pip strip never said how many
++ * actions the next day would actually bring.
 + */
 +function ResourceForecast({ s }: { s: GameState }) {
 +  const gold = dailyGoldIncome(s);
 +  const riceIn = dailyRiceIncome(s);
 +  const riceOut = dailyRiceConsumption(s);
 +  const riceNet = riceIn - riceOut;
++  const max = apMax(s);
 +
 +  return (
 +    <div className="absolute left-2.5 top-9 flex gap-1.5">
-+      <div className="rounded-md bg-black/45 px-2 py-1 text-left backdrop-blur-sm ring-1 ring-white/8">
-+        <p className="flex items-center gap-1 text-[11px] font-black tabular-nums leading-none text-gold">
-+          <Coins size={11} />{Math.floor(s.gold).toLocaleString()}
-+        </p>
-+        <p className="mt-0.5 text-[8px] font-black tabular-nums leading-none text-[#8fce6a]">+{fmt(gold)}/day</p>
-+      </div>
-+      <div className="rounded-md bg-black/45 px-2 py-1 text-left backdrop-blur-sm ring-1 ring-white/8">
-+        <p className={cn("flex items-center gap-1 text-[11px] font-black tabular-nums leading-none", s.hungry ? "text-vermil" : "text-[#a8dd86]")}>
-+          <Wheat size={11} />{Math.floor(s.rice).toLocaleString()}
-+        </p>
-+        <p className="mt-0.5 flex gap-1 text-[8px] font-black tabular-nums leading-none">
++      <StatCard
++        id="hud-gold"
++        icon={<Coins size={11} />}
++        value={Math.floor(s.gold).toLocaleString()}
++        tone="text-gold"
++        title={`Next day: +${fmt(gold)} gold from Tea Houses and the Merchant Quarter`}
++      >
++        <span className="text-[#8fce6a]">+{fmt(gold)}/day</span>
++      </StatCard>
++
++      <StatCard
++        id="hud-rice"
++        icon={<Wheat size={11} />}
++        value={Math.floor(s.rice).toLocaleString()}
++        tone={s.hungry ? "text-vermil" : "text-[#a8dd86]"}
++        warn={s.hungry}
++        title={`Next day: +${fmt(riceIn)} produced −${fmt(riceOut)} eaten by ${s.ninjas.length} ninja = ${fmt(riceNet)} net`}
++      >
++        <span className="flex gap-1">
 +          <span className="text-[#8fce6a]">+{fmt(riceIn)}</span>
 +          <span className="text-vermil">−{fmt(riceOut)}</span>
 +          <span className={riceNet >= 0 ? "text-[#8fce6a]/80" : "text-vermil"}>({riceNet >= 0 ? "+" : "−"}{fmt(Math.abs(riceNet))})</span>
-+        </p>
-+      </div>
++        </span>
++      </StatCard>
++
++      <StatCard
++        id="hud-ap"
++        icon={<Zap size={11} />}
++        value={`${s.ap}/${max}`}
++        tone={s.ap > 0 ? "text-gold" : "text-paper/40"}
++        title={`${s.ap} of ${max} actions left today · refills to ${max} tomorrow`}
++      >
++        <span className="flex items-center gap-[3px]">
++          {Array.from({ length: max }, (_, i) => (
++            <i key={i} className={cn("block h-[5px] w-[5px] rounded-sm transition-colors", i < s.ap ? "bg-gold" : "bg-white/15")} />
++          ))}
++        </span>
++      </StatCard>
 +    </div>
 +  );
 +}
  
  export default function Scene({ s, onEndDay, busy }: { s: GameState; onEndDay: () => void; busy: boolean }) {
    const stars = useMemo(
-@@ -52,6 +94,8 @@
+@@ -52,25 +161,49 @@
          ))}
        </div>
  
+-      {/* threat + transparent raid intel */}
+-      <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
+-        <div className="flex items-center gap-1.5 rounded-md bg-black/35 px-1.5 py-1 backdrop-blur-sm ring-1 ring-white/10">
+-          <span className={cn("font-display text-[11px] font-bold", danger ? "text-[#ff7a5c]" : "text-paper/60")}>襲</span>
+-          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-black/50 ring-1 ring-white/10 sm:w-24">
+-            <div
+-              className={cn("h-full rounded-full transition-[width] duration-500", danger ? "bg-gradient-to-r from-[#e2452f] to-[#ff7a5c]" : "bg-[#7a6a9e]")}
+-              style={{ width: `${Math.min(100, s.threat)}%` }}
+-            />
+-          </div>
+-          <span className={cn("min-w-[30px] text-right text-[9px] font-black tabular-nums", danger ? "text-[#ff7a5c]" : "text-paper/70")}>
+-            {Math.round(s.threat)}%
 +      <ResourceForecast s={s} />
 +
-       {/* threat + transparent raid intel */}
-       <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1">
-         <div className="flex items-center gap-1.5 rounded-md bg-black/35 px-1.5 py-1 backdrop-blur-sm ring-1 ring-white/10">
++      {/* threat + raid intel — same card language as the resource forecast */}
++      <div className="absolute right-2.5 top-2.5 flex flex-col items-end gap-1.5">
++        <StatCard
++          value={
++            <>
++              <span className="font-display">襲</span>
++              <span>{Math.round(s.threat)}%</span>
++              <span className="ml-0.5 h-1.5 w-14 overflow-hidden rounded-full bg-black/55 ring-1 ring-white/10 sm:w-20">
++                <span
++                  className={cn("block h-full rounded-full transition-[width] duration-500", danger ? "bg-gradient-to-r from-[#e2452f] to-[#ff7a5c]" : "bg-[#7a6a9e]")}
++                  style={{ width: `${Math.min(100, s.threat)}%` }}
++                />
++              </span>
++            </>
++          }
++          tone={danger ? "text-[#ff7a5c]" : "text-paper/70"}
++          warn={danger}
++          title={`Raid threat ${Math.round(s.threat)}% · a raid triggers at 100%`}
++        >
++          <span className={danger ? "text-[#ff9a7c]" : "text-paper/50"}>
++            {s.raidGraceDays > 0 ? `PROTECTED ${s.raidGraceDays}d` : `+${raid.dailyThreat.toFixed(1)}%/DAY`} · {raid.daysUntil === 0 ? "RAID NEXT" : `${raid.daysUntil}d`}
++          </span>
++        </StatCard>
++
++        <StatCard
++          value={
++            <>
++              <span className={raidTone}>{raid.homePower.toLocaleString()}</span>
++              <span className="text-paper/30">/</span>
++              <span className="text-paper/60">~{raid.enemyPower.toLocaleString()}</span>
++            </>
++          }
++          tone="text-paper/70"
++          title={`Your best 4 defenders at home muster ${raid.homePower.toLocaleString()} power against an incoming raid of roughly ${raid.enemyPower.toLocaleString()}`}
++        >
++          <span className="flex gap-1 text-paper/50">
++            <span>BEST 4 HOME vs RAID</span>
++            <span className="text-paper/35">·</span>
++            <span>{raid.enemyCount} raider{raid.enemyCount === 1 ? "" : "s"} ~Lv {raid.enemyLevel}</span>
+           </span>
+-        </div>
+-        <div className="rounded-md bg-black/45 px-2 py-1 text-right text-[8px] font-bold leading-[1.25] text-paper/60 backdrop-blur-sm ring-1 ring-white/8">
+-          <p>{s.raidGraceDays > 0 ? `PROTECTED ${s.raidGraceDays}d` : `+${raid.dailyThreat.toFixed(1)}%/day`} · {raid.daysUntil === 0 ? "RAID NEXT" : `${raid.daysUntil}d`}</p>
+-          <p>{raid.enemyCount} raider{raid.enemyCount === 1 ? "" : "s"} · ~Lv {raid.enemyLevel}</p>
+-          <p className="tabular-nums">BEST 4 HOME <span className={raidTone}>{raid.homePower.toLocaleString()}</span> / RAID ~{raid.enemyPower.toLocaleString()}</p>
+-        </div>
++        </StatCard>
+       </div>
+ 
+       {/* buildings */}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/battle.ts b/src/game/battle.ts
 --- a/src/game/battle.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/battle.ts	2026-09-01 05:28:21.224335500 +0000
++++ b/src/game/battle.ts	2026-09-01 05:29:57.921083155 +0000
 @@ -1,5 +1,5 @@
  import type { BAction, Battle, Bld, GameState, Ninja, Unit } from "./types";
 -import { BUILDINGS, ENEMY_KINDS, NATURE_META, RANK_META, SKILLS, rankIndex } from "./content";
@@ -927,7 +1132,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
  }
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/bingoHunt.ts b/src/game/bingoHunt.ts
 --- a/src/game/bingoHunt.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/bingoHunt.ts	2026-09-01 05:18:05.702545096 +0000
++++ b/src/game/bingoHunt.ts	2026-09-01 05:29:57.921083155 +0000
 @@ -284,9 +284,10 @@
      progress.locationKnown = false;
      progress.rewardsClaimed = true;
@@ -956,7 +1161,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
    }
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/content.ts b/src/game/content.ts
 --- a/src/game/content.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/content.ts	2026-09-01 05:27:22.475881245 +0000
++++ b/src/game/content.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -8,6 +8,8 @@
  
  export const FARM_RICE = 8;
@@ -1065,7 +1270,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
  export const TECH_BY_ID = Object.fromEntries(VILLAGE_TECHS.map((t) => [t.id, t])) as Record<VillageTechId, VillageTechMeta>;
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/engine.ts b/src/game/engine.ts
 --- a/src/game/engine.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/engine.ts	2026-09-01 05:18:05.702545096 +0000
++++ b/src/game/engine.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -2,7 +2,7 @@
  import {
    AP_BASE, BAND_COLORS, BUILDINGS, CLANS, DOJO_CHANCE, DOJO_XP_DAY, EAT_PER_DAY,
@@ -1342,7 +1547,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
    // 7. threat & raids
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/equipment.ts b/src/game/equipment.ts
 --- a/src/game/equipment.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/equipment.ts	2026-09-01 05:28:31.412414270 +0000
++++ b/src/game/equipment.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -1,6 +1,11 @@
  import type { GameState, Ninja, Skill } from "./types";
 +import { CRIT_CAP, DODGE_CAP } from "./content";
@@ -1627,7 +1832,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
 +}
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/genjutsu.ts b/src/game/genjutsu.ts
 --- a/src/game/genjutsu.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/genjutsu.ts	2026-09-01 05:18:05.702545096 +0000
++++ b/src/game/genjutsu.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -69,6 +69,37 @@
  export const genjutsuKnownIds = (n: Ninja): string[] => Array.from(new Set(n.genjutsuKnown ?? [])).filter((id) => !!GENJUTSU_BY_ID[id]);
  export const genjutsuEquippedIds = (n: Ninja): string[] => (n.genjutsuEquipped ?? []).filter((id) => genjutsuKnownIds(n).includes(id)).slice(0, 4);
@@ -1668,7 +1873,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
    if (!g || g.tier <= 1) return undefined;
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/jutsu.ts b/src/game/jutsu.ts
 --- a/src/game/jutsu.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/jutsu.ts	2026-09-01 05:18:05.702545096 +0000
++++ b/src/game/jutsu.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -1423,6 +1423,127 @@
    throw new Error("Duplicate Jutsu id detected; progression catalogue is invalid");
  }
@@ -1810,7 +2015,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
  export function jutsuPointsSpent(n: Ninja): number {
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/save.ts b/src/game/save.ts
 --- a/src/game/save.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/save.ts	2026-09-01 05:18:05.706545127 +0000
++++ b/src/game/save.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -71,11 +71,15 @@
      if (!state.stats) state.stats = { done: 0, failed: 0, raids: 0, earned: 0, levels: 0, promos: 0 };
      if (!state.battle) state.battle = null;
@@ -1830,7 +2035,7 @@ diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclud
      if (!Array.isArray(state.log)) state.log = [];
 diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' a/src/game/types.ts b/src/game/types.ts
 --- a/src/game/types.ts	2026-09-01 05:00:37.302438972 +0000
-+++ b/src/game/types.ts	2026-09-01 05:18:05.706545127 +0000
++++ b/src/game/types.ts	2026-09-01 05:29:57.925083186 +0000
 @@ -1,14 +1,21 @@
  export type Phase = "menu" | "playing" | "paused" | "over" | "raid_select" | "battle";
  export type Rank = "D" | "C" | "B" | "A" | "S";
