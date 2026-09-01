@@ -1,0 +1,1861 @@
+Binary files a/assets/logo.png and b/assets/logo.png differ
+Binary files a/public/icon.png and b/public/icon.png differ
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/App.tsx b/src/App.tsx
+--- a/src/App.tsx	2026-09-01 06:40:57.774305593 +0000
++++ b/src/App.tsx	2026-09-01 06:29:36.209036139 +0000
+@@ -8,6 +8,7 @@
+ import SquadModal from "./components/SquadModal";
+ import NinjaDetail from "./components/NinjaDetail";
+ import EquipmentScreen from "./components/EquipmentScreen";
++import SummonScreen from "./components/SummonScreen";
+ import ScoutModal from "./components/ScoutModal";
+ import BattleScreen from "./components/BattleScreen";
+ import RaidDefenseModal from "./components/RaidDefenseModal";
+@@ -25,7 +26,7 @@
+ import { bingoUnreadCount, ensureBingoState } from "./game/bingo";
+ import { activeBingoHunt } from "./game/bingoHunt";
+ 
+-type Tab = "missions" | "ninjas" | "build" | "equipment";
++type Tab = "missions" | "ninjas" | "build" | "equipment" | "summons";
+ interface Floater { id: number; x: number; y: number; txt: string; kind: string }
+ 
+ let fid = 1;
+@@ -642,7 +643,7 @@
+       if (st.phase !== "playing") return;
+ 
+       if (k === "ArrowLeft" || k === "ArrowRight") {
+-        const order: Tab[] = ["missions", "ninjas", "build", "equipment"];
++        const order: Tab[] = ["missions", "ninjas", "build", "equipment", "summons"];
+         const i = order.indexOf(tabRef.current);
+         setTab(order[(i + (k === "ArrowRight" ? 1 : order.length - 1)) % order.length]);
+         audio.click();
+@@ -695,6 +696,7 @@
+     { id: "ninjas", kanji: "忍", label: "Shinobi", badge: String(readyCount) },
+     { id: "build", kanji: "築", label: "Build", badge: s.ap > 0 ? String(s.ap) : "" },
+     { id: "equipment", kanji: "具", label: "Equip", badge: "" },
++    { id: "summons", kanji: "獣", label: "Summons", badge: "" },
+   ];
+ 
+   const recentLog = s.log.slice(-4);
+@@ -728,8 +730,9 @@
+           </nav>
+ 
+                     {tab === "equipment" && <EquipmentScreen s={s} onChanged={force} />}
++                    {tab === "summons" && <SummonScreen s={s} onChanged={force} />}
+ 
+-<div className={cn("grid min-h-0 flex-1 grid-cols-1 gap-2 lg:grid-cols-3", tab === "equipment" && "hidden")}> 
++<div className={cn("grid min-h-0 flex-1 grid-cols-1 gap-2 lg:grid-cols-3", (tab === "equipment" || tab === "summons") && "hidden")}> 
+             <MissionBoard
+               s={s}
+               className={cn(tab !== "missions" && "max-lg:hidden")}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/components/BingoBookScreen.tsx b/src/components/BingoBookScreen.tsx
+--- a/src/components/BingoBookScreen.tsx	2026-09-01 06:40:57.774305593 +0000
++++ b/src/components/BingoBookScreen.tsx	2026-09-01 06:31:01.809697950 +0000
+@@ -40,6 +40,20 @@
+   BLACK: "text-gold bg-black/45 ring-gold/25",
+ };
+ 
++/** Accent colour per threat tier, used by the dossier card edge. */
++const threatTint: Record<string, string> = {
++  B: "#87c99a", A: "#72b7ef", S: "#d88ae7", "S+": "#f29b65", SS: "#e2452f", BLACK: "#f4c64f",
++};
++
++/** Verdict stamps for resolved dossiers. */
++const STAMP: Record<string, { label: string; color: string }> = {
++  killed: { label: "TERMINATED", color: "#e2452f" },
++  captured: { label: "IN CUSTODY", color: "#72b7ef" },
++  recruited: { label: "DEFECTED", color: "#63c58c" },
++  resolved: { label: "CLOSED", color: "#9aa4b0" },
++  escaped: { label: "ESCAPED", color: "#f29b65" },
++};
++
+ const BIOMES: { id: HuntBiome; label: string }[] = [
+   { id: "forest", label: "Forest" },
+   { id: "mountain", label: "Mountain" },
+@@ -57,17 +71,47 @@
+ 
+ function TargetCard({ target, progress, selected, onSelect }: { target: BingoTargetDef; progress: BingoTargetProgress; selected: boolean; onSelect: () => void }) {
+   const identified = progress.intel >= 20 || progress.status !== "unknown";
++  const tint = threatTint[target.threat] ?? "#6b7280";
++  const stamp = STAMP[progress.status];
+   return (
+-    <button type="button" onClick={onSelect} className={cn("w-full rounded-xl bg-black/20 p-2 text-left ring-1 ring-inset transition", selected ? "ring-gold/55 bg-gold/[0.06]" : "ring-white/7 hover:bg-white/[0.03]")}>
++    <button
++      type="button"
++      onClick={onSelect}
++      style={{ ["--tc" as string]: tint }}
++      className={cn(
++        "bingo-card w-full overflow-hidden rounded-xl bg-black/20 p-2 pl-2.5 text-left ring-1 ring-inset transition",
++        selected ? "is-selected bg-gold/[0.06] ring-gold/45" : "ring-white/7 hover:bg-white/[0.03]"
++      )}
++    >
+       <div className="flex items-start gap-2">
+-        <div className="grid h-14 w-12 shrink-0 place-items-end overflow-hidden rounded-lg bg-[#0b0c15] ring-1 ring-white/8">
+-          {identified ? <img src={target.sprite} alt="" className="max-h-full max-w-full object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} draggable={false} /> : <span className="mb-2 font-display text-xl font-black text-paper/15">?</span>}
++        <div className="relative grid h-14 w-12 shrink-0 place-items-end overflow-hidden rounded-lg bg-[#0b0c15] ring-1 ring-white/8">
++          {identified ? (
++            <img src={target.sprite} alt="" className="max-h-full max-w-full object-contain" onError={(e) => { e.currentTarget.style.display = "none"; }} draggable={false} />
++          ) : (
++            <span className="bingo-redacted mb-2 w-full text-center font-display text-xl font-black text-paper/40">?</span>
++          )}
++          {stamp && (
++            <span
++              className="absolute inset-x-0 bottom-1 mx-auto w-fit px-1 text-[6px] font-black"
++              style={{ color: stamp.color }}
++            >
++              <span className="bingo-stamp block px-1 py-[1px]">{stamp.label.slice(0, 8)}</span>
++            </span>
++          )}
+         </div>
+         <div className="min-w-0 flex-1">
+-          <div className="flex items-center justify-between gap-2"><p className="truncate text-[11px] font-black text-paper">{identified ? `${target.name} — ${target.epithet}` : "Unknown Missing-nin"}</p><span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black ring-1", threatClass[target.threat])}>{target.threat}</span></div>
++          <div className="flex items-center justify-between gap-2">
++            <p className="truncate text-[11px] font-black text-paper">{identified ? `${target.name} — ${target.epithet}` : "Unknown Missing-nin"}</p>
++            <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black ring-1", threatClass[target.threat])}>{target.threat}</span>
++          </div>
+           <p className="mt-1 text-[8.5px] font-bold uppercase tracking-[0.14em] text-paper/35">{progress.status.replaceAll("_", " ")}</p>
+-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full rounded-full bg-gold transition-all" style={{ width: `${Math.max(2, progress.intel)}%` }} /></div>
+-          <div className="mt-1 flex items-center justify-between text-[8px] font-bold text-paper/40"><span>INTEL {progress.intel}%</span><span>{intelLabel(progress.intel)}</span></div>
++          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8">
++            <div className="intel-fill h-full rounded-full" style={{ width: `${Math.max(2, progress.intel)}%`, backgroundColor: tint }} />
++          </div>
++          <div className="mt-1 flex items-center justify-between text-[8px] font-bold text-paper/40">
++            <span className="tabular-nums">INTEL {progress.intel}%</span>
++            <span>{intelLabel(progress.intel)}</span>
++          </div>
+         </div>
+       </div>
+     </button>
+@@ -132,8 +176,22 @@
+     if (abandonBingoHunt(s)) onChanged();
+   };
+   return (
+-    <div className="mb-2 rounded-2xl bg-vermil/[0.055] p-3 ring-1 ring-vermil/20">
+-      <div className="flex items-start justify-between gap-2"><div><p className="text-[8px] font-black tracking-[0.18em] text-vermil">ACTIVE HUNT</p><h3 className="mt-1 font-display text-base font-black text-paper">{target.name} — {target.epithet}</h3><p className="text-[8.5px] text-paper/40">Stage {Math.min(run.stage + 1, huntEventCount(target))}/{huntEventCount(target)} · {run.biome.toUpperCase()} · dossier {run.intel}%</p></div><button type="button" onClick={abandon} className="rounded-lg bg-black/30 px-2 py-1.5 text-[8px] font-black text-vermil ring-1 ring-vermil/15">ABANDON</button></div>
++    <div className="hunt-live mb-2 rounded-2xl bg-vermil/[0.055] p-3 ring-1 ring-vermil/20">
++      <div className="flex items-start justify-between gap-2"><div><p className="text-[8px] font-black tracking-[0.18em] text-vermil">ACTIVE HUNT</p><h3 className="mt-1 font-display text-base font-black text-paper">{target.name} — {target.epithet}</h3><p className="text-[8.5px] text-paper/40">Stage {Math.min(run.stage + 1, huntEventCount(target))}/{huntEventCount(target)} · {run.biome.toUpperCase()} · dossier {run.intel}%</p>
++        <div className="mt-1.5 flex items-center gap-1">
++          {Array.from({ length: huntEventCount(target) }, (_, i) => (
++            <i
++              key={i}
++              className={cn(
++                "stage-pip block h-1.5 w-1.5 rounded-full",
++                i < run.stage ? "done bg-jade" : i === run.stage ? "current bg-gold" : "bg-white/15"
++              )}
++            />
++          ))}
++          <span className="ml-1 text-[7.5px] font-black tracking-wider text-paper/30">
++            {readyForBoss ? "TARGET IN REACH" : "TRACKING"}
++          </span>
++        </div></div><button type="button" onClick={abandon} className="rounded-lg bg-black/30 px-2 py-1.5 text-[8px] font-black text-vermil ring-1 ring-vermil/15">ABANDON</button></div>
+       <div className="mt-2 grid grid-cols-3 gap-1.5">{run.members.map((member) => { const n = s.ninjas.find((x) => x.id === member.ninjaId); return <div key={member.ninjaId} className="rounded-xl bg-black/25 p-2 ring-1 ring-white/6"><p className="truncate text-[8.5px] font-black text-paper">{n?.name.split(" ")[0] ?? "Hunter"}</p><div className="mt-1 flex items-center justify-between text-[7px] font-bold text-paper/35"><span>HP</span><span>{Math.round(member.hpRatio * 100)}%</span></div><div className="mt-0.5 h-1.5 overflow-hidden rounded bg-white/8"><div className={cn("h-full", member.hpRatio <= .25 ? "bg-vermil" : "bg-jade")} style={{ width: `${member.hpRatio * 100}%` }} /></div><div className="mt-1 flex items-center justify-between text-[7px] font-bold text-paper/35"><span>CP</span><span>{Math.round(member.chakraRatio * 100)}%</span></div><div className="mt-0.5 h-1.5 overflow-hidden rounded bg-white/8"><div className="h-full bg-[#5ba8dd]" style={{ width: `${member.chakraRatio * 100}%` }} /></div>{member.statuses.length > 0 && <p className="mt-1 truncate text-[7px] font-black text-vermil">{member.statuses.join(", ")}</p>}</div>; })}</div>
+       {lastResult && <p className="mt-2 rounded-lg bg-black/20 p-2 text-[8.5px] font-bold text-paper/55 ring-1 ring-white/6">{lastResult}</p>}
+       {!readyForBoss && event && <div className="mt-2 rounded-xl bg-[#151724] p-3 ring-1 ring-white/8"><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-black text-paper">{event.title}</p><span className={cn("rounded px-1.5 py-0.5 text-[7px] font-black uppercase", event.tone === "positive" ? "bg-jade/10 text-jade" : event.tone === "negative" ? "bg-vermil/10 text-vermil" : "bg-gold/10 text-gold")}>{event.tone}</span></div><p className="mt-1.5 text-[9px] leading-relaxed text-paper/50">{event.blurb}</p><div className="mt-3 space-y-1.5">{event.check ? <button type="button" onClick={() => completeEvent(0)} className="w-full rounded-lg bg-gold px-2 py-2 text-[8.5px] font-black text-[#251e13]">{event.check.skill.toUpperCase()} CHECK · DIFFICULTY {event.check.difficulty}</button> : event.choices?.length ? event.choices.map((choice, index) => <button key={choice.label} type="button" onClick={() => completeEvent(index)} className="w-full rounded-lg bg-black/30 px-2 py-2 text-left text-[8.5px] font-black text-paper/65 ring-1 ring-white/8"><span className="text-gold">{choice.label}</span><span className="ml-1 font-normal text-paper/35">— {choice.result}</span></button>) : <button type="button" onClick={() => completeEvent(0)} className="w-full rounded-lg bg-gold px-2 py-2 text-[8.5px] font-black text-[#251e13]">{event.effect?.label ?? "CONTINUE"}</button>}</div></div>}
+@@ -202,12 +260,12 @@
+   const views: { id: View; label: string }[] = [{ id: "active", label: "ACTIVE" }, { id: "rumours", label: "RUMOURS" }, { id: "captured", label: "CAPTURED" }, { id: "resolved", label: "RESOLVED" }, { id: "organisations", label: "ORGS" }, { id: "black", label: "BLACK BOOK" }];
+ 
+   return (
+-    <div className="flex h-full min-h-0 flex-col rounded-2xl bg-[#0f111c]/95 p-2 ring-1 ring-white/8">
++    <div className="bingo-paper flex h-full min-h-0 flex-col rounded-2xl p-2 ring-1 ring-white/8">
+       {prepTarget && <HuntPrep s={s} target={prepTarget} onClose={() => setPrepTarget(null)} onChanged={onChanged} />}
+       <ActiveHuntPanel s={s} onChanged={onChanged} />
+       <div className="flex items-center justify-between gap-2 px-1 pb-2"><div><p className="font-display text-[15px] font-black text-paper">BINGO BOOK</p><p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">MISSING-NIN HUNTER DOSSIERS</p></div><div className="text-right"><p className="text-[8px] font-black text-gold">INTEL + HUNT FRAMEWORK LIVE</p><p className="text-[7.5px] text-paper/30">80 unique targets · 10 Black Book superbosses</p></div></div>
+       <div className="mb-2 flex gap-1 overflow-x-auto pb-1">{views.map((item) => <button key={item.id} type="button" onClick={() => { setView(item.id); setSelected(null); }} className={cn("shrink-0 rounded-lg px-2 py-1.5 text-[8px] font-black tracking-wider ring-1", view === item.id ? "bg-gold text-[#211b13] ring-gold" : "bg-black/25 text-paper/45 ring-white/7")}>{item.label}</button>)}</div>
+-      {view === "organisations" ? <div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5"><div className="grid gap-2 sm:grid-cols-2">{BINGO_ORGANISATIONS.map((org) => { const known = bingo.organisationsKnown.includes(org.id); return <div key={org.id} className={cn("rounded-xl p-3 ring-1 ring-inset", known ? "bg-white/[0.025] ring-white/7" : "bg-black/25 ring-white/4 opacity-55")}><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-black text-paper">{known ? org.name : "UNKNOWN ORGANISATION"}</p><span className="text-[8px] font-black text-paper/30">{known ? `${org.members} MEMBERS` : "???"}</span></div><p className="mt-2 text-[9px] leading-relaxed text-paper/45">{known ? org.description : "Resolve connected dossiers and interrogate captured targets to expose this network."}</p></div>; })}</div></div> : view === "black" ? <div className="grid min-h-0 flex-1 place-items-center rounded-xl bg-black/30 p-5 ring-1 ring-white/5"><div className="max-w-sm text-center"><p className="font-display text-2xl font-black text-gold">BLACK BOOK</p><p className="mt-2 text-[10px] leading-relaxed text-paper/45">Ten Kage-class superboss dossiers remain classified until the village resolves 24 standard Bingo targets.</p><p className="mt-3 text-[9px] font-black text-vermil">{bingo.blackBookUnlocked ? "CLASSIFICATION LIFTED — Black Book rumours now appear in the active dossier lists" : "CLASSIFIED"}</p></div></div> : <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[320px_1fr]"><div className="min-h-0 space-y-2 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5">{visibleTargets.length ? visibleTargets.map((target) => <TargetCard key={target.id} target={target} progress={bingo.targets[target.id]} selected={selected === target.id} onSelect={() => setSelected(target.id)} />) : <div className="rounded-xl bg-black/20 p-4 text-center ring-1 ring-white/5"><p className="text-[10px] font-black text-paper/45">NO DOSSIERS HERE</p><p className="mt-1 text-[8.5px] text-paper/30">Progress investigations and hunts to populate this section.</p></div>}{view === "active" && bingo.dynamicTargets.map((target) => <div key={target.id} className="rounded-xl bg-vermil/[0.05] p-3 ring-1 ring-vermil/15"><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-black text-paper">{target.name} — {target.epithet}</p><span className="text-[8px] font-black text-vermil">{target.threat}</span></div><p className="mt-1 text-[8.5px] text-paper/45">Former {s.villageName} ninja · dynamic missing-nin</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-gold" style={{ width: `${target.intel}%` }} /></div><p className="mt-1 text-[8px] font-bold text-paper/35">INTEL {target.intel}% · ALIVE {target.bountyAlive.toLocaleString()} 両</p></div>)}</div><div className="min-h-0">{selectedTarget && selectedProgress ? <Dossier target={selectedTarget} progress={selectedProgress} s={s} onChanged={onChanged} onPrepare={() => setPrepTarget(selectedTarget)} /> : <div className="grid h-full place-items-center rounded-xl bg-black/15 text-[9px] font-bold text-paper/30 ring-1 ring-white/5">SELECT A DOSSIER</div>}</div></div>}
++      {view === "organisations" ? <div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5"><div className="grid gap-2 sm:grid-cols-2">{BINGO_ORGANISATIONS.map((org) => { const known = bingo.organisationsKnown.includes(org.id); return <div key={org.id} className={cn("rounded-xl p-3 ring-1 ring-inset", known ? "bg-white/[0.025] ring-white/7" : "bg-black/25 ring-white/4 opacity-55")}><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-black text-paper">{known ? org.name : "UNKNOWN ORGANISATION"}</p><span className="text-[8px] font-black text-paper/30">{known ? `${org.members} MEMBERS` : "???"}</span></div><p className="mt-2 text-[9px] leading-relaxed text-paper/45">{known ? org.description : "Resolve connected dossiers and interrogate captured targets to expose this network."}</p></div>; })}</div></div> : view === "black" ? <div className="grid min-h-0 flex-1 place-items-center rounded-xl bg-black/30 p-5 ring-1 ring-white/5"><div className="max-w-sm text-center"><p className="font-display text-2xl font-black text-gold">BLACK BOOK</p><p className="mt-2 text-[10px] leading-relaxed text-paper/45">Ten Kage-class superboss dossiers remain classified until the village resolves 24 standard Bingo targets.</p><p className="mt-3 text-[9px] font-black text-vermil">{bingo.blackBookUnlocked ? "CLASSIFICATION LIFTED — Black Book rumours now appear in the active dossier lists" : "CLASSIFIED"}</p></div></div> : <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[320px_1fr]"><div className="bingo-ruled min-h-0 space-y-2 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5">{visibleTargets.length ? visibleTargets.map((target) => <TargetCard key={target.id} target={target} progress={bingo.targets[target.id]} selected={selected === target.id} onSelect={() => setSelected(target.id)} />) : <div className="rounded-xl bg-black/20 p-4 text-center ring-1 ring-white/5"><p className="text-[10px] font-black text-paper/45">NO DOSSIERS HERE</p><p className="mt-1 text-[8.5px] text-paper/30">Progress investigations and hunts to populate this section.</p></div>}{view === "active" && bingo.dynamicTargets.map((target) => <div key={target.id} className="rounded-xl bg-vermil/[0.05] p-3 ring-1 ring-vermil/15"><div className="flex items-center justify-between gap-2"><p className="text-[10px] font-black text-paper">{target.name} — {target.epithet}</p><span className="text-[8px] font-black text-vermil">{target.threat}</span></div><p className="mt-1 text-[8.5px] text-paper/45">Former {s.villageName} ninja · dynamic missing-nin</p><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/8"><div className="h-full bg-gold" style={{ width: `${target.intel}%` }} /></div><p className="mt-1 text-[8px] font-bold text-paper/35">INTEL {target.intel}% · ALIVE {target.bountyAlive.toLocaleString()} 両</p></div>)}</div><div className="min-h-0">{selectedTarget && selectedProgress ? <Dossier target={selectedTarget} progress={selectedProgress} s={s} onChanged={onChanged} onPrepare={() => setPrepTarget(selectedTarget)} /> : <div className="grid h-full place-items-center rounded-xl bg-black/15 text-[9px] font-bold text-paper/30 ring-1 ring-white/5">SELECT A DOSSIER</div>}</div></div>}
+     </div>
+   );
+ }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/components/GenjutsuTree.tsx b/src/components/GenjutsuTree.tsx
+--- a/src/components/GenjutsuTree.tsx	2026-09-01 06:40:57.778305624 +0000
++++ b/src/components/GenjutsuTree.tsx	2026-09-01 06:35:27.127749262 +0000
+@@ -8,8 +8,13 @@
+   dread: { kanji:"怖", title:"DREAD", summary:"Fear never removes a turn. It changes enemy targeting so the caster—or an ally you protect—is much less likely to be attacked." },
+   discord: { kanji:"乱", title:"DISCORD", summary:"False orders and identity distortion. Confused enemies can spend their normal action attacking their own side." },
+   mirage: { kanji:"幻", title:"MIRAGE", summary:"False positioning and chakra perception. Enemies keep acting, but misfire more often and high tiers can suppress chakra techniques." },
++  famine: { kanji:"飢", title:"FAMINE", summary:"Attacks the chakra economy instead of the body. Victims bleed chakra every round, which cripples technique-reliant enemies without ever removing a turn." },
++  reflection: { kanji:"鏡", title:"REFLECTION", summary:"Turns the victim's own aggression into the damage source. The harder they hit, the more it costs them — and the higher tiers feed the caster." },
+ } as const;
+ 
++/** Rendered in catalogue order so new schools cannot be silently omitted. */
++const PATH_ORDER = Object.keys(PATH_META) as (keyof typeof PATH_META)[];
++
+ function mechanics(g: GenjutsuDef): string[] {
+   const out:string[]=[];
+   if (g.bindRounds) out.push(`BIND ${g.bindRounds}R`);
+@@ -18,6 +23,9 @@
+   if (g.confusionChance) out.push(`FRIENDLY FIRE ${Math.round(g.confusionChance*100)}%`);
+   if (g.missChance) out.push(`MISFIRE ${Math.round(g.missChance*100)}%`);
+   if (g.chakraLockRounds) out.push(`CHAKRA LOCK ${g.chakraLockRounds}R`);
++  if (g.burnCpRounds) out.push(`CHAKRA BURN ${Math.round((g.burnCpPct ?? 0.08)*100)}%/R × ${g.burnCpRounds}R`);
++  if (g.reflectRounds) out.push(`REFLECT ${Math.round((g.reflectPct ?? 0.25)*100)}% × ${g.reflectRounds}R`);
++  if (g.feedPct) out.push(`CASTER HEALS ${Math.round(g.feedPct*100)}%`);
+   out.push(`BASE LAND ${Math.round(g.chance*100)}%`);
+   return out;
+ }
+@@ -40,6 +48,6 @@
+   };
+   return <div><div className="mb-2 flex items-center justify-between gap-2"><div><p className="text-[9px] font-black tracking-[0.18em] text-[#d9a8ff]">GENJUTSU CONTROL TREE</p><p className="mt-0.5 text-[9px] leading-relaxed text-paper/45">Genjutsu and Jutsu spend the same points. Every 3 levels grants 1 shared JP, so deep illusion control directly competes with elemental, clan, Kekkei and personal Jutsu progression.</p></div><div className="shrink-0 rounded-lg bg-black/30 px-2 py-1 text-center ring-1 ring-white/8"><p className="text-[8px] font-black tracking-wider text-paper/40">SHARED JP</p><p className="text-sm font-black text-[#d9a8ff]">{points}</p></div></div>
+     <div className="mb-3 rounded-lg bg-[#b46ae0]/[0.06] p-2 ring-1 ring-[#b46ae0]/15"><p className="text-[8px] font-black text-[#d9a8ff]">CONTROL, NOT ANOTHER DAMAGE ELEMENT</p><p className="mt-1 text-[8px] leading-relaxed text-paper/45">GEN and DŌJ help illusions land; enemy GEN, DŌJ and TAC resist them. Fear changes target preference—it does not steal turns. Binding steals turns, Discord causes friendly fire, and Mirage creates misfires/chakra denial.</p></div>
+-    <div className="space-y-3">{(["binding","dread","discord","mirage"] as const).map(path=>{const m=PATH_META[path];const nodes=GENJUTSU.filter(g=>g.path===path);return <div key={path} className="rounded-xl bg-black/20 p-2 ring-1 ring-white/7"><div className="mb-2 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#b46ae0]/15 text-sm font-black text-[#d9a8ff]">{m.kanji}</span><div><p className="text-[10px] font-black text-paper">{m.title}</p><p className="text-[8px] leading-relaxed text-paper/40">{m.summary}</p></div></div><div className="space-y-2">{nodes.map(card)}</div></div>})}</div>
++    <div className="space-y-3">{PATH_ORDER.map(path=>{const m=PATH_META[path];const nodes=GENJUTSU.filter(g=>g.path===path);return <div key={path} className="rounded-xl bg-black/20 p-2 ring-1 ring-white/7"><div className="mb-2 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-lg bg-[#b46ae0]/15 text-sm font-black text-[#d9a8ff]">{m.kanji}</span><div><p className="text-[10px] font-black text-paper">{m.title}</p><p className="text-[8px] leading-relaxed text-paper/40">{m.summary}</p></div></div><div className="space-y-2">{nodes.map(card)}</div></div>})}</div>
+   </div>;
+ }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/components/NinjaDetail.tsx b/src/components/NinjaDetail.tsx
+--- a/src/components/NinjaDetail.tsx	2026-09-01 06:40:57.782305655 +0000
++++ b/src/components/NinjaDetail.tsx	2026-09-01 06:29:51.573154907 +0000
+@@ -5,6 +5,7 @@
+ import { effSkill, overall, potRange, promoInfo, skillPointGain, skillTrainingBlockReason, potentialDevelopmentMultiplier, xpNext } from "../game/engine";
+ import NinjaSprite from "./NinjaSprite";
+ import NinjaEquipment from "./NinjaEquipment";
++import { NinjaSummonPanel } from "./SummonScreen";
+ import JutsuTree from "./JutsuTree";
+ import GenjutsuTree from "./GenjutsuTree";
+ import PerkTree from "./PerkTree";
+@@ -173,6 +174,8 @@
+           );
+         })()}
+ 
++        <NinjaSummonPanel s={s} n={n} onChanged={onEquipmentChanged} />
++
+         {/* promotion */}
+         {nextMeta && (
+           <div className={cn("border-b border-white/8 p-2.5", promo.ready && "bg-gold/[0.07]")}>
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/components/NinjaSprite.tsx b/src/components/NinjaSprite.tsx
+--- a/src/components/NinjaSprite.tsx	2026-09-01 06:40:57.774305593 +0000
++++ b/src/components/NinjaSprite.tsx	2026-09-01 06:36:46.204360624 +0000
+@@ -1,6 +1,7 @@
+ import { ENEMY_KINDS, NATURE_META } from "../game/content";
+ import { ninjaArtMeta, ninjaArtSrc } from "../game/ninjaArt";
+ import type { Look, Nature, NinRank } from "../game/types";
++import { SUMMON_BY_ID } from "../game/summons";
+ 
+ // Master raster assets are all normalized to this canvas.
+ export const SPRITE_W = 240;
+@@ -21,16 +22,23 @@
+   crop = "bust",
+   grey = false,
+   aura = false,
++  summon = true,
+   className,
+ }: {
+-  n: { id: number; look: Look; nature: Nature; level: number; rank: NinRank; legend?: string | null; bingoArt?: string | null };
++  n: { id: number; look: Look; nature: Nature; level: number; rank: NinRank; legend?: string | null; bingoArt?: string | null; summonId?: string | null };
+   h: number;
+   crop?: "bust" | "full";
+   grey?: boolean;
+   aura?: boolean;
++  /** Show the bonded summon alongside the portrait. */
++  summon?: boolean;
+   className?: string;
+ }) {
+   const src = ninjaArtSrc(n);
++  // The companion overhangs the portrait frame, so it is only drawn at sizes
++  // where it stays legible and cannot collide with a neighbouring row. Dense
++  // list views (roster rows, mission chips) keep the plain portrait.
++  const pact = n.summonId && h >= 56 ? SUMMON_BY_ID[n.summonId] ?? null : null;
+   const bingoPortrait = !!n.bingoArt;
+   const artMeta = ninjaArtMeta(n);
+   const nat = NATURE_META[n.nature];
+@@ -39,9 +47,8 @@
+   const bustImageW = bingoPortrait ? bustImageH * (438 / 422) : bustImageH * FULL_RATIO;
+   const bustTopPx = bingoPortrait ? -h * 0.18 : -(artMeta.bustTop / SPRITE_H) * bustImageH;
+ 
+-  return (
++  const portrait = (
+     <span
+-      className={className}
+       aria-hidden
+       style={{
+         position: "relative",
+@@ -105,6 +112,54 @@
+       />
+     </span>
+   );
++
++  if (!(summon && pact)) {
++    return className ? <span className={className}>{portrait}</span> : portrait;
++  }
++
++  /* The bust crop clips its contents, so the bonded creature cannot live
++     inside it. Wrap the clipped portrait in an overflow-visible box and hang
++     the summon off that instead — it overlaps the frame's lower-left so it
++     reads as accompanying the ninja rather than as a badge pinned on top. */
++  return (
++    <span
++      className={className}
++      aria-hidden
++      style={{
++        position: "relative",
++        display: "inline-block",
++        flex: "0 0 auto",
++        width,
++        height: h,
++        verticalAlign: "middle",
++      }}
++    >
++      {portrait}
++      {(
++        <img
++          src={`/summons/${pact.art}.png`}
++          alt=""
++          draggable={false}
++          decoding="async"
++          title={`${pact.name} — ${pact.species}`}
++          style={{
++            position: "absolute",
++            left: "-24%",
++            bottom: "-10%",
++            width: h * 0.64,
++            height: h * 0.64,
++            objectFit: "contain",
++            filter: grey
++              ? "grayscale(1) saturate(0.15) brightness(0.72)"
++              : `drop-shadow(0 1px 3px rgba(0,0,0,0.75)) drop-shadow(0 0 6px ${pact.tint}55)`,
++            opacity: grey ? 0.6 : 1,
++            userSelect: "none",
++            pointerEvents: "none",
++          }}
++        />
++      )}
++    </span>
++  );
+ }
+ 
+ /* ---------------- enemy art ---------------- */
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/components/SummonScreen.tsx b/src/components/SummonScreen.tsx
+--- a/src/components/SummonScreen.tsx	1970-01-01 00:00:00.000000000 +0000
++++ b/src/components/SummonScreen.tsx	2026-09-01 06:29:27.228966682 +0000
+@@ -0,0 +1,386 @@
++import { useState } from "react";
++import type { GameState, Ninja } from "../game/types";
++import {
++  SUMMONS,
++  SUMMON_BY_ID,
++  SUMMON_PACKS,
++  SUMMON_RARITY_META,
++  bondSummon,
++  ensureSummonState,
++  equippedSummon,
++  ownedSummonCount,
++  pullSummons,
++  releaseSummon,
++  summonAvailableCount,
++  summonBondedCount,
++  summonMechanics,
++  summonPullCost,
++  type SummonDef,
++} from "../game/summons";
++import { cn } from "../utils/cn";
++
++/** The cropped creature art, on a rarity-tinted plate. */
++export function SummonArt({ x, size = 64, dim }: { x: SummonDef; size?: number; dim?: boolean }) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <span
++      className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl"
++      style={{
++        width: size,
++        height: size,
++        background: `radial-gradient(circle at 50% 62%, ${x.tint}30 0%, rgba(0,0,0,0.34) 70%)`,
++        boxShadow: `inset 0 0 0 1px ${meta.border}55`,
++      }}
++    >
++      <img
++        src={`/summons/${x.art}.png`}
++        alt=""
++        draggable={false}
++        decoding="async"
++        style={{
++          width: "104%",
++          height: "104%",
++          objectFit: "contain",
++          filter: dim ? "grayscale(1) brightness(0.6)" : `drop-shadow(0 1px 3px rgba(0,0,0,0.6))`,
++          opacity: dim ? 0.5 : 1,
++        }}
++      />
++    </span>
++  );
++}
++
++function RarityPill({ x }: { x: SummonDef }) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <span
++      className="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black tracking-wider"
++      style={{ color: meta.color, background: `${meta.color}18`, boxShadow: `inset 0 0 0 1px ${meta.color}40` }}
++    >
++      {meta.name.toUpperCase()}
++    </span>
++  );
++}
++
++/** Full pact card: art, bond, and the intervention spelled out. */
++function SummonCard({
++  x,
++  owned,
++  free,
++  bonded,
++  selected,
++  onSelect,
++}: {
++  x: SummonDef;
++  owned: number;
++  free: number;
++  bonded: number;
++  selected: boolean;
++  onSelect: () => void;
++}) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <button
++      type="button"
++      onClick={onSelect}
++      className={cn(
++        "w-full rounded-xl p-2 text-left ring-1 ring-inset transition",
++        selected ? "bg-gold/[0.07] ring-gold/50" : owned > 0 ? "bg-black/20 ring-white/8 hover:bg-white/[0.03]" : "bg-black/30 ring-white/5 opacity-55"
++      )}
++    >
++      <div className="flex items-start gap-2">
++        <SummonArt x={x} size={56} dim={owned === 0} />
++        <div className="min-w-0 flex-1">
++          <div className="flex items-center gap-1.5">
++            <p className="truncate text-[11px] font-black text-paper">{owned > 0 ? x.name : "???"}</p>
++            <RarityPill x={x} />
++          </div>
++          <p className="truncate text-[8.5px] font-bold tracking-wider text-paper/40">
++            {owned > 0 ? x.species.toUpperCase() : "PACT NOT YET FORMED"}
++          </p>
++          {owned > 0 && (
++            <p className="mt-1 text-[8.5px] font-black leading-tight" style={{ color: meta.color }}>
++              {x.bondText}
++            </p>
++          )}
++          <div className="mt-1 flex items-center gap-1.5 text-[8px] font-black tabular-nums">
++            {owned > 0 ? (
++              <>
++                <span className="text-paper/45">OWNED {owned}</span>
++                <span className={free > 0 ? "text-jade" : "text-paper/30"}>{free} FREE</span>
++                {bonded > 0 && <span className="text-gold">{bonded} BONDED</span>}
++              </>
++            ) : (
++              <span className="text-paper/30">UNDISCOVERED</span>
++            )}
++          </div>
++        </div>
++      </div>
++    </button>
++  );
++}
++
++/** Pick which ninja carries the selected pact. */
++function BondPanel({ s, x, onChanged }: { s: GameState; x: SummonDef; onChanged: () => void }) {
++  const free = summonAvailableCount(s, x.id);
++  const carriers = s.ninjas.filter((n) => n.summonId === x.id);
++  const candidates = s.ninjas.filter((n) => n.summonId !== x.id).sort((a, b) => b.level - a.level);
++
++  return (
++    <div className="mt-2 rounded-xl bg-black/25 p-2 ring-1 ring-white/6">
++      <div className="flex items-center justify-between">
++        <p className="text-[8px] font-black tracking-[0.16em] text-paper/45">BONDED TO</p>
++        <span className={cn("rounded px-1.5 py-0.5 text-[8px] font-black", free > 0 ? "bg-jade/15 text-jade" : "bg-black/30 text-paper/35")}>
++          {free} AVAILABLE
++        </span>
++      </div>
++
++      {carriers.length > 0 && (
++        <div className="mt-1.5 space-y-1">
++          {carriers.map((n) => (
++            <div key={n.id} className="flex items-center gap-2 rounded-lg bg-gold/[0.07] p-1.5 ring-1 ring-gold/25">
++              <span className="min-w-0 flex-1 truncate text-[10px] font-black text-paper">{n.name}</span>
++              <span className="text-[8px] font-bold text-paper/40">Lv {n.level}</span>
++              <button
++                type="button"
++                onClick={() => { releaseSummon(n); onChanged(); }}
++                className="rounded-md bg-black/35 px-2 py-1 text-[8px] font-black text-vermil ring-1 ring-vermil/20"
++              >
++                RELEASE
++              </button>
++            </div>
++          ))}
++        </div>
++      )}
++
++      <p className="mt-2 text-[8px] font-black tracking-[0.16em] text-paper/35">BOND TO A SHINOBI</p>
++      <div className="mt-1 max-h-40 space-y-1 overflow-y-auto pr-1">
++        {candidates.map((n) => {
++          const current = equippedSummon(n);
++          const blocked = free <= 0;
++          return (
++            <button
++              key={n.id}
++              type="button"
++              disabled={blocked}
++              onClick={() => { if (bondSummon(s, n, x.id)) onChanged(); }}
++              className={cn(
++                "flex w-full items-center gap-2 rounded-lg p-1.5 text-left ring-1 transition",
++                blocked ? "bg-black/20 ring-white/5 opacity-40" : "bg-black/25 ring-white/7 hover:bg-white/[0.04]"
++              )}
++            >
++              <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-paper/85">{n.name}</span>
++              <span className="shrink-0 text-[8px] font-bold text-paper/35">Lv {n.level}</span>
++              {current && (
++                <span className="shrink-0 rounded bg-black/40 px-1 py-0.5 text-[7.5px] font-black text-paper/45" title={`Currently carries ${current.name}`}>
++                  SWAPS {current.kanji}
++                </span>
++              )}
++            </button>
++          );
++        })}
++        {!candidates.length && <p className="p-2 text-[8.5px] text-paper/30">Every shinobi already carries this pact.</p>}
++      </div>
++    </div>
++  );
++}
++
++export default function SummonScreen({ s, onChanged }: { s: GameState; onChanged: () => void }) {
++  const st = ensureSummonState(s);
++  const [selected, setSelected] = useState<string>(SUMMONS[0].id);
++  const [reveal, setReveal] = useState<SummonDef[] | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  const x = SUMMON_BY_ID[selected] ?? SUMMONS[0];
++  const owned = st.inventory[x.id] ?? 0;
++
++  const draw = (pulls: 1 | 5) => {
++    const r = pullSummons(s, pulls);
++    if (!r.ok) { setError(r.error ?? "Unable to draw."); return; }
++    setError(null);
++    setReveal(r.items);
++    onChanged();
++  };
++
++  return (
++    <div className="flex h-full min-h-0 flex-col rounded-2xl bg-[#0f111c]/95 p-2 ring-1 ring-white/8">
++      {/* reveal overlay */}
++      {reveal && (
++        <div className="fixed inset-0 z-[160] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" onClick={() => setReveal(null)}>
++          <div className="modal-pop w-full max-w-md rounded-2xl bg-[#151724] p-4 ring-1 ring-gold/30">
++            <p className="text-center text-[9px] font-black tracking-[0.2em] text-gold">PACT SEALED</p>
++            <div className={cn("mt-3 grid gap-2", reveal.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
++              {reveal.map((item, i) => (
++                <div key={i} className="summon-reveal flex flex-col items-center rounded-xl bg-black/30 p-2 ring-1 ring-white/8" style={{ animationDelay: `${i * 90}ms` }}>
++                  <SummonArt x={item} size={reveal.length > 1 ? 62 : 130} />
++                  <p className="mt-1 text-center text-[9.5px] font-black text-paper">{item.name}</p>
++                  <p className="text-center text-[8px] font-bold" style={{ color: SUMMON_RARITY_META[item.rarity].color }}>
++                    {SUMMON_RARITY_META[item.rarity].name.toUpperCase()}
++                  </p>
++                </div>
++              ))}
++            </div>
++            <button type="button" onClick={() => setReveal(null)} className="mt-4 w-full rounded-xl bg-gold px-3 py-2.5 text-[10px] font-black tracking-wider text-[#241d12]">
++              CLOSE
++            </button>
++          </div>
++        </div>
++      )}
++
++      <div className="flex items-start justify-between gap-2 px-1 pb-2">
++        <div>
++          <p className="font-display text-[15px] font-black text-paper">SUMMONING PACTS</p>
++          <p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">CONTRACT BEASTS · {ownedSummonCount(s)}/{SUMMONS.length} DISCOVERED</p>
++        </div>
++        <div className="text-right">
++          <p className="text-[8px] font-black text-gold">{st.totalPulls} PACTS DRAWN</p>
++          <p className="text-[7.5px] text-paper/30">Guaranteed Epic within {Math.max(0, 12 - st.sinceEpic)} draws</p>
++        </div>
++      </div>
++
++      {/* draw controls */}
++      <div className="mb-2 grid grid-cols-2 gap-2">
++        {SUMMON_PACKS.map((pack) => {
++          const cost = summonPullCost(pack.pulls, s);
++          const afford = s.gold >= cost.gold && s.rice >= cost.rice && s.ap >= 1;
++          return (
++            <button
++              key={pack.pulls}
++              type="button"
++              onClick={() => draw(pack.pulls)}
++              disabled={!afford}
++              className={cn(
++                "rounded-xl px-3 py-2 text-left ring-1 transition",
++                afford ? "bg-[#4a3b6e] ring-[#7a63ab] hover:brightness-110" : "bg-black/25 ring-white/7 opacity-45"
++              )}
++            >
++              <div className="flex items-center justify-between">
++                <span className="text-[10px] font-black tracking-wider text-paper">{pack.label}</span>
++                {cost.discount > 0 && <span className="text-[8px] font-black text-jade">−{Math.round(cost.discount * 100)}%</span>}
++              </div>
++              <p className="mt-0.5 text-[8.5px] font-bold tabular-nums text-paper/60">
++                {cost.gold.toLocaleString()} 両 · {cost.rice.toLocaleString()} rice · 1 AP
++              </p>
++            </button>
++          );
++        })}
++      </div>
++      {error && <p className="mb-2 rounded-lg bg-vermil/10 p-2 text-[9px] font-bold text-vermil ring-1 ring-vermil/20">{error}</p>}
++
++      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[320px_1fr]">
++        <div className="min-h-0 space-y-1.5 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5">
++          {SUMMONS.map((item) => (
++            <SummonCard
++              key={item.id}
++              x={item}
++              owned={st.inventory[item.id] ?? 0}
++              free={summonAvailableCount(s, item.id)}
++              bonded={summonBondedCount(s, item.id)}
++              selected={selected === item.id}
++              onSelect={() => setSelected(item.id)}
++            />
++          ))}
++        </div>
++
++        <div className="min-h-0 overflow-y-auto rounded-xl bg-black/15 p-3 ring-1 ring-white/5">
++          <div className="flex items-start gap-3">
++            <SummonArt x={x} size={104} dim={owned === 0} />
++            <div className="min-w-0 flex-1">
++              <div className="flex items-center gap-2">
++                <h3 className="font-display text-base font-black text-paper">{owned > 0 ? x.name : "UNDISCOVERED PACT"}</h3>
++                <RarityPill x={x} />
++              </div>
++              <p className="text-[9px] font-bold tracking-wider text-paper/40">{x.species.toUpperCase()}</p>
++              <p className="mt-1.5 text-[9px] leading-relaxed text-paper/50">{x.appearance}</p>
++            </div>
++          </div>
++
++          <p className="mt-3 text-[9.5px] italic leading-relaxed text-paper/55">{x.flavour}</p>
++
++          <p className="mt-3 text-[8px] font-black tracking-[0.18em] text-paper/40">MECHANICS</p>
++          <p className="mt-1 rounded-lg bg-black/30 p-2 text-[9px] leading-relaxed text-paper/70 ring-1 ring-white/6">
++            {summonMechanics(x)}
++          </p>
++
++          {owned > 0 ? (
++            <BondPanel s={s} x={x} onChanged={onChanged} />
++          ) : (
++            <p className="mt-2 rounded-lg bg-black/25 p-2 text-[8.5px] font-bold text-paper/35 ring-1 ring-white/5">
++              Draw pacts above to discover this contract beast.
++            </p>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
++
++/** Compact bonded-summon strip used on the ninja detail screen. */
++export function NinjaSummonPanel({ s, n, onChanged }: { s: GameState; n: Ninja; onChanged: () => void }) {
++  const pact = equippedSummon(n);
++  const owned = SUMMONS.filter((x) => (ensureSummonState(s).inventory[x.id] ?? 0) > 0);
++  const [open, setOpen] = useState(false);
++
++  return (
++    <div className="border-b border-white/8 px-3 py-2">
++      <div className="flex items-center justify-between gap-2">
++        <p className="text-[9.5px] font-bold tracking-[0.2em] text-paper/40">SUMMONING PACT</p>
++        {owned.length > 0 && (
++          <button type="button" onClick={() => setOpen((v) => !v)} className="rounded-md bg-black/30 px-2 py-1 text-[8px] font-black text-paper/55 ring-1 ring-white/8">
++            {open ? "CLOSE" : pact ? "CHANGE" : "BOND"}
++          </button>
++        )}
++      </div>
++
++      {pact ? (
++        <div className="mt-1.5 flex items-start gap-2 rounded-xl bg-black/25 p-2 ring-1 ring-white/7">
++          <SummonArt x={pact} size={52} />
++          <div className="min-w-0 flex-1">
++            <div className="flex items-center gap-1.5">
++              <p className="truncate text-[10.5px] font-black text-paper">{pact.name}</p>
++              <RarityPill x={pact} />
++            </div>
++            <p className="text-[8px] font-black" style={{ color: pact.tint }}>{pact.bondText}</p>
++            <p className="mt-1 text-[8.5px] leading-snug text-paper/50">{summonMechanics(pact).split(" BOND —")[0]}</p>
++          </div>
++        </div>
++      ) : (
++        <p className="mt-1 text-[8.5px] text-paper/35">
++          {owned.length ? "No pact bonded. A summon acts once per battle without costing a turn." : "The village has not formed any summoning pacts yet."}
++        </p>
++      )}
++
++      {open && (
++        <div className="mt-1.5 max-h-44 space-y-1 overflow-y-auto rounded-xl bg-black/20 p-1.5 ring-1 ring-white/6">
++          {pact && (
++            <button type="button" onClick={() => { releaseSummon(n); onChanged(); setOpen(false); }} className="w-full rounded-lg bg-black/35 p-1.5 text-[8.5px] font-black text-vermil ring-1 ring-vermil/20">
++              RELEASE {pact.name.toUpperCase()}
++            </button>
++          )}
++          {owned.map((x) => {
++            const free = summonAvailableCount(s, x.id);
++            const isMine = pact?.id === x.id;
++            return (
++              <button
++                key={x.id}
++                type="button"
++                disabled={isMine || free <= 0}
++                onClick={() => { if (bondSummon(s, n, x.id)) { onChanged(); setOpen(false); } }}
++                className={cn(
++                  "flex w-full items-center gap-2 rounded-lg p-1.5 text-left ring-1 transition",
++                  isMine ? "bg-gold/10 ring-gold/30" : free > 0 ? "bg-black/25 ring-white/7 hover:bg-white/[0.04]" : "bg-black/20 ring-white/5 opacity-40"
++                )}
++              >
++                <SummonArt x={x} size={34} dim={free <= 0 && !isMine} />
++                <span className="min-w-0 flex-1">
++                  <span className="block truncate text-[9.5px] font-black text-paper/90">{x.name}</span>
++                  <span className="block truncate text-[8px] font-bold" style={{ color: x.tint }}>{x.bondText}</span>
++                </span>
++                <span className="shrink-0 text-[8px] font-black text-paper/35">{isMine ? "BONDED" : free > 0 ? `${free} FREE` : "IN USE"}</span>
++              </button>
++            );
++          })}
++        </div>
++      )}
++    </div>
++  );
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/battle.ts b/src/game/battle.ts
+--- a/src/game/battle.ts	2026-09-01 06:40:57.782305655 +0000
++++ b/src/game/battle.ts	2026-09-01 06:40:01.929873878 +0000
+@@ -7,6 +7,7 @@
+ import { raidThreatPerDay } from "./villageSecurity";
+ import { hasDojutsuBloodline } from "./clanBloodlines";
+ import { BINGO_TARGET_BY_ID, ensureBingoState } from "./bingo";
++import { SUMMON_BY_ID, type SummonDef, equippedSummon } from "./summons";
+ 
+ const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+ const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+@@ -288,6 +289,9 @@
+     examTargetRank: null,
+   };
+   rollOrder(b, s.b.tower + (s.techs.includes("tower_rapid_response") ? 1 : 0), true);
++  // battle_start pacts act before anyone takes a turn.
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   return b;
+ }
+ 
+@@ -318,6 +322,9 @@
+     examTargetRank: targetRank,
+   };
+   rollOrder(b, s.b.tower + (s.techs.includes("tower_rapid_response") ? 1 : 0), true);
++  // battle_start pacts act before anyone takes a turn.
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   return b;
+ }
+ 
+@@ -461,6 +468,9 @@
+   }
+   applyBingoRoundState(b);
+   rollOrder(b, s.b.tower, true);
++  // battle_start pacts act before anyone takes a turn.
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   return b;
+ }
+ 
+@@ -471,7 +481,7 @@
+   b.order = live
+     .map((u) => ({
+       uid: u.uid,
+-      roll: u.spd * (1 - ((u.slowRounds ?? 0) > 0 ? (u.slowPct ?? 0) : 0)) * (1 + ((u.jutsuSpeedRounds ?? 0) > 0 ? (u.jutsuSpeedBonus ?? 0) : 0)) * rnd(0.85, 1.15) + (u.foe ? 0 : towerLvl * 4) + (first && u.firstStrike ? 500 : u.firstStrike ? 12 : 0),
++      roll: u.spd * (1 - ((u.slowRounds ?? 0) > 0 ? (u.slowPct ?? 0) : 0)) * (1 + ((u.jutsuSpeedRounds ?? 0) > 0 ? (u.jutsuSpeedBonus ?? 0) : 0)) * (1 + ((u.summonHasteRounds ?? 0) > 0 ? (u.summonHastePct ?? 0) : 0)) * rnd(0.85, 1.15) + (u.foe ? 0 : towerLvl * 4) + (first && u.firstStrike ? 500 : u.firstStrike ? 12 : 0),
+     }))
+     .sort((a, z) => z.roll - a.roll)
+     .map((x) => x.uid);
+@@ -678,6 +688,113 @@
+   return Math.random() < t.dodge;
+ }
+ 
++/* ------------------------------------------------------------ summons */
++
++/**
++ * Summon interventions.
++ *
++ * Unlike Jutsu (spend chakra, spend your turn) and gear (a flat passive), a
++ * summon watches the fight and acts on its own exactly once. `summonUsed`
++ * gates that to a single firing per battle per ninja.
++ *
++ * Every trigger routes through here so the once-only rule, the log line and
++ * the effect resolution can never drift apart between call sites.
++ */
++function summonFor(u: Unit): SummonDef | null {
++  return u.summonId ? SUMMON_BY_ID[u.summonId] ?? null : null;
++}
++
++function partyOf(b: Battle, u: Unit): Unit[] {
++  return b.units.filter((x) => x.alive && x.foe === u.foe);
++}
++
++/**
++ * Fire `u`'s summon if it is present, unused, and matches `trigger`.
++ * Returns true when it actually fired.
++ */
++function fireSummon(b: Battle, u: Unit, trigger: SummonDef["trigger"]): boolean {
++  if (!u.alive && trigger !== "bonded_fatal") return false;
++  if (u.summonUsed) return false;
++  const sm = summonFor(u);
++  if (!sm || sm.trigger !== trigger) return false;
++  u.summonUsed = true;
++
++  log(b, `${sm.kanji} ${u.name} summons ${sm.name} — ${sm.species}!`, "crit");
++
++  switch (sm.effect) {
++    case "shield": {
++      for (const ally of partyOf(b, u)) {
++        ally.summonShieldRounds = Math.max(ally.summonShieldRounds ?? 0, sm.rounds ?? 2);
++        ally.summonShieldPct = Math.max(ally.summonShieldPct ?? 0, sm.power);
++      }
++      log(b, `${sm.name} shields the squad — ${Math.round(sm.power * 100)}% less damage for ${sm.rounds} rounds.`, "heal");
++      break;
++    }
++    case "haste_party": {
++      for (const ally of partyOf(b, u)) {
++        ally.summonHasteRounds = Math.max(ally.summonHasteRounds ?? 0, sm.rounds ?? 2);
++        ally.summonHastePct = Math.max(ally.summonHastePct ?? 0, sm.power);
++      }
++      log(b, `${sm.name} calls the opening — the squad moves ${Math.round(sm.power * 100)}% faster.`, "heal");
++      break;
++    }
++    case "heal_bonded": {
++      const heal = Math.max(1, Math.round(u.maxHp * sm.power));
++      u.hp = Math.min(u.maxHp, u.hp + heal);
++      log(b, `${sm.name} closes ${u.name}'s wounds for ${heal} HP.`, "heal");
++      break;
++    }
++    case "restore_chakra": {
++      const gain = Math.max(1, Math.round(u.maxCp * sm.power));
++      u.cp = Math.min(u.maxCp, u.cp + gain);
++      log(b, `${sm.name} feeds ${gain} chakra back to ${u.name}.`, "heal");
++      break;
++    }
++    case "revive": {
++      // Called from damage() before the death is committed.
++      u.hp = Math.max(1, Math.round(u.maxHp * sm.power));
++      u.alive = true;
++      log(b, `${sm.name} refuses the killing blow — ${u.name} stands at ${u.hp} HP!`, "crit");
++      break;
++    }
++    case "cleanse_party": {
++      for (const ally of partyOf(b, u)) {
++        ally.burnRounds = 0; ally.poisonRounds = 0; ally.bleedRounds = 0;
++        ally.slowRounds = 0; ally.slowPct = 0;
++        ally.fearRounds = 0; ally.fearAvoidPct = 0; ally.fearSourceUid = null;
++        ally.confusionRounds = 0; ally.confusionChance = 0;
++        ally.genjutsuMissRounds = 0; ally.genjutsuMissChance = 0;
++        ally.chakraLockRounds = 0;
++        ally.stun = 0;
++      }
++      log(b, `${sm.name} scatters every illusion and affliction on the squad.`, "heal");
++      break;
++    }
++    case "strike_one": {
++      const foes = b.units.filter((x) => x.alive && x.foe !== u.foe);
++      if (!foes.length) break;
++      const target = foes.reduce((best, x) => (unitCombatPower(x) > unitCombatPower(best) ? x : best), foes[0]);
++      const raw = (u.atk + u.nin) * 0.5 * sm.power;
++      const dealt = damage(b, u, target, raw, "crit", true);
++      log(b, `${sm.name} tears into ${target.name} for ${dealt}!`, "crit");
++      break;
++    }
++    case "strike_all": {
++      const foes = b.units.filter((x) => x.alive && x.foe !== u.foe);
++      let total = 0;
++      for (const target of foes) total += damage(b, u, target, (u.atk + u.nin) * 0.5 * sm.power, "crit", true);
++      if (foes.length) log(b, `${sm.name} sweeps the enemy line for ${total} total damage!`, "crit");
++      break;
++    }
++  }
++  return true;
++}
++
++/** Check the whole party for a trigger that is not tied to one ninja. */
++function fireSummonsForSide(b: Battle, foe: boolean, trigger: SummonDef["trigger"]): void {
++  for (const u of b.units.filter((x) => x.foe === foe && x.alive)) fireSummon(b, u, trigger);
++}
++
+ function effectiveDefense(t: Unit): number {
+   return t.def * (1 - (((t.defShredRounds ?? 0) > 0) ? (t.defShredPct ?? 0) : 0));
+ }
+@@ -721,8 +838,35 @@
+     const reduction = Math.max(guardReduction, braceReduction, barrierReduction);
+     if (reduction > 0) dmg = Math.max(1, Math.round(dmg * (1 - reduction)));
+   }
++  // Vulnerability mark amplifies everything that lands on the target.
++  if ((target.markRounds ?? 0) > 0 && (target.markPct ?? 0) > 0) {
++    dmg = Math.round(dmg * (1 + (target.markPct ?? 0)));
++  }
++
++  // Summon shield applies after every other reduction.
++  if ((target.summonShieldRounds ?? 0) > 0 && (target.summonShieldPct ?? 0) > 0) {
++    dmg = Math.max(1, Math.round(dmg * (1 - (target.summonShieldPct ?? 0))));
++  }
++
++  // A summon with a fatal trigger gets to cancel the killing blow before the
++  // HP is committed, so the revive reads as an interception rather than a
++  // resurrection after the fact.
++  if (dmg >= target.hp && !target.summonUsed && summonFor(target)?.trigger === "bonded_fatal") {
++    b.flash = { uid: target.uid, amount: dmg, kind, n: (b.flash?.n ?? 0) + 1 };
++    target.hp = 1;
++    fireSummon(b, target, "bonded_fatal");
++    return dmg;
++  }
++
++  const hpBefore = target.hp;
+   target.hp = Math.max(0, target.hp - dmg);
+   b.flash = { uid: target.uid, amount: dmg, kind, n: (b.flash?.n ?? 0) + 1 };
++
++  // Low-HP interventions fire on the crossing, not on every subsequent hit.
++  if (target.hp > 0) {
++    const lowLine = target.maxHp * 0.35;
++    if (hpBefore > lowLine && target.hp <= lowLine) fireSummon(b, target, "bonded_low_hp");
++  }
+   if (src && src.lifesteal > 0) {
+     const heal = Math.round(dmg * src.lifesteal);
+     if (heal > 0) {
+@@ -751,9 +895,28 @@
+       }
+     }
+   }
++  // Reflection rebounds a share of what the dealer just dealt, and can feed
++  // the illusionist who set it. Guarded so it cannot recurse.
++  if (src && src.alive && src.uid !== target.uid && (src.reflectRounds ?? 0) > 0 && (src.reflectPct ?? 0) > 0) {
++    // Applied directly to hp rather than through damage(), so a reflection can
++    // never trigger another reflection.
++    const back = Math.max(1, Math.round(dmg * (src.reflectPct ?? 0)));
++    src.hp = Math.max(0, src.hp - back);
++    log(b, `${src.name}'s own strike rebounds for ${back}!`, "crit");
++    const feeder = src.reflectFeedUid ? unitById(b, src.reflectFeedUid) : null;
++    if (feeder?.alive && (src.reflectFeedPct ?? 0) > 0) {
++      const heal = Math.max(1, Math.round(back * (src.reflectFeedPct ?? 0)));
++      feeder.hp = Math.min(feeder.maxHp, feeder.hp + heal);
++      log(b, `${feeder.name} draws ${heal} life from the reflection.`, "heal");
++    }
++    if (src.hp <= 0) { src.alive = false; log(b, `${src.name} is down!`, "down"); }
++  }
++
+   if (target.hp <= 0) {
+     target.alive = false;
+     log(b, `${target.name} is down!`, "down");
++    // Everyone still standing on the fallen unit's side may answer.
++    fireSummonsForSide(b, target.foe, "ally_fallen");
+     if (!target.foe && bingoHas(b, "clone_on_down")) {
+       const boss = bingoBoss(b);
+       if (boss?.alive) { boss.extraTurnPending = true; log(b, `${boss.name} exploits the fallen hunter and creates a battlefield clone.`, "crit"); }
+@@ -806,6 +969,10 @@
+   let healed = 0;
+   const hitNames: string[] = [];
+   const jutsuStat = j.stat === "gen" ? u.gen : j.stat === "ken" ? u.ken : j.stat === "tac" ? u.tac : j.stat === "doj" ? u.doj : j.stat === "med" ? u.med : j.stat === "spd" ? u.spd : j.stat === "atk" ? u.atk : u.nin;
++  // Momentum techniques scale with how many the caster has already chained.
++  const momentumMult = j.effect === "momentum"
++    ? 1 + Math.min(j.momentumCap ?? 0.60, (u.momentum ?? 0) * (j.momentumPct ?? 0.15))
++    : 1;
+ 
+   for (const t of targets) {
+     if (!t.alive) continue;
+@@ -817,7 +984,7 @@
+       const crit = Math.random() < clamp(u.crit + critBonus + tempCrit, 0, CRIT_CAP);
+       const hits = Math.max(1, j.hits ?? 1);
+       for (let hit = 0; hit < hits && t.alive; hit++) {
+-        const raw = (jutsuStat * 1.65 * u.jutsuPower * j.power) * rnd(0.9, 1.16) - effectiveDefense(t) * 0.18 * (1 - piercePct);
++        const raw = (jutsuStat * 1.65 * u.jutsuPower * j.power * momentumMult) * rnd(0.9, 1.16) - effectiveDefense(t) * 0.18 * (1 - piercePct);
+         total += damage(b, u, t, raw * (crit ? u.critMult : 1), crit ? "crit" : "hit", piercePct > 0 || !!j.ranged);
+       }
+       hitNames.push(t.name);
+@@ -879,6 +1046,30 @@
+         }
+         break;
+       }
++      case "mark": {
++        if (!friendly && t.alive) {
++          t.markRounds = Math.max(t.markRounds ?? 0, j.markRounds ?? 2);
++          t.markPct = Math.max(t.markPct ?? 0, clamp(j.markPct ?? 0.18, 0.05, 0.45));
++        }
++        break;
++      }
++      case "echo": {
++        if (!friendly && t.alive) {
++          t.echoRounds = Math.max(t.echoRounds ?? 0, j.echoDelay ?? 2);
++          t.echoDamage = Math.max(t.echoDamage ?? 0, Math.max(1, Math.round(jutsuStat * (j.echoPower ?? 0.55) * u.jutsuPower)));
++        }
++        break;
++      }
++      case "siphon": {
++        if (!friendly && t.alive) {
++          const stolen = Math.max(1, Math.round(t.maxCp * (j.siphonPct ?? 0.15)));
++          const actual = Math.min(t.cp, stolen);
++          t.cp = Math.max(0, t.cp - actual);
++          u.cp = Math.min(u.maxCp, u.cp + actual);
++          if (actual > 0) log(b, `${u.name} siphons ${actual} chakra from ${t.name}.`, "heal");
++        }
++        break;
++      }
+       case "flow":
+       case "tempo": {
+         const buffTarget = friendly ? t : u;
+@@ -936,6 +1127,23 @@
+     }
+   }
+ 
++  // Drain converts a share of the damage this technique dealt into healing.
++  if (j.effect === "drain" && total > 0 && u.alive) {
++    const heal = Math.max(1, Math.round(total * (j.drainPct ?? 0.30)));
++    const before = u.hp;
++    u.hp = Math.min(u.maxHp, u.hp + heal);
++    const gained = u.hp - before;
++    if (gained > 0) log(b, `${u.name} drains ${gained} life from the technique.`, "heal");
++  }
++
++  // Momentum: chaining damaging techniques builds a stack; anything else
++  // resets it, so the payoff has to be actively maintained.
++  if (total > 0) u.momentum = Math.min(8, (u.momentum ?? 0) + 1);
++  else u.momentum = 0;
++  if (j.effect === "momentum" && momentumMult > 1) {
++    log(b, `${u.name} rides the momentum — +${Math.round((momentumMult - 1) * 100)}% technique power.`, "crit");
++  }
++
+   if ((j.allyCpRestorePct ?? 0) > 0) {
+     const recipients = (j.target === "all_allies" || j.target === "all_foes")
+       ? alliesSide
+@@ -1064,6 +1272,18 @@
+       t.genjutsuMissChance = Math.max(t.genjutsuMissChance ?? 0, g.missChance ?? 0);
+     }
+     if (g.chakraLockRounds) t.chakraLockRounds = Math.max(t.chakraLockRounds ?? 0, g.chakraLockRounds);
++    if (g.burnCpRounds) {
++      t.cpBurnRounds = Math.max(t.cpBurnRounds ?? 0, g.burnCpRounds);
++      t.cpBurnPct = Math.max(t.cpBurnPct ?? 0, g.burnCpPct ?? 0.08);
++    }
++    if (g.reflectRounds) {
++      t.reflectRounds = Math.max(t.reflectRounds ?? 0, g.reflectRounds);
++      t.reflectPct = Math.max(t.reflectPct ?? 0, g.reflectPct ?? 0.25);
++      // A Reflection cast on an ally protects them; cast on an enemy it also
++      // feeds the caster, so remember who to heal.
++      t.reflectFeedUid = friendly ? null : u.uid;
++      t.reflectFeedPct = friendly ? 0 : (g.feedPct ?? 0);
++    }
+   }
+   const mechanic = g.bindRounds ? `bind ${g.bindRounds}R` : g.fearAvoidPct ? "fear / target avoidance" : g.fearWardPct ? "fear ward" : g.confusionChance ? "discord / friendly fire" : g.missChance ? "mirage / misfire" : "illusion";
+   log(b, landed.length ? `${u.name} casts ${g.name} — ${mechanic}` : `${u.name}'s ${g.name} is resisted`, landed.length ? "info" : "miss");
+@@ -1073,6 +1293,17 @@
+ export function doAction(b: Battle, action: BAction, targetUid?: string, jutsuId?: string): { kind: string; targets: string[] } {
+   const u = currentUnit(b);
+   if (!u) return { kind: "none", targets: [] };
++  // Chakra-starvation pacts are checked once, after the action resolves,
++  // rather than at each of the seven places chakra is spent — a single choke
++  // point means a new action type can never silently miss the trigger.
++  const result = doActionInner(b, action, targetUid, jutsuId);
++  if (u.alive && u.cp <= u.maxCp * 0.25) fireSummon(b, u, "chakra_empty");
++  return result;
++}
++
++function doActionInner(b: Battle, action: BAction, targetUid?: string, jutsuId?: string): { kind: string; targets: string[] } {
++  const u = currentUnit(b);
++  if (!u) return { kind: "none", targets: [] };
+   bingoBeforeAction(b, u, action);
+   if (!u.alive) return { kind: "hit", targets: [u.uid] };
+   u.guard = false;
+@@ -1391,7 +1622,30 @@
+         if ((u.confusionRounds ?? 0) > 0) { u.confusionRounds = Math.max(0, (u.confusionRounds ?? 0) - 1); if ((u.confusionRounds ?? 0) <= 0) u.confusionChance = 0; }
+         if ((u.genjutsuMissRounds ?? 0) > 0) { u.genjutsuMissRounds = Math.max(0, (u.genjutsuMissRounds ?? 0) - 1); if ((u.genjutsuMissRounds ?? 0) <= 0) u.genjutsuMissChance = 0; }
+         if ((u.chakraLockRounds ?? 0) > 0) u.chakraLockRounds = Math.max(0, (u.chakraLockRounds ?? 0) - 1);
++        if ((u.summonShieldRounds ?? 0) > 0) { u.summonShieldRounds = Math.max(0, (u.summonShieldRounds ?? 0) - 1); if ((u.summonShieldRounds ?? 0) <= 0) u.summonShieldPct = 0; }
++        if ((u.summonHasteRounds ?? 0) > 0) { u.summonHasteRounds = Math.max(0, (u.summonHasteRounds ?? 0) - 1); if ((u.summonHasteRounds ?? 0) <= 0) u.summonHastePct = 0; }
++        if ((u.markRounds ?? 0) > 0) { u.markRounds = Math.max(0, (u.markRounds ?? 0) - 1); if ((u.markRounds ?? 0) <= 0) u.markPct = 0; }
++        if ((u.reflectRounds ?? 0) > 0) { u.reflectRounds = Math.max(0, (u.reflectRounds ?? 0) - 1); if ((u.reflectRounds ?? 0) <= 0) { u.reflectPct = 0; u.reflectFeedUid = null; u.reflectFeedPct = 0; } }
++        if ((u.cpBurnRounds ?? 0) > 0) {
++          const burn = Math.max(1, Math.round(u.maxCp * (u.cpBurnPct ?? 0.08)));
++          const taken = Math.min(u.cp, burn);
++          u.cp = Math.max(0, u.cp - taken);
++          u.cpBurnRounds = Math.max(0, (u.cpBurnRounds ?? 0) - 1);
++          if ((u.cpBurnRounds ?? 0) <= 0) u.cpBurnPct = 0;
++          if (taken > 0) log(b, `${u.name} loses ${taken} chakra to the famine illusion.`, "info");
++        }
++        // Echo detonations land when their delay expires.
++        if ((u.echoRounds ?? 0) > 0) {
++          u.echoRounds = Math.max(0, (u.echoRounds ?? 0) - 1);
++          if ((u.echoRounds ?? 0) === 0 && (u.echoDamage ?? 0) > 0) {
++            const boom = u.echoDamage ?? 0;
++            u.echoDamage = 0;
++            damage(b, null, u, boom, "crit", true);
++            log(b, `The delayed technique detonates on ${u.name} for ${boom}!`, "crit");
++          }
++        }
+       }
++      if (b.round === 3) { fireSummonsForSide(b, false, "round_three"); fireSummonsForSide(b, true, "round_three"); }
+       if ((b.bingoTargetCannotFleeRounds ?? 0) > 0) b.bingoTargetCannotFleeRounds = Math.max(0, (b.bingoTargetCannotFleeRounds ?? 0) - 1);
+       if (b.bingoRuntime && b.bingoRuntime.hazardRounds > 0) b.bingoRuntime.hazardRounds -= 1;
+       applyBingoRoundState(b);
+@@ -1595,6 +1849,26 @@
+   u.jutsuShredBonus = jf.shredBonus; u.jutsuBraceAmp = jf.braceAmp; u.jutsuTauntBonus = jf.tauntBonus;
+   u.jutsuRetaliationBonus = jf.retaliationBonus; u.jutsuExtraTurnBonus = jf.extraTurnBonus;
+ 
++  // Bonded summon: the always-on half of the pact, plus the id the
++  // intervention engine reads during the fight.
++  const pact = equippedSummon(n);
++  if (pact) {
++    u.summonId = pact.id;
++    u.summonUsed = false;
++    const bd = pact.bond;
++    if (bd.hp) { u.maxHp = Math.max(1, Math.round(u.maxHp * bd.hp)); u.hp = u.maxHp; }
++    if (bd.cp) { u.maxCp = Math.max(1, Math.round(u.maxCp * bd.cp)); u.cp = u.maxCp; }
++    if (bd.atk) u.atk *= bd.atk;
++    if (bd.def) u.def *= bd.def;
++    if (bd.spd) u.spd *= bd.spd;
++    if (bd.jutsuPower) u.jutsuPower *= bd.jutsuPower;
++    if (bd.crit) u.crit = clamp(u.crit + bd.crit, 0, CRIT_CAP);
++    if (bd.dodge) u.dodge = clamp(u.dodge + bd.dodge, 0, DODGE_CAP);
++    if (bd.regen) u.regen += bd.regen;
++  } else {
++    u.summonId = null;
++  }
++
+   // Village research: Scroll Archive doctrine applies to every village shinobi.
+   if (s) {
+     if (s.techs.includes("archive_forbidden_vault")) u.jutsuPower *= 1.10;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/genjutsu.ts b/src/game/genjutsu.ts
+--- a/src/game/genjutsu.ts	2026-09-01 06:40:57.786305686 +0000
++++ b/src/game/genjutsu.ts	2026-09-01 06:34:03.903105823 +0000
+@@ -6,7 +6,7 @@
+ export interface GenjutsuDef {
+   id: string;
+   name: string;
+-  path: "binding" | "dread" | "discord" | "mirage";
++  path: "binding" | "dread" | "discord" | "mirage" | "famine" | "reflection";
+   pathLabel: string;
+   pathSummary: string;
+   tier: number;
+@@ -25,6 +25,15 @@
+   missRounds?: number;
+   missChance?: number;
+   chakraLockRounds?: number;
++  /* --- mechanics unique to the two newer illusion schools --- */
++  /** Drains chakra every round the illusion holds. */
++  burnCpRounds?: number;
++  burnCpPct?: number;
++  /** Reflects a share of the victim's own damage back at them. */
++  reflectRounds?: number;
++  reflectPct?: number;
++  /** Heals the caster for a share of the damage the illusion deals. */
++  feedPct?: number;
+   desc: string;
+ }
+ 
+@@ -54,6 +63,27 @@
+     { id:"gen_discord_false_battlefield", name:"False Battlefield", levelReq:15, chakra:18, target:"all_foes", chance:0.60, confusionRounds:2, confusionChance:0.36, desc:"Scrambles the entire enemy formation. Every affected foe can turn its action against an ally." },
+     { id:"gen_discord_civil_war", name:"Civil War", levelReq:22, chakra:25, target:"all_foes", chance:0.54, confusionRounds:3, confusionChance:0.52, desc:"Top Discord art: a difficult AoE illusion that can make the enemy line tear itself apart for 3 rounds." },
+   ]),
++  /*
++   * Two further schools. Binding/Dread/Discord/Mirage all resolve as "apply a
++   * status to the enemy and wait", which made mid-tree Genjutsu choices feel
++   * interchangeable. Famine attacks the chakra economy and Reflection turns the
++   * victim's own aggression into the damage source, so both change what the
++   * caster is actually trying to achieve.
++   */
++  ...path("famine", "Famine", "Chakra starvation · punish technique-heavy enemies", [
++    { id: "gen_famine_hollow_thirst", name: "Hollow Thirst", levelReq: 4, chakra: 7, target: "foe", chance: 0.76, burnCpRounds: 3, burnCpPct: 0.08, desc: "The victim believes they are exhausted, and their chakra network obligingly agrees." },
++    { id: "gen_famine_dry_season", name: "Dry Season", levelReq: 8, chakra: 10, target: "foe", chance: 0.71, burnCpRounds: 3, burnCpPct: 0.12, power: 0.14, desc: "A slow, grinding illusion of drought that empties reserves round by round." },
++    { id: "gen_famine_starving_field", name: "Starving Field", levelReq: 13, chakra: 15, target: "all_foes", chance: 0.62, burnCpRounds: 2, burnCpPct: 0.10, desc: "Spreads the drought across the enemy line. Technique-reliant formations stall out entirely." },
++    { id: "gen_famine_last_well", name: "The Last Well", levelReq: 18, chakra: 19, target: "foe", chance: 0.66, burnCpRounds: 4, burnCpPct: 0.16, chakraLockRounds: 1, power: 0.20, desc: "Empties one target's reserves over four rounds and briefly seals what remains." },
++    { id: "gen_famine_empty_years", name: "Empty Years", levelReq: 24, chakra: 26, target: "all_foes", chance: 0.52, burnCpRounds: 3, burnCpPct: 0.14, desc: "Top Famine art: the entire enemy line loses a seventh of its chakra every round for three rounds." },
++  ]),
++  ...path("reflection", "Reflection", "Turn the victim's own violence back on them", [
++    { id: "gen_reflect_mirror_skin", name: "Mirror Skin", levelReq: 4, chakra: 7, target: "ally", chance: 1, reflectRounds: 2, reflectPct: 0.22, desc: "An ally is wrapped in a reflective illusion. Attackers meet a version of their own strike." },
++    { id: "gen_reflect_guilty_hand", name: "Guilty Hand", levelReq: 8, chakra: 10, target: "foe", chance: 0.72, reflectRounds: 2, reflectPct: 0.30, desc: "The victim's every blow returns to them as remembered pain." },
++    { id: "gen_reflect_shared_wound", name: "Shared Wound", levelReq: 13, chakra: 14, target: "foe", chance: 0.68, reflectRounds: 2, reflectPct: 0.26, power: 0.30, feedPct: 0.35, desc: "Binds attacker and caster together; the wound is shared, and the caster takes the better half." },
++    { id: "gen_reflect_mirror_court", name: "Mirror Court", levelReq: 18, chakra: 18, target: "all_foes", chance: 0.58, reflectRounds: 2, reflectPct: 0.24, desc: "Every enemy fights their own reflection. The whole line punishes itself for attacking." },
++    { id: "gen_reflect_final_verdict", name: "Final Verdict", levelReq: 24, chakra: 25, target: "foe", chance: 0.60, reflectRounds: 3, reflectPct: 0.46, power: 0.34, feedPct: 0.40, desc: "Top Reflection art: nearly half of everything the victim deals rebounds, and the caster heals from the exchange." },
++  ]),
+   ...path("mirage", "Mirage", "Miss chance · false positioning · chakra-technique denial", [
+     { id:"gen_mirage_afterimage", name:"Afterimage Veil", levelReq:3, chakra:5, target:"foe", chance:0.84, missRounds:2, missChance:0.20, desc:"Offsets the target's perception. It keeps acting but has a 20% extra chance for offensive actions to miss." },
+     { id:"gen_mirage_broken_distance", name:"Broken Distance", levelReq:6, chakra:8, target:"foe", chance:0.80, missRounds:2, missChance:0.30, desc:"Warps depth and distance, adding a 30% misfire chance for 2 rounds." },
+@@ -96,6 +126,9 @@
+   if (g.confusionRounds) out.push(`Confusion for ${g.confusionRounds} rounds: each turn there is a ${Math.round((g.confusionChance ?? 0.3) * 100)}% chance the victim attacks its own side`);
+   if (g.missRounds) out.push(`Distortion for ${g.missRounds} rounds: +${Math.round((g.missChance ?? 0.2) * 100)}% chance the victim's offensive actions miss`);
+   if (g.chakraLockRounds) out.push(`Chakra lock for ${g.chakraLockRounds} round(s): the victim cannot use chakra techniques`);
++  if (g.burnCpRounds) out.push(`Chakra famine for ${g.burnCpRounds} rounds: the victim loses ${Math.round((g.burnCpPct ?? 0.1) * 100)}% of its max chakra every round`);
++  if (g.reflectRounds) out.push(`Reflection for ${g.reflectRounds} rounds: ${Math.round((g.reflectPct ?? 0.25) * 100)}% of the damage the victim deals rebounds onto them`);
++  if (g.feedPct) out.push(`The caster heals for ${Math.round(g.feedPct * 100)}% of the damage this illusion inflicts`);
+   out.push(`Costs ${g.chakra} chakra · unlocks at Lv ${g.levelReq} · occupies 1 of 4 battle Genjutsu slots`);
+   return `${out.join(". ")}.`;
+ }
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/jutsu.ts b/src/game/jutsu.ts
+--- a/src/game/jutsu.ts	2026-09-01 06:40:57.786305686 +0000
++++ b/src/game/jutsu.ts	2026-09-01 06:33:21.678779349 +0000
+@@ -1,7 +1,16 @@
+ import type { Nature, Ninja, TraitId } from "./types";
+ 
+ export type JutsuTarget = "foe" | "all_foes" | "ally" | "all_allies" | "self";
+-export type JutsuEffect = "burn" | "poison" | "bleed" | "slow" | "guard" | "brace" | "taunt" | "retaliate" | "shred" | "stun" | "pierce" | "crit" | "cleanse" | "regen" | "flow" | "tempo" | "none";
++export type JutsuEffect =
++  | "burn" | "poison" | "bleed" | "slow" | "guard" | "brace" | "taunt" | "retaliate"
++  | "shred" | "stun" | "pierce" | "crit" | "cleanse" | "regen" | "flow" | "tempo"
++  /* --- mechanics added to break the similarity between mid-tree options --- */
++  | "drain"    // heal the caster for a share of the damage dealt
++  | "mark"     // the target takes amplified damage from every source
++  | "echo"     // seed a delayed detonation that lands in a later round
++  | "siphon"   // steal chakra rather than HP
++  | "momentum" // reward chaining techniques across consecutive turns
++  | "none";
+ 
+ export interface JutsuPassive {
+   hp?: number;
+@@ -57,6 +66,15 @@
+   cpRestorePct?: number;
+   allyHealPct?: number;
+   executeBelow?: number;
++  /** Mechanics for the newer effect kinds. */
++  drainPct?: number;
++  markPct?: number;
++  markRounds?: number;
++  echoDelay?: number;
++  echoPower?: number;
++  siphonPct?: number;
++  momentumPct?: number;
++  momentumCap?: number;
+   /** Element-identity mechanics. */
+   shredPct?: number;
+   shredRounds?: number;
+@@ -269,6 +287,62 @@
+     { id: "light_storm", name: "Heaven's Relay", levelReq: 22, chakra: 24, power: 1.34, target: "foe", effect: "tempo", extraTurnChance: 0.40, desc: "Momentum signature: a 40% base chance to immediately act again." },
+   ]),
+ 
++  /* ------------------------------------------------------------------
++   * Fifth and sixth lanes per element.
++   *
++   * The four original lanes per element were all built from the same small
++   * pool of effects, so mid-tree choices between elements often came down to
++   * the same decision with a different colour. These lanes each own one of
++   * the new mechanics outright — drain, mark, echo, siphon and momentum — so
++   * picking Fire over Water changes how the turn actually plays, not just the
++   * damage type.
++   * ------------------------------------------------------------------ */
++
++  // FIRE — Consumption: the only elemental lane that heals off its own damage.
++  ...F("consumption", "Consumption", "Drain life from your own flames", [
++    { id: "fire_feeding_flame", name: "Feeding Flame", levelReq: 2, chakra: 7, power: 0.78, target: "foe", effect: "drain", drainPct: 0.26, desc: "The flame feeds backwards along the chakra it burns, closing the caster's wounds as it works." },
++    { id: "fire_ember_thirst", name: "Ember Thirst", levelReq: 5, chakra: 10, power: 0.94, target: "foe", effect: "drain", drainPct: 0.32, desc: "A hungrier brand. The hotter it burns, the more it gives back." },
++    { id: "fire_hearth_law", name: "Law of the Hearth", levelReq: 9, chakra: 0, power: 0, target: "self", effect: "none", passive: { hp: 1.08, jutsuPower: 1.05 }, desc: "PASSIVE: the body learns to hold what the fire returns." },
++    { id: "fire_pyre_communion", name: "Pyre Communion", levelReq: 14, chakra: 16, power: 1.24, target: "foe", effect: "drain", drainPct: 0.38, desc: "A sustained column of flame that keeps the caster standing long past the point they should have fallen." },
++    { id: "fire_last_ash", name: "Ash Covenant", levelReq: 21, chakra: 23, power: 1.58, target: "foe", effect: "drain", drainPct: 0.46, desc: "Consumption signature: nearly half of everything it burns comes back as the caster's own vitality." },
++  ]),
++
++  // WATER — Erosion: marks, so the whole squad's damage rises against one target.
++  ...W("erosion", "Erosion", "Mark targets so the whole squad hits harder", [
++    { id: "water_solvent_mist", name: "Solvent Mist", levelReq: 2, chakra: 6, power: 0.52, target: "foe", effect: "mark", markPct: 0.14, markRounds: 2, desc: "A fine corrosive mist settles into armour joints and old wounds alike." },
++    { id: "water_undercut", name: "Undercutting Current", levelReq: 5, chakra: 9, power: 0.62, target: "foe", effect: "mark", markPct: 0.20, markRounds: 2, desc: "Water finds the weakness beneath the surface and widens it." },
++    { id: "water_tidewear", name: "Tidewear Doctrine", levelReq: 9, chakra: 0, power: 0, target: "self", effect: "none", passive: { jutsuPower: 1.06, cp: 1.08 }, desc: "PASSIVE: patience as a weapon — deeper reserves and stronger technique." },
++    { id: "water_dissolution", name: "Dissolution Field", levelReq: 14, chakra: 15, power: 0.58, target: "all_foes", effect: "mark", markPct: 0.18, markRounds: 2, desc: "Marks the entire enemy line at once. The squad's next few rounds hit noticeably harder." },
++    { id: "water_deep_erosion", name: "Deep Erosion", levelReq: 21, chakra: 21, power: 0.96, target: "foe", effect: "mark", markPct: 0.32, markRounds: 3, desc: "Erosion signature: one target takes a third more damage from every source for three full rounds." },
++  ]),
++
++  // WIND — Delay: the only lane that puts damage on a timer.
++  ...A("delay", "Delay", "Seed detonations that land rounds later", [
++    { id: "wind_hanging_blade", name: "Hanging Blade", levelReq: 2, chakra: 7, power: 0.46, target: "foe", effect: "echo", echoDelay: 2, echoPower: 0.50, desc: "A compressed cut left suspended in the air. It falls when the target has already moved on." },
++    { id: "wind_held_breath", name: "Held Breath", levelReq: 5, chakra: 10, power: 0.54, target: "foe", effect: "echo", echoDelay: 2, echoPower: 0.66, desc: "The wind holds its shape a little longer, and hits a little harder when it lets go." },
++    { id: "wind_patience_edge", name: "The Patient Edge", levelReq: 9, chakra: 0, power: 0, target: "self", effect: "none", passive: { jutsuPower: 1.07, spd: 1.05 }, desc: "PASSIVE: the discipline to set a cut and wait for it." },
++    { id: "wind_scattered_hour", name: "Scattered Hour", levelReq: 14, chakra: 17, power: 0.42, target: "all_foes", effect: "echo", echoDelay: 2, echoPower: 0.54, desc: "Seeds a delayed cut on every enemy. The whole line detonates together." },
++    { id: "wind_severing_hour", name: "The Severing Hour", levelReq: 21, chakra: 22, power: 0.72, target: "foe", effect: "echo", echoDelay: 3, echoPower: 1.15, desc: "Delay signature: a long fuse and an enormous payload that ignores defence entirely." },
++  ]),
++
++  // EARTH — Siphon: attrition through chakra denial rather than damage.
++  ...E("siphon", "Siphon", "Starve the enemy of chakra", [
++    { id: "earth_grounding_spike", name: "Grounding Spike", levelReq: 2, chakra: 6, power: 0.54, target: "foe", effect: "siphon", siphonPct: 0.12, desc: "Drives a conductive spike into the earth beneath the target and earths their chakra through it." },
++    { id: "earth_leyline_tap", name: "Leyline Tap", levelReq: 5, chakra: 9, power: 0.62, target: "foe", effect: "siphon", siphonPct: 0.17, desc: "Redirects the target's own network into the stone, and from the stone into the caster." },
++    { id: "earth_deep_reserve", name: "Deep Reserve", levelReq: 9, chakra: 0, power: 0, target: "self", effect: "none", passive: { cp: 1.14, def: 1.05 }, desc: "PASSIVE: a body that stores chakra like bedrock stores water." },
++    { id: "earth_stone_famine", name: "Stone Famine", levelReq: 14, chakra: 15, power: 0.48, target: "all_foes", effect: "siphon", siphonPct: 0.13, desc: "Drains a share of chakra from every enemy at once. Technique-heavy formations stall badly." },
++    { id: "earth_mountain_thirst", name: "Mountain's Thirst", levelReq: 21, chakra: 20, power: 0.88, target: "foe", effect: "siphon", siphonPct: 0.28, desc: "Siphon signature: takes over a quarter of the target's total chakra in a single technique." },
++  ]),
++
++  // LIGHTNING — Momentum: rewards chaining, punishes a broken chain.
++  ...L("cascade", "Cascade", "Chain techniques for escalating power", [
++    { id: "light_opening_arc", name: "Opening Arc", levelReq: 2, chakra: 6, power: 0.82, target: "foe", effect: "momentum", momentumPct: 0.13, momentumCap: 0.50, desc: "The first strike of a chain. Modest alone, and the reason everything after it hurts." },
++    { id: "light_relay_strike", name: "Relay Strike", levelReq: 5, chakra: 9, power: 0.96, target: "foe", effect: "momentum", momentumPct: 0.15, momentumCap: 0.58, desc: "Each technique feeds the next; the arc never fully grounds out between casts." },
++    { id: "light_conduction", name: "Conduction Instinct", levelReq: 9, chakra: 0, power: 0, target: "self", effect: "none", passive: { spd: 1.08, crit: 0.04 }, desc: "PASSIVE: the reflexes to keep a chain alive under pressure." },
++    { id: "light_cascade_break", name: "Cascade Break", levelReq: 14, chakra: 16, power: 0.68, target: "all_foes", effect: "momentum", momentumPct: 0.14, momentumCap: 0.60, desc: "Splits the accumulated charge across the whole enemy line without breaking the chain." },
++    { id: "light_final_relay", name: "Final Relay", levelReq: 21, chakra: 22, power: 1.42, target: "foe", effect: "momentum", momentumPct: 0.18, momentumCap: 0.72, desc: "Cascade signature: at a full chain this is the single hardest-hitting elemental technique in the game." },
++  ]),
++
+   // RARE / UNIQUE styles also use four vertical lanes, but currently have three tiers.
+   ...R("sealingExpert", "Sealing Formula", "binding", "Binding", "Slow / immobilise", "nin", [
+     { id: "seal_binding_tag", name: "Binding Formula Tag", levelReq: 1, chakra: 6, power: 0.42, target: "foe", effect: "slow", effectValue: 2, desc: "A chakra formula clings to one target and heavily slows them." },
+@@ -1447,6 +1521,11 @@
+ };
+ 
+ const EFFECT_TEXT: Record<JutsuEffect, (j: JutsuDef) => string | null> = {
++  drain: (j) => `heals the caster for ${Math.round((j.drainPct ?? 0.30) * 100)}% of the damage dealt`,
++  mark: (j) => `marks the target for ${j.markRounds ?? 2} rounds — it takes +${Math.round((j.markPct ?? 0.18) * 100)}% damage from every source, including allies`,
++  echo: (j) => `seeds a delayed detonation that lands ${j.echoDelay ?? 2} rounds later for roughly ${Math.round((j.echoPower ?? 0.55) * 100)}% of the casting stat, ignoring defence`,
++  siphon: (j) => `steals ${Math.round((j.siphonPct ?? 0.15) * 100)}% of the target's max chakra and gives it to the caster`,
++  momentum: (j) => `gains +${Math.round((j.momentumPct ?? 0.15) * 100)}% power per chained technique this battle, up to +${Math.round((j.momentumCap ?? 0.60) * 100)}% (any turn without a damaging technique resets the chain)`,
+   burn: (j) => `applies Burn for ${j.effectValue ?? 2} round${(j.effectValue ?? 2) === 1 ? "" : "s"}`,
+   poison: (j) => `applies Poison for ${j.effectValue ?? 2} rounds`,
+   bleed: (j) => `applies Bleed for ${j.effectValue ?? 2} rounds`,
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/save.ts b/src/game/save.ts
+--- a/src/game/save.ts	2026-09-01 06:40:57.786305686 +0000
++++ b/src/game/save.ts	2026-09-01 06:25:35.879178009 +0000
+@@ -1,5 +1,6 @@
+ import type { GameState } from "./types";
+ import { hasDojutsuBloodline } from "./clanBloodlines";
++import { SUMMON_BY_ID, ensureSummonState } from "./summons";
+ import { ensureBingoState } from "./bingo";
+ 
+ const SAVE_VERSION = 3;
+@@ -86,6 +87,13 @@
+     if (!Array.isArray(state.reports)) state.reports = [];
+     if (state.phase === "menu") state.phase = "playing";
+     ensureBingoState(state);
++    // Summons were added after these saves were written; a missing pact is
++    // simply an unbonded ninja, and an unknown id is dropped.
++    ensureSummonState(state);
++    for (const ninja of state.ninjas) {
++      if (ninja.summonId && !SUMMON_BY_ID[ninja.summonId]) ninja.summonId = null;
++      if (ninja.summonId === undefined) ninja.summonId = null;
++    }
+ 
+     return {
+       version: typeof parsed.version === "number" ? parsed.version : SAVE_VERSION,
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/summons.ts b/src/game/summons.ts
+--- a/src/game/summons.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/src/game/summons.ts	2026-09-01 06:39:25.881595158 +0000
+@@ -0,0 +1,351 @@
++import type { GameState, Ninja } from "./types";
++
++/**
++ * Animal summons — a third progression axis alongside gear and Jutsu.
++ *
++ * The design problem: a summon that just adds stats is a second equipment
++ * slot, and a summon you spend chakra to activate is a second Jutsu. Summons
++ * instead run on **interventions**: a once-per-battle effect that fires
++ * automatically the moment its trigger condition is met, without consuming the
++ * ninja's turn or any chakra.
++ *
++ * That makes them the only system in the game that acts on your behalf. You
++ * choose a summon for the situation it rescues you from rather than for a
++ * number it adds, and two ninjas with identical gear and Jutsu can still play
++ * very differently depending on the pact they carry.
++ *
++ * Each summon also carries a small always-on bond, so an unspent intervention
++ * is never a wasted slot.
++ */
++
++export type SummonRarity = "common" | "rare" | "epic" | "legendary";
++
++/** When the once-per-battle intervention fires. */
++export type SummonTrigger =
++  | "battle_start"      // immediately, before the first turn
++  | "bonded_low_hp"     // the bonded ninja drops below 35% HP
++  | "bonded_fatal"      // a blow would kill the bonded ninja
++  | "ally_fallen"       // any ally is knocked out
++  | "chakra_empty"      // the bonded ninja is below 15% chakra
++  | "round_three";      // start of round 3
++
++/** What the intervention does when it fires. */
++export type SummonEffect =
++  | "shield"            // grant temporary damage reduction to the whole party
++  | "heal_bonded"       // restore HP to the bonded ninja
++  | "revive"            // cancel the fatal blow and leave them at low HP
++  | "restore_chakra"    // refill part of the bonded ninja's chakra
++  | "strike_all"        // the summon attacks every enemy
++  | "strike_one"        // the summon attacks the strongest enemy
++  | "cleanse_party"     // clear all debuffs and illusions from your side
++  | "haste_party";      // party-wide speed and extra-turn surge
++
++export interface SummonDef {
++  id: string;
++  name: string;
++  species: string;
++  /** Filename stem under /summons. */
++  art: string;
++  kanji: string;
++  rarity: SummonRarity;
++  /** Accent colour used by the portrait badge and cards. */
++  tint: string;
++  trigger: SummonTrigger;
++  effect: SummonEffect;
++  /** Effect magnitude; meaning depends on `effect`. */
++  power: number;
++  /** Rounds the effect persists, where that applies. */
++  rounds?: number;
++  /** Always-on bond, applied while the summon is equipped. */
++  bond: {
++    atk?: number;
++    def?: number;
++    spd?: number;
++    hp?: number;
++    cp?: number;
++    crit?: number;
++    dodge?: number;
++    regen?: number;
++    jutsuPower?: number;
++  };
++  bondText: string;
++  appearance: string;
++  flavour: string;
++}
++
++export const SUMMON_RARITY_META: Record<SummonRarity, { name: string; color: string; weight: number; rank: number; border: string }> = {
++  common: { name: "Common", color: "#b9bec8", border: "#727986", weight: 50, rank: 1 },
++  rare: { name: "Rare", color: "#67b8ff", border: "#3488ce", weight: 30, rank: 2 },
++  epic: { name: "Epic", color: "#cf7cff", border: "#924fc1", weight: 15, rank: 3 },
++  legendary: { name: "Legendary", color: "#ffd35d", border: "#d19c22", weight: 5, rank: 4 },
++};
++
++export const SUMMONS: SummonDef[] = [
++  {
++    id: "sum_toad", name: "Gamaza", species: "Battle Toad", art: "toad", kanji: "蝦",
++    rarity: "common", tint: "#e2762f",
++    trigger: "bonded_low_hp", effect: "shield", power: 0.35, rounds: 2,
++    bond: { hp: 1.08, def: 1.06 },
++    bondText: "+8% max HP · +6% DEF",
++    appearance: "A broad orange-and-brown toad in a faded blue haori, a notched staff held across its lap.",
++    flavour: "Contract toads are stubborn, unhurried and famously hard to move. Gamaza treats a losing fight as a personal insult.",
++  },
++  {
++    id: "sum_hawk", name: "Shirakaze", species: "Scout Hawk", art: "hawk", kanji: "鷹",
++    rarity: "common", tint: "#c8a86a",
++    trigger: "battle_start", effect: "haste_party", power: 0.18, rounds: 2,
++    bond: { spd: 1.10, crit: 0.03 },
++    bondText: "+10% SPD · +3pp crit",
++    appearance: "A brown-and-white hawk with barred wings and hard golden eyes, already half-launched from the branch.",
++    flavour: "Sent up before the first exchange, Shirakaze reads the enemy line and screams the opening down to the squad.",
++  },
++  {
++    id: "sum_wolf", name: "Kiba", species: "Tracking Wolf", art: "wolf", kanji: "狼",
++    rarity: "common", tint: "#9aa4b0",
++    trigger: "ally_fallen", effect: "strike_one", power: 1.45,
++    bond: { atk: 1.07, spd: 1.05 },
++    bondText: "+7% ATK · +5% SPD",
++    appearance: "A lean grey wolf in a low hunting crouch, pale blue eyes fixed forward.",
++    flavour: "Pack law is simple. Something took one of ours, so something is about to be taken apart.",
++  },
++  {
++    id: "sum_serpent", name: "Murasaki", species: "Venom Serpent", art: "serpent", kanji: "蛇",
++    rarity: "rare", tint: "#8f6ac4",
++    trigger: "round_three", effect: "strike_all", power: 0.72,
++    bond: { atk: 1.06, jutsuPower: 1.08 },
++    bondText: "+6% ATK · +8% Jutsu power",
++    appearance: "A thick violet-black serpent coiled on itself, head raised, amber eyes unblinking.",
++    flavour: "Murasaki waits. She lets the fight settle into a rhythm, and then she breaks it across the whole enemy line.",
++  },
++  {
++    id: "sum_monkey", name: "Enma", species: "War Monkey", art: "monkey", kanji: "猿",
++    rarity: "rare", tint: "#c4483a",
++    trigger: "bonded_low_hp", effect: "strike_all", power: 0.85,
++    bond: { atk: 1.10, def: 1.04 },
++    bondText: "+10% ATK · +4% DEF",
++    appearance: "A red-faced monkey with corded shoulders, gripping a worn hardwood staff in both hands.",
++    flavour: "Enma does not believe in defensive fighting. If his partner is bleeding, the correct response is to hit everything at once.",
++  },
++  {
++    id: "sum_turtle", name: "Genbu", species: "Stone Tortoise", art: "turtle", kanji: "亀",
++    rarity: "rare", tint: "#6f8a63",
++    trigger: "battle_start", effect: "shield", power: 0.28, rounds: 3,
++    bond: { hp: 1.14, def: 1.12, spd: 0.95 },
++    bondText: "+14% max HP · +12% DEF · −5% SPD",
++    appearance: "An ancient tortoise under a moss-grown shell of overlapping stone plates.",
++    flavour: "Genbu arrives slowly and leaves slowly, and in between very little gets through.",
++  },
++  {
++    id: "sum_beetle", name: "Kabuto", species: "Iron Beetle", art: "beetle", kanji: "甲",
++    rarity: "rare", tint: "#5f7a4a",
++    trigger: "chakra_empty", effect: "restore_chakra", power: 0.45,
++    bond: { def: 1.09, cp: 1.10 },
++    bondText: "+9% DEF · +10% max chakra",
++    appearance: "A armoured beetle the size of a shield, carapace shot through with green and bronze iridescence.",
++    flavour: "The hive stores chakra the way other colonies store honey, and Kabuto is generous with the reserve.",
++  },
++  {
++    id: "sum_crane", name: "Sagiri", species: "Medical Crane", art: "crane", kanji: "鶴",
++    rarity: "epic", tint: "#e8d6da",
++    trigger: "bonded_low_hp", effect: "heal_bonded", power: 0.42,
++    bond: { hp: 1.06, regen: 3 },
++    bondText: "+6% max HP · regenerate 3 HP per round",
++    appearance: "A white crane with a scarlet crown, wings held part-open above long dark legs.",
++    flavour: "Sagiri does not fight. She descends when the bleeding starts, and the field medics have long since stopped arguing with her.",
++  },
++  {
++    id: "sum_boar", name: "Inoshishi", species: "War Boar", art: "boar", kanji: "猪",
++    rarity: "epic", tint: "#8a5a3c",
++    trigger: "round_three", effect: "strike_one", power: 2.10,
++    bond: { atk: 1.14, hp: 1.05, dodge: -0.03 },
++    bondText: "+14% ATK · +5% max HP · −3pp dodge",
++    appearance: "A bristling black boar in strapped plate barding, tusks scarred and head already lowered.",
++    flavour: "A charge with a long wind-up and no brakes. Inoshishi picks the biggest thing on the field and removes it.",
++  },
++  {
++    id: "sum_fox", name: "Byakko", species: "Spirit Fox", art: "fox", kanji: "狐",
++    rarity: "legendary", tint: "#d8c8ee",
++    trigger: "bonded_fatal", effect: "revive", power: 0.40,
++    bond: { cp: 1.12, jutsuPower: 1.10, dodge: 0.04 },
++    bondText: "+12% max chakra · +10% Jutsu power · +4pp dodge",
++    appearance: "A white fox trailing many luminous tails, pale violet fox-fire drifting from each one.",
++    flavour: "The oldest pacts are not written down. Byakko simply decides that today is not the day, and the wound closes.",
++  },
++];
++
++export const SUMMON_BY_ID: Record<string, SummonDef> = Object.fromEntries(SUMMONS.map((x) => [x.id, x]));
++
++const _ids = SUMMONS.map((x) => x.id);
++if (new Set(_ids).size !== _ids.length) throw new Error("Duplicate summon id detected");
++
++export const SUMMON_TRIGGER_TEXT: Record<SummonTrigger, string> = {
++  battle_start: "at the start of the battle",
++  bonded_low_hp: "the first time the bonded ninja drops below 35% HP",
++  bonded_fatal: "the first time a blow would kill the bonded ninja",
++  ally_fallen: "the first time any ally is knocked out",
++  chakra_empty: "the first time the bonded ninja falls below 25% chakra",
++  round_three: "at the start of round 3",
++};
++
++/** Plain-language mechanics, generated from the same numbers combat uses. */
++export function summonMechanics(x: SummonDef): string {
++  const t = SUMMON_TRIGGER_TEXT[x.trigger];
++  const r = x.rounds ?? 0;
++  let effect: string;
++  switch (x.effect) {
++    case "shield":
++      effect = `the whole squad takes ${Math.round(x.power * 100)}% less damage for ${r} rounds`;
++      break;
++    case "heal_bonded":
++      effect = `the bonded ninja recovers ${Math.round(x.power * 100)}% of their max HP`;
++      break;
++    case "revive":
++      effect = `the killing blow is cancelled and the ninja survives at ${Math.round(x.power * 100)}% HP`;
++      break;
++    case "restore_chakra":
++      effect = `the bonded ninja recovers ${Math.round(x.power * 100)}% of their max chakra`;
++      break;
++    case "strike_all":
++      effect = `the summon attacks every enemy for ${x.power.toFixed(2)}× power`;
++      break;
++    case "strike_one":
++      effect = `the summon attacks the strongest enemy for ${x.power.toFixed(2)}× power`;
++      break;
++    case "cleanse_party":
++      effect = "every debuff and illusion on your side is cleared";
++      break;
++    case "haste_party":
++      effect = `the squad gains +${Math.round(x.power * 100)}% SPD for ${r} rounds`;
++      break;
++  }
++  return `INTERVENTION — once per battle, ${t}, ${effect}. This costs no chakra and does not use the ninja's turn. BOND — ${x.bondText}, active whenever the summon is equipped.`;
++}
++
++/* ---------------------------------------------------------------- state */
++
++export interface SummonState {
++  /** Owned summon ids and how many copies of each. */
++  inventory: Record<string, number>;
++  recent: string[];
++  totalPulls: number;
++  /** Pity counter: pulls since the last epic or better. */
++  sinceEpic: number;
++}
++
++type SummonCarrier = { summonId?: string | null };
++type SummonGameState = GameState & { summons?: SummonState };
++
++export function ensureSummonState(s: GameState): SummonState {
++  const st = s as SummonGameState;
++  if (!st.summons) st.summons = { inventory: {}, recent: [], totalPulls: 0, sinceEpic: 0 };
++  if (!st.summons.inventory || typeof st.summons.inventory !== "object") st.summons.inventory = {};
++  if (!Array.isArray(st.summons.recent)) st.summons.recent = [];
++  if (typeof st.summons.totalPulls !== "number") st.summons.totalPulls = 0;
++  if (typeof st.summons.sinceEpic !== "number") st.summons.sinceEpic = 0;
++  return st.summons;
++}
++
++/** The summon bonded to this ninja, if any. */
++export function equippedSummon(n: Ninja): SummonDef | null {
++  const id = (n as Ninja & SummonCarrier).summonId;
++  return id ? SUMMON_BY_ID[id] ?? null : null;
++}
++
++export function summonBondedCount(s: GameState, summonId: string): number {
++  return s.ninjas.reduce((sum, n) => sum + ((n as Ninja & SummonCarrier).summonId === summonId ? 1 : 0), 0);
++}
++
++export function summonAvailableCount(s: GameState, summonId: string): number {
++  const owned = ensureSummonState(s).inventory[summonId] ?? 0;
++  return Math.max(0, owned - summonBondedCount(s, summonId));
++}
++
++/**
++ * A summon can serve one ninja at a time. Unlike equipment, which is
++ * deliberately unrestricted, a pact is exclusive — that exclusivity is what
++ * makes choosing who carries the Spirit Fox an actual decision.
++ */
++export function bondSummon(s: GameState, n: Ninja, summonId: string): boolean {
++  if (!SUMMON_BY_ID[summonId]) return false;
++  const carrier = n as Ninja & SummonCarrier;
++  if (carrier.summonId === summonId) return true;
++  if (summonAvailableCount(s, summonId) <= 0) return false;
++  carrier.summonId = summonId;
++  return true;
++}
++
++export function releaseSummon(n: Ninja): void {
++  (n as Ninja & SummonCarrier).summonId = null;
++}
++
++/* ---------------------------------------------------------------- gacha */
++
++export const SUMMON_PULL_GOLD = 260;
++export const SUMMON_PULL_RICE = 130;
++export const SUMMON_PACKS = [
++  { pulls: 1 as const, discount: 0, label: "1 PACT" },
++  { pulls: 5 as const, discount: 0.10, label: "5 PACTS" },
++] as const;
++
++/**
++ * Summon pacts are a separate draw from the equipment supply line, with their
++ * own currency cost, their own pity timer and no shared inventory.
++ */
++export function summonPullCost(pulls: 1 | 5, s?: Pick<GameState, "b" | "techs">): { gold: number; rice: number; discount: number } {
++  const pack = SUMMON_PACKS.find((x) => x.pulls === pulls)!;
++  // The Shrine is the spiritual building, so it — not the Forge — discounts pacts.
++  const shrine = s ? Math.min(0.18, (s.b.shrine ?? 0) * 0.06) : 0;
++  const mult = (1 - pack.discount) * (1 - shrine);
++  return {
++    gold: Math.round(SUMMON_PULL_GOLD * pulls * mult),
++    rice: Math.round(SUMMON_PULL_RICE * pulls * mult),
++    discount: pack.discount + shrine,
++  };
++}
++
++function rollSummonRarity(pity: number): SummonRarity {
++  // Hard pity at 12 draws without an epic or better, so a long unlucky run
++  // still terminates. The equipment gacha has no pity; this one does because
++  // there are only ten summons and duplicates are far more visible.
++  if (pity >= 12) return Math.random() < 0.25 ? "legendary" : "epic";
++  let r = Math.random() * 100;
++  for (const rarity of ["legendary", "epic", "rare", "common"] as SummonRarity[]) {
++    const w = SUMMON_RARITY_META[rarity].weight;
++    if (r < w) return rarity;
++    r -= w;
++  }
++  return "common";
++}
++
++export function pullSummons(s: GameState, pulls: 1 | 5): { ok: boolean; error?: string; items: SummonDef[]; newIds: string[] } {
++  const cost = summonPullCost(pulls, s);
++  if (s.ap < 1) return { ok: false, error: "No actions remaining today.", items: [], newIds: [] };
++  if (s.gold < cost.gold) return { ok: false, error: `Need ${cost.gold.toLocaleString()} gold.`, items: [], newIds: [] };
++  if (s.rice < cost.rice) return { ok: false, error: `Need ${cost.rice.toLocaleString()} rice.`, items: [], newIds: [] };
++
++  const st = ensureSummonState(s);
++  s.ap -= 1;
++  s.gold -= cost.gold;
++  s.rice -= cost.rice;
++
++  const items: SummonDef[] = [];
++  const newIds: string[] = [];
++  for (let i = 0; i < pulls; i++) {
++    const rarity = rollSummonRarity(st.sinceEpic);
++    const pool = SUMMONS.filter((x) => x.rarity === rarity);
++    const pick = pool[Math.floor(Math.random() * pool.length)];
++    if (rarity === "epic" || rarity === "legendary") st.sinceEpic = 0;
++    else st.sinceEpic += 1;
++    if (!st.inventory[pick.id]) newIds.push(pick.id);
++    st.inventory[pick.id] = (st.inventory[pick.id] ?? 0) + 1;
++    items.push(pick);
++  }
++  st.totalPulls += pulls;
++  st.recent = [...items.map((x) => x.id).reverse(), ...st.recent].slice(0, 60);
++  return { ok: true, items, newIds };
++}
++
++export function ownedSummonCount(s: GameState): number {
++  const inv = ensureSummonState(s).inventory;
++  return Object.keys(inv).filter((id) => (inv[id] ?? 0) > 0).length;
++}
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/game/types.ts b/src/game/types.ts
+--- a/src/game/types.ts	2026-09-01 06:40:57.786305686 +0000
++++ b/src/game/types.ts	2026-09-01 06:34:34.627343358 +0000
+@@ -88,6 +88,8 @@
+   bonusJp?: number;
+   /** Jutsu granted by missions/events are free and must not consume shared JP. */
+   jutsuGranted?: string[];
++  /** Bonded animal summon id. One summon serves one ninja at a time. */
++  summonId?: string | null;
+   /** unlocked tech-tree node ids */
+   perks: string[];
+   /** legendary archetype id, if this is a unique shinobi */
+@@ -199,6 +201,30 @@
+   techniques: string[];      // all learned active Skill/Technique-tree combat arts
+   equipmentSpecial: string | null; // legacy highest-rarity gear technique
+   equipmentSpecials: string[];      // every equipped gear technique shown in Gear submenu
++  /** Bonded summon, its pending intervention, and party-wide summon states. */
++  summonId?: string | null;
++  summonUsed?: boolean;
++  summonShieldRounds?: number;
++  summonShieldPct?: number;
++  summonHasteRounds?: number;
++  summonHastePct?: number;
++  /** Vulnerability mark: the target takes amplified damage from every source. */
++  markRounds?: number;
++  markPct?: number;
++  /** Delayed detonation seeded by echo techniques. */
++  echoRounds?: number;
++  echoDamage?: number;
++  /** Momentum: stacks each time this unit lands a damaging technique. */
++  momentum?: number;
++  /** Genjutsu Famine: chakra bleed per round. */
++  cpBurnRounds?: number;
++  cpBurnPct?: number;
++  /** Genjutsu Reflection: share of dealt damage rebounded onto the dealer. */
++  reflectRounds?: number;
++  reflectPct?: number;
++  /** Caster who benefits from a Reflection that also feeds them. */
++  reflectFeedUid?: string | null;
++  reflectFeedPct?: number;
+   /** Temporary elemental-jutsu battle states. */
+   burnRounds?: number;
+   burnDamage?: number;
+diff -ruN '--exclude=node_modules' '--exclude=dist' '--exclude=*.orig' '--exclude=*.rej' '--exclude=vite.config.ts' '--exclude=summons' a/src/index.css b/src/index.css
+--- a/src/index.css	2026-09-01 06:40:57.774305593 +0000
++++ b/src/index.css	2026-09-01 06:30:22.281392337 +0000
+@@ -573,3 +573,143 @@
+     transition-duration: 0.01ms !important;
+   }
+ }
++
++/* ---------- summon pact reveal ---------- */
++
++.summon-reveal {
++  animation: summonReveal 0.5s cubic-bezier(0.18, 1.3, 0.4, 1) both;
++}
++
++@keyframes summonReveal {
++  0% { transform: scale(0.6) translateY(10px); opacity: 0; filter: brightness(2.2); }
++  55% { transform: scale(1.06) translateY(0); opacity: 1; filter: brightness(1.3); }
++  100% { transform: scale(1); opacity: 1; filter: brightness(1); }
++}
++
++/* ---------- bingo book ---------- */
++
++/*
++ * The Bingo Book is the endgame screen, but it was styled like every other
++ * panel: flat dark cards on a flat dark background. These give it the feel of
++ * a physical hunter's ledger — aged paper, stamped verdicts, redacted files.
++ */
++
++.bingo-paper {
++  background:
++    radial-gradient(circle at 18% 12%, rgba(226, 69, 47, 0.05) 0%, transparent 42%),
++    radial-gradient(circle at 84% 78%, rgba(114, 183, 239, 0.045) 0%, transparent 46%),
++    linear-gradient(155deg, #14121b 0%, #0f111c 55%, #120f16 100%);
++}
++
++/* Faint horizontal ruling, like a case file page. */
++.bingo-ruled {
++  background-image: repeating-linear-gradient(
++    to bottom,
++    transparent 0px,
++    transparent 21px,
++    rgba(239, 230, 208, 0.028) 21px,
++    rgba(239, 230, 208, 0.028) 22px
++  );
++}
++
++.bingo-card {
++  position: relative;
++  transition: transform 0.16s ease, box-shadow 0.16s ease;
++}
++
++.bingo-card:hover {
++  transform: translateY(-1px);
++}
++
++.bingo-card.is-selected {
++  box-shadow: -2px 0 0 0 var(--tc, #f4c64f) inset;
++}
++
++/* Threat-tier left edge on every dossier. */
++.bingo-card::before {
++  content: "";
++  position: absolute;
++  left: 0;
++  top: 8%;
++  bottom: 8%;
++  width: 2px;
++  border-radius: 2px;
++  background: var(--tc, #6b7280);
++  opacity: 0.5;
++}
++
++/* Rotated ink stamp used for KILLED / CAPTURED / RECRUITED verdicts. */
++.bingo-stamp {
++  transform: rotate(-11deg);
++  border: 2px solid currentColor;
++  border-radius: 5px;
++  letter-spacing: 0.22em;
++  opacity: 0.85;
++  animation: stampIn 0.34s cubic-bezier(0.2, 1.7, 0.4, 1) both;
++}
++
++@keyframes stampIn {
++  0% { transform: rotate(-11deg) scale(2.1); opacity: 0; }
++  60% { transform: rotate(-11deg) scale(0.94); opacity: 0.95; }
++  100% { transform: rotate(-11deg) scale(1); opacity: 0.85; }
++}
++
++/* Intel bar fill: animated sweep so gathering intel feels like progress. */
++.intel-fill {
++  position: relative;
++  overflow: hidden;
++  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.3, 1);
++}
++
++.intel-fill::after {
++  content: "";
++  position: absolute;
++  inset: 0;
++  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
++  background-size: 220% 100%;
++  animation: shimmer 2.6s linear infinite;
++}
++
++/* Unidentified targets: the portrait plate breathes and stays obscured. */
++.bingo-redacted {
++  animation: redactPulse 3.4s ease-in-out infinite;
++}
++
++@keyframes redactPulse {
++  0%, 100% { opacity: 0.32; }
++  50% { opacity: 0.6; }
++}
++
++/* Active hunt banner: slow danger pulse along the top edge. */
++.hunt-live {
++  position: relative;
++  overflow: hidden;
++}
++
++.hunt-live::before {
++  content: "";
++  position: absolute;
++  left: 0;
++  right: 0;
++  top: 0;
++  height: 1.5px;
++  background: linear-gradient(90deg, transparent, #e2452f, transparent);
++  background-size: 55% 100%;
++  animation: huntSweep 2.8s linear infinite;
++}
++
++@keyframes huntSweep {
++  from { background-position: -60% 0; }
++  to { background-position: 160% 0; }
++}
++
++/* Stage pips along the hunt track. */
++.stage-pip {
++  transition: background-color 0.3s ease, transform 0.3s ease;
++}
++
++.stage-pip.done { transform: scale(1); }
++.stage-pip.current {
++  transform: scale(1.35);
++  animation: pulseSoft 1.5s ease-in-out infinite;
++}
