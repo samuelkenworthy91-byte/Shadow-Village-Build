@@ -1,0 +1,25 @@
+diff --git a/.github/workflows/build-kage-life-branch.yml b/.github/workflows/build-kage-life-branch.yml
+index 6d6ed36..ce9ba16 100644
+--- a/.github/workflows/build-kage-life-branch.yml
++++ b/.github/workflows/build-kage-life-branch.yml
+@@ -90,6 +90,20 @@ jobs:
+           grep -q 'market_war_chest' app/src/game/content.ts
+           grep -q 'kage-life-v17-gameplay-polish' app/public/sw.js
+ 
++      - name: Apply v18 content expansion
++        run: |
++          python overrides/apply_v18_content_expansion.py
++          grep -q 'export function pullSummons' app/src/game/summons.ts
++          grep -q 'export function summonMechanics' app/src/game/summons.ts
++          grep -q 'function fireSummon' app/src/game/battle.ts
++          grep -q 'function doActionInner' app/src/game/battle.ts
++          grep -q 'export function NinjaSummonPanel' app/src/components/SummonScreen.tsx
++          grep -q 'path("famine"' app/src/game/genjutsu.ts
++          grep -q 'path("reflection"' app/src/game/genjutsu.ts
++          grep -q 'bingo-stamp' app/src/components/BingoBookScreen.tsx
++          test -f app/public/summons/toad.png
++          test -f app/public/summons/fox.png
++
+       - name: Verify uploaded Kage Life logo
+         run: |
+           set -euo pipefail

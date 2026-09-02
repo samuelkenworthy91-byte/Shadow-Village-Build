@@ -110,11 +110,25 @@ succeeds.
 
 ## Action required from you
 
-GitHub still blocks this agent from pushing workflow-file changes, so the CI
-step is staged as a patch:
+The build automation runs with a token that has no GitHub `workflows`
+permission, so the CI step cannot be pushed directly to the files under
+`.github/workflows/`. It is therefore staged as two ready-to-apply patches
+(exactly as v17 was shipped). Apply them to complete the wiring:
 
     git apply overrides/v18_workflow_step.patch
+    git apply overrides/v18_workflow_step_kage_life.patch
 
-That inserts the "Apply v18 content expansion" step into
-`.github/workflows/build-apk.yml`, immediately before the source-snapshot
-upload.
+Both patches are verified to apply cleanly, individually and together. They
+insert an "Apply v18 content expansion" step immediately after the v17 step
+and before the patched-source snapshot upload:
+
+- `overrides/v18_workflow_step.patch` → `.github/workflows/build-apk.yml`.
+  Runs `python overrides/apply_v18_content_expansion.py` and verifies the
+  summon/battle/genjutsu/bingo landmarks plus the summon artwork.
+- `overrides/v18_workflow_step_kage_life.patch` →
+  `.github/workflows/build-kage-life-branch.yml`. Runs the same step; the
+  script is idempotent, so re-running it over the already-patched main
+  artifact the branch downloads is a no-op verification (mirrors v17).
+
+The frozen `build-v16-apk.yml` deliberately stops at v16 and does not receive
+the step.
