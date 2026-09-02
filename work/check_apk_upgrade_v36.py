@@ -1,4 +1,4 @@
-"""Reject APKs that cannot update the last delivered APK with its WebView saves."""
+"""Verify APK identity and honestly report compatibility with the last main build."""
 import hashlib
 import json
 import os
@@ -9,7 +9,6 @@ import zipfile
 
 old = Path('previous-apk/app-debug.apk')
 new = Path('app/android/app/build/outputs/apk/debug/app-debug.apk')
-assert hashlib.sha256(old.read_bytes()).hexdigest() == '1a49251639aca07020239647acaf61725876628226c6761d4ad9d721b6991f0e', 'Wrong baseline APK'
 root = Path(os.environ['ANDROID_HOME']) / 'build-tools'
 build_tools = sorted((p for p in root.iterdir() if (p / 'apksigner').exists()), key=lambda p: tuple(int(x) for x in re.findall(r'\d+', p.name)))[-1]
 
@@ -27,12 +26,19 @@ def inspect(path):
     return dict(package=package[1], versionCode=int(package[2]), versionName=package[3], certificate=certificate, origin=origin, appId=config['appId'], sha256=hashlib.sha256(path.read_bytes()).hexdigest())
 
 before, after = inspect(old), inspect(new)
-for key in ['certificate', 'package', 'origin', 'appId']:
+for key in ['package', 'origin', 'appId']:
     assert before[key] == after[key], f'Incompatible update: {key}'
 assert after['package'] == 'com.shadowvillage.game.progression'
 assert after['origin'] == ['https', 'localhost', None]
 assert after['versionCode'] > before['versionCode'], 'Android versionCode must increase'
+expected_certificate = Path('upgrade-results/signing-certificate.sha256').read_text().strip()
+assert after['certificate'] == expected_certificate, 'APK did not use the retained signing key'
+compatible = before['certificate'] == after['certificate']
+if not compatible and os.environ.get('ALLOW_NEW_SIGNING_KEY') != 'true':
+    raise SystemExit('Signing identity changed unexpectedly; refusing to publish')
 Path('upgrade-results').mkdir(exist_ok=True)
-Path('upgrade-results/apk-update-compatibility.json').write_text(json.dumps(dict(previous=before, update=after, result='PASS'), indent=2) + '\n')
-print('PASS: same signing certificate, package ID, WebView save origin; increased versionCode')
+Path('upgrade-results/apk-update-compatibility.json').write_text(json.dumps(dict(previous=before, update=after, apkVerified=True, saveFormatCompatible=True, inPlaceUpdateCompatible=compatible), indent=2) + '\n')
+print('PASS: APK signature, retained signing key, package ID, save origin and increasing versionCode')
+if not compatible:
+    print('NOTICE: authorised build uses a new signing key; it cannot update the previous APK in place.')
 print(f"Android versionCode {before['versionCode']} -> {after['versionCode']}")

@@ -38,3 +38,13 @@ be exported without uninstalling it. Verify a backup of all occupied slots befor
 considering a new signing identity and reinstall. A future signing key must be
 retained in a repository secret, not only a disposable build cache. This migration
 has not been performed and requires coordination with the device owner.
+
+## Authorised standalone v36 build
+
+The user subsequently requested the APK despite the explained signing blocker.
+That push can bootstrap a new debug key at the explicit Gradle signing path and
+retain it under `kage-life-debug-keystore-v36`. Its report marks the missing legacy
+signature compatibility explicitly. Subsequent pushes cannot create replacement
+keys or publish mismatched signatures. They compare against the latest successful
+main APK. Cache eviction remains a recovery risk: a permanent repository secret
+is still the preferred signing-key backup.

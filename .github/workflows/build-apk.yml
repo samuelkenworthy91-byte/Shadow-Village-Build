@@ -36,12 +36,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
-          key: shadow-village-debug-keystore-v1
+          key: kage-life-debug-keystore-v36
 
       - name: Download last delivered APK for update verification
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh run download 33647060245 -n Kage-Life-APK -D previous-apk
+        run: |
+          set -euo pipefail
+          LAST_RUN=$(gh run list --workflow build-apk.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          test -n "$LAST_RUN"
+          gh run download "$LAST_RUN" -n Kage-Life-APK -D previous-apk
 
       - name: Install image tools
         run: |
@@ -254,9 +258,12 @@ jobs:
         run: |
           grep -q 'appName: "Kage Life"' capacitor.config.ts
 
-      - name: Restore the original APK signing key
+      - name: Prepare retained APK signing key
         env:
           KAGE_LIFE_KEYSTORE_BASE64: ${{ secrets.KAGE_LIFE_KEYSTORE_BASE64 }}
+          # User authorised this one build despite the missing legacy key.
+          # Later pushes must restore the retained key, never silently rotate it.
+          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == '1d5c8370bde1a84020a1dafb0706819e641424ac' }}
         run: python work/restore_android_signing_v36.py
 
       - name: Build APK
@@ -265,7 +272,9 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Verify install and save compatibility with last APK
+      - name: Verify APK and report update compatibility
+        env:
+          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == '1d5c8370bde1a84020a1dafb0706819e641424ac' }}
         run: python work/check_apk_upgrade_v36.py
 
       - name: Upload update compatibility report
