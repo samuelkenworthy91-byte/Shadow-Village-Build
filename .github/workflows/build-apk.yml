@@ -38,9 +38,6 @@ jobs:
           path: ~/.android/debug.keystore
           key: shadow-village-debug-keystore-v1
 
-      - name: Require the existing signing key
-        run: test -s ~/.android/debug.keystore
-
       - name: Download last delivered APK for update verification
         env:
           GH_TOKEN: ${{ github.token }}
@@ -256,6 +253,11 @@ jobs:
         working-directory: app
         run: |
           grep -q 'appName: "Kage Life"' capacitor.config.ts
+
+      - name: Restore the original APK signing key
+        env:
+          KAGE_LIFE_KEYSTORE_BASE64: ${{ secrets.KAGE_LIFE_KEYSTORE_BASE64 }}
+        run: python work/restore_android_signing_v36.py
 
       - name: Build APK
         working-directory: app/android

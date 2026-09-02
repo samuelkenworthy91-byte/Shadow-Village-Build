@@ -12,5 +12,8 @@ source, count = re.subn(r'\bversionCode\s+\d+', f'versionCode {1000 + run}', sou
 assert count == 1
 source, count = re.subn(r'\bversionName\s+"[^"]+"', f'versionName "0.36.{run}"', source)
 assert count == 1
+# Explicitly select the retained key; never let Gradle generate another identity.
+assert source.count('    buildTypes {') == 1
+source = source.replace('    buildTypes {', '    signingConfigs {\n        debug {\n            storeFile file(System.getProperty("user.home") + "/.android/debug.keystore")\n            storePassword "android"\n            keyAlias "androiddebugkey"\n            keyPassword "android"\n        }\n    }\n    buildTypes {')
 path.write_text(source)
 print(f'Android update versionCode={1000 + run}, versionName=0.36.{run}')
