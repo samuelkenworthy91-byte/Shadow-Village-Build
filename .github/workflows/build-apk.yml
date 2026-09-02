@@ -47,11 +47,6 @@ jobs:
           test -n "$LAST_RUN"
           gh run download "$LAST_RUN" -n Kage-Life-APK -D previous-apk
 
-      - name: Install image tools
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
-
       - name: Download verified pre-Arena base source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -229,7 +224,7 @@ jobs:
 
       - name: Install Capacitor build tools
         working-directory: app
-        run: npm install --save-dev @capacitor/cli@8.5.0 @capacitor/assets
+        run: npm install --save-dev @capacitor/cli@8.5.0 @capacitor/assets sharp
 
       - name: Build game
         working-directory: app
@@ -258,15 +253,34 @@ jobs:
         run: |
           set -euo pipefail
           base64 -d ../overrides/kage_life_app_icon.b64 > /tmp/kage-life-icon.jpg
-          identify /tmp/kage-life-icon.jpg
-          count=0
-          while IFS= read -r -d '' f; do
-            geometry="$(identify -format '%wx%h' "$f")"
-            convert /tmp/kage-life-icon.jpg -resize "${geometry}^" -gravity center -extent "$geometry" "$f"
-            count=$((count + 1))
-          done < <(find android/app/src/main/res -type f \( -name 'ic_launcher*.png' -o -name 'ic_launcher*.webp' \) -print0)
-          test "$count" -gt 0
-          echo "Replaced $count launcher icon resources"
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const sharp = require('sharp');
+          const root = 'android/app/src/main/res';
+          const files = [];
+          function walk(dir) {
+            for (const ent of fs.readdirSync(dir, {withFileTypes:true})) {
+              const p = path.join(dir, ent.name);
+              if (ent.isDirectory()) walk(p);
+              else if (/^ic_launcher.*\.(png|webp)$/i.test(ent.name)) files.push(p);
+            }
+          }
+          walk(root);
+          if (!files.length) throw new Error('No Android launcher icon resources found');
+          (async () => {
+            for (const file of files) {
+              const meta = await sharp(file).metadata();
+              if (!meta.width || !meta.height) throw new Error(`Could not read icon dimensions: ${file}`);
+              const tmp = `${file}.new`;
+              let out = sharp('/tmp/kage-life-icon.jpg').resize(meta.width, meta.height, {fit:'cover', position:'centre'});
+              out = file.toLowerCase().endsWith('.webp') ? out.webp() : out.png();
+              await out.toFile(tmp);
+              fs.renameSync(tmp, file);
+            }
+            console.log(`Replaced ${files.length} launcher icon resources`);
+          })().catch(err => { console.error(err); process.exit(1); });
+          NODE
 
       - name: Verify Android display name
         working-directory: app
