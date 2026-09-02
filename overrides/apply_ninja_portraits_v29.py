@@ -15,6 +15,10 @@ by the roster (sampled without replacement, no duplicates until the pool
 is exhausted; falls back to the legacy hash afterwards). Existing saves
 keep their portraits exactly as they were.
 
+Part 3 - Battle identity: run the v32 bridge so transient battle Units keep
+that exact assigned portrait (and any Bingo Book portrait) rather than
+falling back to a different hash in BattleScreen.
+
 Runs after apply_ninja_portraits_v28.py and before the v18/v19 patches.
 """
 
@@ -131,4 +135,11 @@ pngs = sorted(OUT.glob("ninja_*.png"))
 assert len(pngs) == 370, f"expected 370 portraits, found {len(pngs)}"
 for stem in replaced:
     assert (OUT / f"{stem}.png").is_file()
-print("Applied v29: individual portrait regeneration + fair no-repeat art selection")
+
+# ---------------------------------------------------------------- Part 3
+battle_identity = Path("overrides/apply_battle_portrait_identity_v32.py")
+if not battle_identity.is_file():
+    raise RuntimeError("v32 battle portrait identity patch is missing")
+subprocess.run(["python", str(battle_identity)], check=True)
+
+print("Applied v29: individual portrait regeneration + fair no-repeat art selection + battle identity bridge")
