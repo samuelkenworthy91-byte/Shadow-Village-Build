@@ -26,6 +26,7 @@ try {
   page.on('console', e => { if (e.type() === 'error') errors.push(e.text()); });
   await page.goto('http://127.0.0.1:4184', { waitUntil: 'networkidle' });
   assert((await page.locator('body').innerText()).length > 100);
+  assert.match(await page.locator('meta[name=viewport]').getAttribute('content'), /viewport-fit=contain/);
   await page.evaluate(async key => {
     const { createState } = await import('/src/game/engine.ts');
     const { SUMMONS } = await import('/src/game/summons.ts');
@@ -69,7 +70,7 @@ try {
   assert.equal(after.ap, before.ap - 1);
   assert(after.gold < before.gold && after.rice < before.rice);
   for (const width of [412, 360]) {
-    await page.setViewportSize({ width, height: width === 360 ? 800 : 915 });
+    await page.setViewportSize({ width, height: width === 360 ? 740 : 855 });
     await page.getByRole('button', { name: 'View Byakko pact', exact: true }).click();
     await page.getByRole('button', { name: 'Bond Byakko to Paper Tester', exact: true }).scrollIntoViewIfNeeded();
     const layout = await page.evaluate(() => ({ width: innerWidth, scroll: document.documentElement.scrollWidth, overlay: !!document.querySelector('vite-error-overlay'), images: [...document.images].filter(i => i.src.includes('/summons/')).map(i => i.complete && i.naturalWidth > 0) }));
@@ -94,7 +95,13 @@ try {
   await page.getByRole('button', { name: 'Train Ninjutsu', exact: true }).click();
   await page.getByText('CONFIRM POINT SPEND', { exact: true }).waitFor();
   await page.getByRole('button', { name: 'CANCEL', exact: true }).click();
-  await page.getByRole('button', { name: 'Close ninja details', exact: true }).click();
+  const close = page.getByRole('button', { name: 'Close ninja details', exact: true });
+  await close.scrollIntoViewIfNeeded();
+  const bounds = await close.boundingBox();
+  const viewport = page.viewportSize();
+  assert(bounds && bounds.y >= 0 && bounds.x >= 0 && bounds.y + bounds.height <= viewport.height && bounds.x + bounds.width <= viewport.width);
+  await page.screenshot({ path: `${out}/phone-safe-area-close.png` });
+  await close.click();
   assert.equal(await page.getByRole('dialog', { name: 'Paper Tester details' }).count(), 0);
   assert.deepEqual(errors, []);
   console.log('PASS mobile: 360/412px; ten artworks; five-pull reveal and pity; costs; copy locks; bond/release/save reload; clan + Kekkei tree, DoT preview and learning');

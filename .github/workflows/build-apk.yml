@@ -139,6 +139,9 @@ jobs:
       - name: Apply v34 gameplay and restore summons
         run: python overrides/apply_gameplay_v34.py
 
+      - name: Apply v35 phone safe area
+        run: python overrides/apply_phone_safe_area_v35.py
+
       - name: Validate complete Kage Life source
         run: |
           set -euo pipefail
@@ -149,7 +152,8 @@ jobs:
           test "$SRC_BLD_COUNT" -gt 0
           test "$OUT_BLD_COUNT" -eq "$SRC_BLD_COUNT"
           grep -q 'Portrait QC v33' app/src/game/ninjaArt.ts
-          grep -q 'kage-life-v6-clans-summons' app/public/sw.js
+          grep -q 'kage-life-v7-phone-safe-area' app/public/sw.js
+          grep -q 'viewport-fit=contain' app/index.html
           grep -q 'portrait?: number' app/src/game/types.ts
           grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
           grep -q 'className="b-art"' app/src/components/Scene.tsx
