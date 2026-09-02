@@ -747,10 +747,8 @@ def validate() -> None:
         print(f"FAIL validation: expected 3 applyTechniqueAuras call sites, found {calls}")
         sys.exit(1)
 
-    arts = sorted((APP / "public/ninjas").glob("ninja_*.png"))
-    if len(arts) != 310:
-        print(f"FAIL validation: expected 310 ninja portraits, found {len(arts)}")
-        sys.exit(1)
+    from portrait_library import validate_assets
+    validate_assets(max_id=310)
 
     # family diversity sanity: the catalogue itself
     tech = (APP / "src/game/techniques.ts").read_text(encoding="utf-8")
@@ -758,7 +756,7 @@ def validate() -> None:
     if n != 350:
         print(f"FAIL validation: expected 350 technique nodes in techniques.ts, found {n}")
         sys.exit(1)
-    print(f"  validated: 350 nodes, {calls} aura sites, 310 portraits, cache bumped")
+    print(f"  validated: 350 nodes, {calls} aura sites, approved portraits validated, cache bumped")
 
 
 def main() -> None:

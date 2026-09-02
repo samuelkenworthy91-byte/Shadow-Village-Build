@@ -10,6 +10,7 @@ and before the v18/v19 patches.
 """
 
 import subprocess
+from portrait_library import approved_ids, prune, validate_assets
 from pathlib import Path
 
 ROOT = Path("app")
@@ -68,7 +69,9 @@ SW.write_text(sw, encoding="utf-8")
 
 # convert the batch's webp sources to PNG (sources are already 240x536 RGBA)
 OUT.mkdir(parents=True, exist_ok=True)
-for i in range(311, 371):
+for i in approved_ids():
+    if i < 311:
+        continue
     src = SRC / f"ninja_{i}.webp"
     if not src.is_file():
         raise RuntimeError(f"missing portrait source {src}")
@@ -81,5 +84,6 @@ assert "length: 370" in art_check
 assert "370: { bustTop:" in art_check
 assert "length: 370" in sw_check
 pngs = sorted(OUT.glob("ninja_*.png"))
-assert len(pngs) == 370, f"expected 370 portrait PNGs after expansion, found {len(pngs)}"
+prune()
+validate_assets()
 print("Applied 311-370 ninja portrait library expansion")

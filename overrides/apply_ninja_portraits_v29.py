@@ -23,6 +23,7 @@ Runs after apply_ninja_portraits_v28.py and before the v18/v19 patches.
 """
 
 import subprocess
+from portrait_library import prune, validate_assets
 from pathlib import Path
 
 ROOT = Path("app")
@@ -132,7 +133,8 @@ assert "n.portrait" in a_chk
 assert "freeArt[Math.floor(Math.random() * freeArt.length)]" in e_chk
 assert "import { GENERAL_ART_IDS, ninjaArtId }" in e_chk
 pngs = sorted(OUT.glob("ninja_*.png"))
-assert len(pngs) == 370, f"expected 370 portraits, found {len(pngs)}"
+prune()
+validate_assets()
 for stem in replaced:
     assert (OUT / f"{stem}.png").is_file()
 

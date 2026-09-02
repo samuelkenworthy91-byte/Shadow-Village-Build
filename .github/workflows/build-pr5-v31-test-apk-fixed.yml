@@ -68,21 +68,9 @@ jobs:
       - name: Apply v27 portrait expansion 251-310
         run: |
           set -euo pipefail
-          mkdir -p app/public/ninjas
-          test "$(find overrides/ninja_assets_v27/direct -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 60
-          for n in $(seq 251 310); do
-            src="overrides/ninja_assets_v27/direct/ninja_${n}.webp"
-            dest="app/public/ninjas/ninja_${n}.png"
-            test -f "$src"
-            dims="$(identify -format '%wx%h' "$src")"
-            if [ "$dims" = "240x536" ]; then
-              convert "$src" "PNG32:$dest"
-            else
-              convert "$src" -trim +repage -resize '230x520>' -gravity south -background none -extent 240x536 "PNG32:$dest"
-            fi
-          done
+          python overrides/portrait_library.py install --max-id 310
           python overrides/apply_ninja_portraits_v27.py
-          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 310
+          python overrides/portrait_library.py validate --max-id 310
 
       - name: Apply v17 technique tree overhaul
         run: |
@@ -95,7 +83,7 @@ jobs:
         run: |
           set -euo pipefail
           python overrides/apply_ninja_portraits_v28.py
-          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 370
+          python overrides/portrait_library.py validate
           grep -q 'length: 370' app/src/game/ninjaArt.ts
 
       - name: Apply v29 individual portraits and no-repeat assignment
@@ -139,18 +127,23 @@ jobs:
           python overrides/apply_village_depth_v19_dekanji.py
           grep -q 'kage-life-v4-elemental-clarity' app/public/sw.js
 
+      - name: Apply reviewed portrait quality control
+        run: |
+          set -euo pipefail
+          python overrides/apply_portrait_qc_v33.py
+          python work/check_portrait_qc_v33.py
+
       - name: Validate complete PR5 V31 source
         run: |
           set -euo pipefail
           test -f app/src/game/techniques.ts
-          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 370
+          python overrides/portrait_library.py validate
           SRC_BLD_COUNT="$(find overrides/building_assets_v31 -maxdepth 1 -name 'bld_*.webp' | wc -l)"
           OUT_BLD_COUNT="$(find app/public/buildings -maxdepth 1 -name 'bld_*.webp' | wc -l)"
           test "$SRC_BLD_COUNT" -gt 0
           test "$OUT_BLD_COUNT" -eq "$SRC_BLD_COUNT"
-          grep -q 'length: 370' app/src/game/ninjaArt.ts
-          grep -q '370: { bustTop:' app/src/game/ninjaArt.ts
-          grep -q 'length: 370' app/public/sw.js
+          grep -q 'Portrait QC v33' app/src/game/ninjaArt.ts
+          grep -q 'kage-life-v5-portrait-qc' app/public/sw.js
           grep -q 'portrait?: number' app/src/game/types.ts
           grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
           grep -q 'className="b-art"' app/src/components/Scene.tsx
@@ -169,7 +162,7 @@ jobs:
                           bad.append(str(p))
           if bad:
               raise SystemExit('Japanese/CJK remains in: ' + ', '.join(bad[:20]))
-          print('PR5 V31 source validation passed: 370 portraits, building sprites, zero CJK')
+          print('PR5 V31 source validation passed: 340 approved portraits, building sprites, zero CJK')
           PY
 
       - name: Upload V31 patched source
@@ -181,6 +174,11 @@ jobs:
       - name: Install dependencies
         working-directory: app
         run: npm install
+
+      - name: Verify portrait selection and saved identities
+        run: |
+          app/node_modules/.bin/esbuild work/check_portrait_selection_v33.ts --bundle --platform=node --outfile=/tmp/check-portrait-selection.cjs
+          node /tmp/check-portrait-selection.cjs
 
       - name: Install Capacitor build tools
         working-directory: app

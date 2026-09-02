@@ -146,31 +146,9 @@ jobs:
       - name: Apply 250 ninja portrait library
         run: |
           set -euo pipefail
-          mkdir -p app/public/ninjas
-          asset_dirs=(overrides/ninja_assets_v26/direct)
-          if [ -d overrides/ninja_assets_v27/direct ]; then
-            asset_dirs+=(overrides/ninja_assets_v27/direct)
-          fi
-          test "$(find "${asset_dirs[@]}" -maxdepth 1 -name 'ninja_*.webp' | wc -l)" -eq 170
-          for n in $(seq -w 81 250); do
-            src=""
-            for dir in "${asset_dirs[@]}"; do
-              candidate="$dir/ninja_${n}.webp"
-              if [ -f "$candidate" ]; then
-                src="$candidate"
-                break
-              fi
-            done
-            test -n "$src"
-            dims="$(identify -format '%wx%h' "$src")"
-            if [ "$dims" = "240x536" ]; then
-              convert "$src" "PNG32:app/public/ninjas/ninja_${n}.png"
-            else
-              convert "$src" -trim +repage -resize '230x520>' -gravity south -background none -extent 240x536 "PNG32:app/public/ninjas/ninja_${n}.png"
-            fi
-          done
+          python overrides/portrait_library.py install --max-id 250
           python overrides/apply_ninja_portraits_v26.py
-          test "$(find app/public/ninjas -maxdepth 1 -name 'ninja_*.png' | wc -l)" -eq 250
+          python overrides/portrait_library.py validate --max-id 250
 
       - name: Apply equipment gacha system
         run: |
