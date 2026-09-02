@@ -96,6 +96,9 @@ fi
 if [ -f overrides/apply_ui_daily_panel_v30.py ]; then
   python overrides/apply_ui_daily_panel_v30.py >/dev/null
 fi
+if [ -f overrides/apply_building_art_v31.py ]; then
+  python overrides/apply_building_art_v31.py >/dev/null
+fi
 python overrides/apply_village_depth_v18_type_advantage.py >/dev/null
 python overrides/apply_village_depth_v19_dekanji.py
 
