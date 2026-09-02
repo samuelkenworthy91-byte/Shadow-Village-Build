@@ -1,0 +1,70 @@
+{
+  "public/sw.js": {
+    "before": "01f22e8833556047474cb3b9acbfa3134408b3a487c515af79074c8f432ad806",
+    "after": "071fd48695fafec94e933a857db2ad87f9fda78471295da51fd279bad4bfc2f2"
+  },
+  "src/App.tsx": {
+    "before": "3f4856d0be6e750c5233277c4e72dd02703b7c707a05560afa56d0512585dd49",
+    "after": "20c5b07641145ca20f48395b3ef7fd926a729210a8ae0f0a7c0adcb491b954a5"
+  },
+  "src/components/BattleScreen.tsx": {
+    "before": "899e615dcb15dcbbc8be596e18945d5f9f063939c9c9bf7ec8951ebf5ced9992",
+    "after": "5eaf5bf92cd22652b8e236a83bb531d9aeb325b0d9a66712b8de7b4ded96106c"
+  },
+  "src/components/JutsuTree.tsx": {
+    "before": "f60468bdeb71819b0546b7aa9f3e8c8d970188a75b704373ef6731d285d7d305",
+    "after": "9a495a60b60e96760fbf2accf17302497acd32377b50c5dfc1031e36e74f8f57"
+  },
+  "src/components/NinjaDetail.tsx": {
+    "before": "9da19a9951f1ae48fb20d3a52c7bab7bdcd2e3888315e3b846e2606eb1bf89c2",
+    "after": "53907519dc71b7e235f3db46ed2cb19225420d6bcd80f653ecc7a513e8d2b80d"
+  },
+  "src/components/SummonScreen.tsx": {
+    "before": null,
+    "after": "c91aed7e0122e53887a82bcd3f033cd36765f73b5e4d103754e6a85f19eb056f"
+  },
+  "src/game/battle.ts": {
+    "before": "70683130415f8676bf7ea7f941fa4ca7959d0041acaf3cbc0a64f43ef3bf6a01",
+    "after": "ca2f40038e9c7b8905c17e1d7217660baba03d02fc43312f03925027c8ea5988"
+  },
+  "src/game/clanExpansion.ts": {
+    "before": null,
+    "after": "2bdc311db9a0e7f91487595fc59862ea952fb0f11fa44701d8a56d3aa4942708"
+  },
+  "src/game/content.ts": {
+    "before": "d0c24a9dd6d504642ba780502e6024563ce72e96d50893b56af6f16535f6427c",
+    "after": "69fb58cdc56d11360b35801e30f854ba1bc24846b5f844e3e2d0c19b66a053e0"
+  },
+  "src/game/engine.ts": {
+    "before": "b965cb3da3c287f6f745c226a61ebcd3f4cea2abfcf852551642122a759e29e6",
+    "after": "29495674ef06ee9706c7d6271681dfadd86ae48cf5de34e22d7674dd39917a67"
+  },
+  "src/game/jutsu.ts": {
+    "before": "474df09fecbed400571c4a73e1fdcb425f9f7cb222f51ecae3f2a89f5db9ab40",
+    "after": "5660b39b26156eceb301201effd5dbee3e01f7236626618899ac4c5391987ca6"
+  },
+  "src/game/perks.ts": {
+    "before": "23afeee6045fe01d23a5443f00693d0cadd887492643675ac947183bd8c887df",
+    "after": "f2b5159b46680bdc6f11fef33ac842b53c8c7a74202b96fd4cbea71d6a4ebea6"
+  },
+  "src/game/recruitment.ts": {
+    "before": null,
+    "after": "57f80ea007258c5b94ceb788e976dd3aa6e0543bf96e65782feb7d1066611b87"
+  },
+  "src/game/save.ts": {
+    "before": "c323433623a697833f1afd55249d143d9ad2b3fbc1a27c97c3528b8aae9b7756",
+    "after": "d81f4451f44ef068c0813b0df54cfcdb336ba23c7a7e5e04d1f8d03a5d0be5c9"
+  },
+  "src/game/statusDamage.ts": {
+    "before": null,
+    "after": "04adac9bc424ddba6a1b78dbe8984a35f6e272f6f4281ecdd45fc99595f6d847"
+  },
+  "src/game/summons.ts": {
+    "before": null,
+    "after": "4c207253b0abb2888d3edcb6afd766bd131723ac59c6f45281428a49d5ec54e9"
+  },
+  "src/game/types.ts": {
+    "before": "e5ba7c51caca889f2f7a222b4d64a4c3a6e48852072842b6b1858e456b74ee10",
+    "after": "5ba858089cd2bbd6398ff52cc6be5e60e907fce574d95aa777f668e5381248dd"
+  }
+}

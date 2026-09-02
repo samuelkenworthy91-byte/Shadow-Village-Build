@@ -1,0 +1,2920 @@
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,11 +1,12 @@
+ // Offline shell for Kage Life. Ninja portraits are external PNG assets,
+ // so pre-cache the 340 approved portraits as well as the app shell.
+ // Previous cache: shadow-village-bingo-book-v7-physical-dossier
+-const CACHE = "kage-life-v5-portrait-qc"; // previous: shadow-village-main-polish-v1, kage-life-v1-village-identity
++const CACHE = "kage-life-v6-clans-summons"; // previous: shadow-village-main-polish-v1, kage-life-v1-village-identity
+ const NINJA_ART = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 57, 59, 60, 61, 62, 63, 64, 65, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 163, 164, 165, 166, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 214, 215, 216, 217, 218, 219, 220, 222, 223, 224, 226, 228, 230, 231, 232, 233, 235, 236, 237, 238, 240, 241, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369].map((id) => `/ninjas/ninja_${String(id).padStart(3, "0")}.png`);
+ const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
+ const BLD_ART = ["/buildings/bld_anbu.webp", "/buildings/bld_dojo.webp", "/buildings/bld_embassy.webp", "/buildings/bld_farm.webp", "/buildings/bld_hall.webp", "/buildings/bld_hospital.webp", "/buildings/bld_intel.webp", "/buildings/bld_shrine.webp", "/buildings/bld_tea.webp", "/buildings/bld_tower.webp"];
+-const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/bg-exam-arena.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART, ...BLD_ART];
++const SUMMON_ART = ["toad", "hawk", "wolf", "serpent", "monkey", "turtle", "beetle", "crane", "boar", "fox"].map(n => `/summons/${n}.png`);
++const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/bg-exam-arena.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART, ...BLD_ART, ...SUMMON_ART];
+ 
+ self.addEventListener("install", (e) => {
+   self.skipWaiting();
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,3 +1,4 @@
++import SummonScreen from "./components/SummonScreen";
+ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+ import FXLayer, { fx } from "./components/FXLayer";
+ import HUD from "./components/HUD";
+@@ -25,7 +26,7 @@
+ import { bingoUnreadCount, ensureBingoState } from "./game/bingo";
+ import { activeBingoHunt } from "./game/bingoHunt";
+ 
+-type Tab = "missions" | "ninjas" | "build" | "equipment";
++type Tab = "missions" | "ninjas" | "build" | "equipment" | "summons";
+ interface Floater { id: number; x: number; y: number; txt: string; kind: string }
+ 
+ let fid = 1;
+@@ -642,7 +643,7 @@
+       if (st.phase !== "playing") return;
+ 
+       if (k === "ArrowLeft" || k === "ArrowRight") {
+-        const order: Tab[] = ["missions", "ninjas", "build", "equipment"];
++        const order: Tab[] = ["missions", "ninjas", "build", "equipment", "summons"];
+         const i = order.indexOf(tabRef.current);
+         setTab(order[(i + (k === "ArrowRight" ? 1 : order.length - 1)) % order.length]);
+         audio.click();
+@@ -695,6 +696,7 @@
+     { id: "ninjas", label: "Shinobi", badge: String(readyCount) },
+     { id: "build", label: "Build", badge: s.ap > 0 ? String(s.ap) : "" },
+     { id: "equipment", label: "Equip", badge: "" },
++    { id: "summons", label: "Summons", badge: "" },
+   ];
+ 
+   const recentLog = s.log.slice(-4);
+@@ -716,7 +718,7 @@
+                   audio.click();
+                 }}
+                 className={cn(
+-                  "flex flex-1 items-center justify-center gap-1.5 rounded-lg text-[11px] font-bold tracking-wider ring-1 ring-inset transition active:scale-[0.97]",
++                  "flex min-w-0 flex-1 items-center justify-center gap-1 rounded-lg text-[10px] sm:text-[11px] font-bold tracking-wider ring-1 ring-inset transition active:scale-[0.97]",
+                   tab === t.id ? "bg-vermil/25 text-[#ffb4a4] ring-vermil/50" : "bg-[#151728]/85 text-paper/45 ring-white/10"
+                 )}
+               >
+@@ -727,8 +729,9 @@
+           </nav>
+ 
+                     {tab === "equipment" && <EquipmentScreen s={s} onChanged={force} />}
+-
+-<div className={cn("grid min-h-0 flex-1 grid-cols-1 gap-2 lg:grid-cols-3", tab === "equipment" && "hidden")}> 
++                    {tab === "summons" && <SummonScreen s={s} onChanged={force} />}
++
++<div className={cn("grid min-h-0 flex-1 grid-cols-1 gap-2 lg:grid-cols-3", (tab === "equipment" || tab === "summons") && "hidden")}> 
+             <MissionBoard
+               s={s}
+               className={cn(tab !== "missions" && "max-lg:hidden")}
+--- a/src/components/BattleScreen.tsx
++++ b/src/components/BattleScreen.tsx
+@@ -1,3 +1,4 @@
++import { jutsuStatusPreview } from "../game/statusDamage";
+ import { useEffect, useRef, useState } from "react";
+ import { Flame, PackageOpen, Shield, Sparkles, Swords, Wand2, Zap } from "lucide-react";
+ import type { BAction, Battle, GameState, Unit } from "../game/types";
+@@ -425,7 +426,7 @@
+                   return <button key={j.id} disabled={!affordable} onClick={() => chooseJutsu(j)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35">
+                     <div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{j.name}</span><span className="text-[8px] font-black text-[#7db9ec]">{cost}cp</span></div>
+                     <p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-gold/70">{j.target.replace(/_/g, " ")} · {j.effect}{j.effectValue ? ` ${j.effectValue}` : ""}</p>
+-                    <p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{j.desc}</p>
++                    <p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{j.desc}</p>{cur && jutsuStatusPreview(cur, j) && <p className="mt-1 text-[8px] text-gold/80">{jutsuStatusPreview(cur, j)}</p>}
+                   </button>;
+                 })}
+               </div>
+--- a/src/components/JutsuTree.tsx
++++ b/src/components/JutsuTree.tsx
+@@ -1,3 +1,5 @@
++import { unitFromNinja } from "../game/battle";
++import { jutsuStatusPreview } from "../game/statusDamage";
+ import type { Ninja, TraitId } from "../game/types";
+ import { JUTSU, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
+ import { NATURE_META, TRAIT_META, KEKKEI_META } from "../game/content";
+@@ -46,6 +48,7 @@
+ }
+ 
+ export default function JutsuTree({ n, onChanged }: { n: Ninja; onChanged: () => void }) {
++  const previewUnit = unitFromNinja(n);
+   const available = jutsuForNinja(n); const availableIds = new Set(available.map((j) => j.id));
+   const known = new Set(knownJutsuIds(n)); const equipped = new Set((n.jutsuEquipped ?? []).filter((id) => availableIds.has(id) && !JUTSU.find((j) => j.id === id)?.passive)); const natures = ninjaNatures(n); const pairKey = ninjaKekkeiKey(n); const eyeFamily = dojutsuFamilyLabel(n);
+   const exclusiveTraits = specialistJutsuTraits(n);
+@@ -57,7 +60,7 @@
+     const reason = j.tier === 0 ? "INNATE FOUNDATION" : (jutsuLearnBlockReason(n, j.id) ?? "Locked");
+     return <div key={j.id} className={cn("rounded-lg p-2 ring-1 ring-inset", has ? "bg-jade/8 ring-jade/20" : "bg-black/20 ring-white/6", locked && "opacity-55")}>
+       <div className="mb-1 flex items-center justify-between gap-1"><span className="rounded bg-black/35 px-1.5 py-[2px] text-[7px] font-black uppercase tracking-wider text-gold/80">{j.pathLabel}</span>{j.passive && <span className="rounded bg-[#79cf69]/15 px-1 py-[1px] text-[7px] font-black text-[#9bea8f]">PASSIVE</span>}{eq && <span className="rounded bg-gold/15 px-1 py-[1px] text-[7px] font-black text-gold">EQUIPPED</span>}</div>
+-      <p className="text-[9px] font-black leading-tight text-paper">{j.name}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/52">{j.desc}</p>
++      <p className="text-[9px] font-black leading-tight text-paper">{j.name}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/52">{j.desc}</p>{jutsuStatusPreview(previewUnit, j) && <p className="mt-1 text-[8px] leading-relaxed text-gold/80">{jutsuStatusPreview(previewUnit, j)}</p>}
+       <div className="mt-1 flex flex-wrap gap-1"><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">Lv {j.levelReq}</span>{!j.passive && <><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-[#75bfff]">{j.chakra} CP</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.power.toFixed(2)}×</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.effect.toUpperCase()}</span></>}{passiveText(j).map(x => <span key={x} className="rounded bg-jade/10 px-1 py-[1px] text-[7px] font-black text-jade">{x}</span>)}{specialText(j).map(x => <span key={x} className="rounded bg-[#9b7cff]/10 px-1 py-[1px] text-[7px] font-black text-[#c5b7ff]">{x}</span>)}</div>
+       <p className="mt-1 text-[7px] font-bold uppercase tracking-wide text-paper/30">{j.pathSummary}</p><div className="mt-2">
+         {!has && j.tier > 0 && <button disabled={!learnable} onClick={() => learn(j.id)} className="w-full rounded-lg bg-gold px-2 py-1.5 text-[8px] font-black text-[#2b2118] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-paper/25">{learnable ? "LEARN · 1 JP" : reason}</button>}
+--- a/src/components/NinjaDetail.tsx
++++ b/src/components/NinjaDetail.tsx
+@@ -1,3 +1,4 @@
++import { NinjaSummonPanel } from "./SummonScreen";
+ import { useState } from "react";
+ import { Check, Plus, Star, TrendingUp, X } from "lucide-react";
+ import type { GameState, Skill } from "../game/types";
+@@ -149,6 +150,7 @@
+           );
+         })()}
+ 
++        <NinjaSummonPanel s={s} n={n} onChanged={onEquipmentChanged} />
+         {/* promotion */}
+         {nextMeta && (
+           <div className={cn("border-b border-white/8 p-2.5", promo.ready && "bg-gold/[0.07]")}>
+--- /dev/null
++++ b/src/components/SummonScreen.tsx
+@@ -0,0 +1,387 @@
++import { useState } from "react";
++import type { GameState, Ninja } from "../game/types";
++import {
++  SUMMONS,
++  SUMMON_BY_ID,
++  SUMMON_PACKS,
++  SUMMON_RARITY_META,
++  bondSummon,
++  canChangeSummon,
++  ensureSummonState,
++  equippedSummon,
++  ownedSummonCount,
++  pullSummons,
++  releaseSummon,
++  summonAvailableCount,
++  summonBondedCount,
++  summonMechanics,
++  summonPullCost,
++  type SummonDef,
++} from "../game/summons";
++import { cn } from "../utils/cn";
++
++/** The cropped creature art, on a rarity-tinted plate. */
++export function SummonArt({ x, size = 64, dim }: { x: SummonDef; size?: number; dim?: boolean }) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <span
++      className="relative grid shrink-0 place-items-center overflow-hidden rounded-xl"
++      style={{
++        width: size,
++        height: size,
++        background: `radial-gradient(circle at 50% 62%, ${x.tint}30 0%, rgba(0,0,0,0.34) 70%)`,
++        boxShadow: `inset 0 0 0 1px ${meta.border}55`,
++      }}
++    >
++      <img
++        src={`/summons/${x.art}.png`}
++        alt=""
++        draggable={false}
++        decoding="async"
++        style={{
++          width: "104%",
++          height: "104%",
++          objectFit: "contain",
++          filter: dim ? "grayscale(1) brightness(0.6)" : `drop-shadow(0 1px 3px rgba(0,0,0,0.6))`,
++          opacity: dim ? 0.5 : 1,
++        }}
++      />
++    </span>
++  );
++}
++
++function RarityPill({ x }: { x: SummonDef }) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <span
++      className="shrink-0 rounded px-1.5 py-0.5 text-[8px] font-black tracking-wider"
++      style={{ color: meta.color, background: `${meta.color}18`, boxShadow: `inset 0 0 0 1px ${meta.color}40` }}
++    >
++      {meta.name.toUpperCase()}
++    </span>
++  );
++}
++
++/** Full pact card: art, bond, and the intervention spelled out. */
++function SummonCard({
++  x,
++  owned,
++  free,
++  bonded,
++  selected,
++  onSelect,
++}: {
++  x: SummonDef;
++  owned: number;
++  free: number;
++  bonded: number;
++  selected: boolean;
++  onSelect: () => void;
++}) {
++  const meta = SUMMON_RARITY_META[x.rarity];
++  return (
++    <button
++      type="button"
++      onClick={onSelect}
++      className={cn(
++        "w-full rounded-xl p-2 text-left ring-1 ring-inset transition",
++        selected ? "bg-gold/[0.07] ring-gold/50" : owned > 0 ? "bg-black/20 ring-white/8 hover:bg-white/[0.03]" : "bg-black/30 ring-white/5 opacity-55"
++      )}
++    >
++      <div className="flex items-start gap-2">
++        <SummonArt x={x} size={56} dim={owned === 0} />
++        <div className="min-w-0 flex-1">
++          <div className="flex items-center gap-1.5">
++            <p className="truncate text-[11px] font-black text-paper">{owned > 0 ? x.name : "???"}</p>
++            <RarityPill x={x} />
++          </div>
++          <p className="truncate text-[8.5px] font-bold tracking-wider text-paper/40">
++            {owned > 0 ? x.species.toUpperCase() : "PACT NOT YET FORMED"}
++          </p>
++          {owned > 0 && (
++            <p className="mt-1 text-[8.5px] font-black leading-tight" style={{ color: meta.color }}>
++              {x.bondText}
++            </p>
++          )}
++          <div className="mt-1 flex items-center gap-1.5 text-[8px] font-black tabular-nums">
++            {owned > 0 ? (
++              <>
++                <span className="text-paper/45">OWNED {owned}</span>
++                <span className={free > 0 ? "text-jade" : "text-paper/30"}>{free} FREE</span>
++                {bonded > 0 && <span className="text-gold">{bonded} BONDED</span>}
++              </>
++            ) : (
++              <span className="text-paper/30">UNDISCOVERED</span>
++            )}
++          </div>
++        </div>
++      </div>
++    </button>
++  );
++}
++
++/** Pick which ninja carries the selected pact. */
++function BondPanel({ s, x, onChanged }: { s: GameState; x: SummonDef; onChanged: () => void }) {
++  const free = summonAvailableCount(s, x.id);
++  const carriers = s.ninjas.filter((n) => n.summonId === x.id);
++  const candidates = s.ninjas.filter((n) => n.summonId !== x.id).sort((a, b) => b.level - a.level);
++
++  return (
++    <div className="mt-2 rounded-xl bg-black/25 p-2 ring-1 ring-white/6">
++      <div className="flex items-center justify-between">
++        <p className="text-[8px] font-black tracking-[0.16em] text-paper/45">BONDED TO</p>
++        <span className={cn("rounded px-1.5 py-0.5 text-[8px] font-black", free > 0 ? "bg-jade/15 text-jade" : "bg-black/30 text-paper/35")}>
++          {free} AVAILABLE
++        </span>
++      </div>
++
++      {carriers.length > 0 && (
++        <div className="mt-1.5 space-y-1">
++          {carriers.map((n) => (
++            <div key={n.id} className="flex items-center gap-2 rounded-lg bg-gold/[0.07] p-1.5 ring-1 ring-gold/25">
++              <span className="min-w-0 flex-1 truncate text-[10px] font-black text-paper">{n.name}</span>
++              <span className="text-[8px] font-bold text-paper/40">Lv {n.level}</span>
++              <button
++                type="button"
++                onClick={() => { releaseSummon(s, n); onChanged(); }}
++                className="rounded-md bg-black/35 px-2 py-1 text-[8px] font-black text-vermil ring-1 ring-vermil/20"
++              >
++                RELEASE
++              </button>
++            </div>
++          ))}
++        </div>
++      )}
++
++      <p className="mt-2 text-[8px] font-black tracking-[0.16em] text-paper/35">BOND TO A SHINOBI</p>
++      <div className="mt-1 max-h-40 space-y-1 overflow-y-auto pr-1">
++        {candidates.map((n) => {
++          const current = equippedSummon(n);
++          const blocked = free <= 0 || !canChangeSummon(s, n);
++          return (
++            <button
++              key={n.id}
++              type="button"
++              disabled={blocked}
++              onClick={() => { if (bondSummon(s, n, x.id)) onChanged(); }}
++              className={cn(
++                "flex w-full items-center gap-2 rounded-lg p-1.5 text-left ring-1 transition",
++                blocked ? "bg-black/20 ring-white/5 opacity-40" : "bg-black/25 ring-white/7 hover:bg-white/[0.04]"
++              )}
++            >
++              <span className="min-w-0 flex-1 truncate text-[10px] font-bold text-paper/85">{n.name}</span>
++              <span className="shrink-0 text-[8px] font-bold text-paper/35">Lv {n.level}</span>
++              {current && (
++                <span className="shrink-0 rounded bg-black/40 px-1 py-0.5 text-[7.5px] font-black text-paper/45" title={`Currently carries ${current.name}`}>
++                  SWAPS {current.name}
++                </span>
++              )}
++            </button>
++          );
++        })}
++        {!candidates.length && <p className="p-2 text-[8.5px] text-paper/30">Every shinobi already carries this pact.</p>}
++      </div>
++    </div>
++  );
++}
++
++export default function SummonScreen({ s, onChanged }: { s: GameState; onChanged: () => void }) {
++  const st = ensureSummonState(s);
++  const [selected, setSelected] = useState<string>(SUMMONS[0].id);
++  const [reveal, setReveal] = useState<SummonDef[] | null>(null);
++  const [error, setError] = useState<string | null>(null);
++
++  const x = SUMMON_BY_ID[selected] ?? SUMMONS[0];
++  const owned = st.inventory[x.id] ?? 0;
++
++  const draw = (pulls: 1 | 5) => {
++    const r = pullSummons(s, pulls);
++    if (!r.ok) { setError(r.error ?? "Unable to draw."); return; }
++    setError(null);
++    setReveal(r.items);
++    onChanged();
++  };
++
++  return (
++    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl bg-[#0f111c]/95 p-2 ring-1 ring-white/8">
++      {/* reveal overlay */}
++      {reveal && (
++        <div className="fixed inset-0 z-[160] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" onClick={() => setReveal(null)}>
++          <div role="dialog" aria-label="Pact sealed" aria-modal="true" onClick={e => e.stopPropagation()} className="modal-pop max-h-[90dvh] overflow-y-auto w-full max-w-md rounded-2xl bg-[#151724] p-4 ring-1 ring-gold/30">
++            <p className="text-center text-[9px] font-black tracking-[0.2em] text-gold">PACT SEALED</p>
++            <div className={cn("mt-3 grid gap-2", reveal.length > 1 ? "grid-cols-3" : "grid-cols-1")}>
++              {reveal.map((item, i) => (
++                <div key={i} className="summon-reveal flex flex-col items-center rounded-xl bg-black/30 p-2 ring-1 ring-white/8" style={{ animationDelay: `${i * 90}ms` }}>
++                  <SummonArt x={item} size={reveal.length > 1 ? 62 : 130} />
++                  <p className="mt-1 text-center text-[9.5px] font-black text-paper">{item.name}</p>
++                  <p className="text-center text-[8px] font-bold" style={{ color: SUMMON_RARITY_META[item.rarity].color }}>
++                    {SUMMON_RARITY_META[item.rarity].name.toUpperCase()}
++                  </p>
++                </div>
++              ))}
++            </div>
++            <button type="button" onClick={() => setReveal(null)} className="mt-4 w-full rounded-xl bg-gold px-3 py-2.5 text-[10px] font-black tracking-wider text-[#241d12]">
++              CLOSE
++            </button>
++          </div>
++        </div>
++      )}
++
++      <div className="flex items-start justify-between gap-2 px-1 pb-2">
++        <div>
++          <p className="font-display text-[15px] font-black text-paper">SUMMONING PACTS</p>
++          <p className="text-[8px] font-bold tracking-[0.16em] text-paper/35">CONTRACT BEASTS · {ownedSummonCount(s)}/{SUMMONS.length} DISCOVERED</p>
++        </div>
++        <div className="text-right">
++          <p className="text-[8px] font-black text-gold">{st.totalPulls} PACTS DRAWN</p>
++          <p className="text-[7.5px] text-paper/30">Guaranteed Epic or better within {Math.max(1, 12 - st.sinceEpic)} draws</p>
++        </div>
++      </div>
++
++      {/* draw controls */}
++      <div className="mb-2 grid grid-cols-2 gap-2">
++        {SUMMON_PACKS.map((pack) => {
++          const cost = summonPullCost(pack.pulls, s);
++          const afford = s.gold >= cost.gold && s.rice >= cost.rice && s.ap >= 1;
++          return (
++            <button
++              key={pack.pulls}
++              type="button"
++              onClick={() => draw(pack.pulls)}
++              disabled={!afford}
++              className={cn(
++                "rounded-xl px-3 py-2 text-left ring-1 transition",
++                afford ? "bg-[#4a3b6e] ring-[#7a63ab] hover:brightness-110" : "bg-black/25 ring-white/7 opacity-45"
++              )}
++            >
++              <div className="flex items-center justify-between">
++                <span className="text-[10px] font-black tracking-wider text-paper">{pack.label}</span>
++                {cost.discount > 0 && <span className="text-[8px] font-black text-jade">−{Math.round(cost.discount * 100)}%</span>}
++              </div>
++              <p className="mt-0.5 text-[8.5px] font-bold tabular-nums text-paper/60">
++                {cost.gold.toLocaleString()} gold · {cost.rice.toLocaleString()} rice · 1 AP
++              </p>
++            </button>
++          );
++        })}
++      </div>
++      {error && <p className="mb-2 rounded-lg bg-vermil/10 p-2 text-[9px] font-bold text-vermil ring-1 ring-vermil/20">{error}</p>}
++
++      <div className="grid min-h-0 flex-1 gap-2 lg:grid-cols-[320px_1fr]">
++        <div className="min-h-0 space-y-1.5 overflow-y-auto rounded-xl bg-black/15 p-2 ring-1 ring-white/5">
++          {SUMMONS.map((item) => (
++            <SummonCard
++              key={item.id}
++              x={item}
++              owned={st.inventory[item.id] ?? 0}
++              free={summonAvailableCount(s, item.id)}
++              bonded={summonBondedCount(s, item.id)}
++              selected={selected === item.id}
++              onSelect={() => setSelected(item.id)}
++            />
++          ))}
++        </div>
++
++        <div className="min-h-0 overflow-y-auto rounded-xl bg-black/15 p-3 ring-1 ring-white/5">
++          <div className="flex items-start gap-3">
++            <SummonArt x={x} size={104} dim={owned === 0} />
++            <div className="min-w-0 flex-1">
++              <div className="flex items-center gap-2">
++                <h3 className="font-display text-base font-black text-paper">{owned > 0 ? x.name : "UNDISCOVERED PACT"}</h3>
++                <RarityPill x={x} />
++              </div>
++              <p className="text-[9px] font-bold tracking-wider text-paper/40">{x.species.toUpperCase()}</p>
++              <p className="mt-1.5 text-[9px] leading-relaxed text-paper/50">{x.appearance}</p>
++            </div>
++          </div>
++
++          <p className="mt-3 text-[9.5px] italic leading-relaxed text-paper/55">{x.flavour}</p>
++
++          <p className="mt-3 text-[8px] font-black tracking-[0.18em] text-paper/40">MECHANICS</p>
++          <p className="mt-1 rounded-lg bg-black/30 p-2 text-[9px] leading-relaxed text-paper/70 ring-1 ring-white/6">
++            {summonMechanics(x)}
++          </p>
++
++          {owned > 0 ? (
++            <BondPanel s={s} x={x} onChanged={onChanged} />
++          ) : (
++            <p className="mt-2 rounded-lg bg-black/25 p-2 text-[8.5px] font-bold text-paper/35 ring-1 ring-white/5">
++              Draw pacts above to discover this contract beast.
++            </p>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
++
++/** Compact bonded-summon strip used on the ninja detail screen. */
++export function NinjaSummonPanel({ s, n, onChanged }: { s: GameState; n: Ninja; onChanged: () => void }) {
++  const pact = equippedSummon(n);
++  const owned = SUMMONS.filter((x) => (ensureSummonState(s).inventory[x.id] ?? 0) > 0);
++  const [open, setOpen] = useState(false);
++
++  return (
++    <div className="border-b border-white/8 px-3 py-2">
++      <div className="flex items-center justify-between gap-2">
++        <p className="text-[9.5px] font-bold tracking-[0.2em] text-paper/40">SUMMONING PACT</p>
++        {owned.length > 0 && (
++          <button type="button" onClick={() => setOpen((v) => !v)} className="rounded-md bg-black/30 px-2 py-1 text-[8px] font-black text-paper/55 ring-1 ring-white/8">
++            {open ? "CLOSE" : pact ? "CHANGE" : "BOND"}
++          </button>
++        )}
++      </div>
++
++      {pact ? (
++        <div className="mt-1.5 flex items-start gap-2 rounded-xl bg-black/25 p-2 ring-1 ring-white/7">
++          <SummonArt x={pact} size={52} />
++          <div className="min-w-0 flex-1">
++            <div className="flex items-center gap-1.5">
++              <p className="truncate text-[10.5px] font-black text-paper">{pact.name}</p>
++              <RarityPill x={pact} />
++            </div>
++            <p className="text-[8px] font-black" style={{ color: pact.tint }}>{pact.bondText}</p>
++            <p className="mt-1 text-[8.5px] leading-snug text-paper/50">{summonMechanics(pact).split(" BOND —")[0]}</p>
++          </div>
++        </div>
++      ) : (
++        <p className="mt-1 text-[8.5px] text-paper/35">
++          {owned.length ? "No pact bonded. A summon acts once per battle without costing a turn." : "The village has not formed any summoning pacts yet."}
++        </p>
++      )}
++
++      {open && (
++        <div className="mt-1.5 max-h-44 space-y-1 overflow-y-auto rounded-xl bg-black/20 p-1.5 ring-1 ring-white/6">
++          {pact && (
++            <button type="button" onClick={() => { releaseSummon(s, n); onChanged(); setOpen(false); }} className="w-full rounded-lg bg-black/35 p-1.5 text-[8.5px] font-black text-vermil ring-1 ring-vermil/20">
++              RELEASE {pact.name.toUpperCase()}
++            </button>
++          )}
++          {owned.map((x) => {
++            const free = summonAvailableCount(s, x.id);
++            const isMine = pact?.id === x.id;
++            return (
++              <button
++                key={x.id}
++                type="button"
++                disabled={isMine || free <= 0 || !canChangeSummon(s, n)}
++                onClick={() => { if (bondSummon(s, n, x.id)) { onChanged(); setOpen(false); } }}
++                className={cn(
++                  "flex w-full items-center gap-2 rounded-lg p-1.5 text-left ring-1 transition",
++                  isMine ? "bg-gold/10 ring-gold/30" : free > 0 ? "bg-black/25 ring-white/7 hover:bg-white/[0.04]" : "bg-black/20 ring-white/5 opacity-40"
++                )}
++              >
++                <SummonArt x={x} size={34} dim={free <= 0 && !isMine} />
++                <span className="min-w-0 flex-1">
++                  <span className="block truncate text-[9.5px] font-black text-paper/90">{x.name}</span>
++                  <span className="block truncate text-[8px] font-bold" style={{ color: x.tint }}>{x.bondText}</span>
++                </span>
++                <span className="shrink-0 text-[8px] font-black text-paper/35">{isMine ? "BONDED" : free > 0 ? `${free} FREE` : "IN USE"}</span>
++              </button>
++            );
++          })}
++        </div>
++      )}
++    </div>
++  );
++}
+--- a/src/game/battle.ts
++++ b/src/game/battle.ts
+@@ -1,3 +1,5 @@
++import { SUMMON_BY_ID, type SummonDef, equippedSummon } from "./summons";
++import { statusTickDamage, jutsuAttackStat, isDamageOverTime } from "./statusDamage";
+ import type { BAction, Battle, Bld, GameState, Nature, Ninja, Unit } from "./types";
+ import { BUILDINGS, ENEMY_KINDS, NATURE_META, RANK_META, SKILLS, rankIndex } from "./content";
+ import { combatTechniqueIds, lockTechniqueTree, perkById, perkFx } from "./perks";
+@@ -54,13 +56,14 @@
+     cp,
+     atk: (n.s.tai * 1.22 + n.s.ken * 0.52 + n.s.nin * 0.28 + rb * 2) * fx.atk,
+     def: (5 + n.s.tai * 0.46 + n.s.tac * 0.34 + rb * 2.5) * fx.def,
+-    spd: n.s.spd * 1.28 + n.s.tac * 0.16 + n.level,
++    spd: (n.s.spd * 1.28 + n.s.tac * 0.16 + n.level) * (n.traits.includes("hibikiClan") ? 1.08 : 1),
+     nin: n.s.nin,
+     gen: n.s.gen + n.s.doj * 0.22,
+     med: n.s.med,
+     ken: n.s.ken,
+     doj: n.s.doj,
+     tac: n.s.tac,
++    ste: n.s.ste,
+     guard: false,
+     stun: 0,
+     alive: true,
+@@ -292,6 +295,8 @@
+     examTargetRank: null,
+   };
+   applyTechniqueAuras(b);
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   rollOrder(b, s.b.tower + (s.techs.includes("tower_rapid_response") ? 1 : 0), true);
+   return b;
+ }
+@@ -324,6 +329,8 @@
+     examTargetRank: targetRank,
+   };
+   applyTechniqueAuras(b);
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   rollOrder(b, s.b.tower + (s.techs.includes("tower_rapid_response") ? 1 : 0), true);
+   return b;
+ }
+@@ -470,6 +477,8 @@
+   }
+   applyBingoRoundState(b);
+   applyTechniqueAuras(b);
++  fireSummonsForSide(b, false, "battle_start");
++  fireSummonsForSide(b, true, "battle_start");
+   rollOrder(b, s.b.tower, true);
+   return b;
+ }
+@@ -481,7 +490,7 @@
+   b.order = live
+     .map((u) => ({
+       uid: u.uid,
+-      roll: u.spd * (1 - ((u.slowRounds ?? 0) > 0 ? (u.slowPct ?? 0) : 0)) * (1 + ((u.jutsuSpeedRounds ?? 0) > 0 ? (u.jutsuSpeedBonus ?? 0) : 0)) * rnd(0.85, 1.15) + (u.foe ? 0 : towerLvl * 4) + (first && u.firstStrike ? 500 : u.firstStrike ? 12 : 0),
++      roll: u.spd * (1 - ((u.slowRounds ?? 0) > 0 ? (u.slowPct ?? 0) : 0)) * (1 + ((u.jutsuSpeedRounds ?? 0) > 0 ? (u.jutsuSpeedBonus ?? 0) : 0)) * (1 + ((u.summonHasteRounds ?? 0) > 0 ? (u.summonHastePct ?? 0) : 0)) * rnd(0.85, 1.15) + (u.foe ? 0 : towerLvl * 4) + (first && u.firstStrike ? 500 : u.firstStrike ? 12 : 0),
+     }))
+     .sort((a, z) => z.roll - a.roll)
+     .map((x) => x.uid);
+@@ -686,6 +695,113 @@
+ 
+ function tryDodge(t: Unit): boolean {
+   return Math.random() < t.dodge;
++}
++
++/* ------------------------------------------------------------ summons */
++
++/**
++ * Summon interventions.
++ *
++ * Unlike Jutsu (spend chakra, spend your turn) and gear (a flat passive), a
++ * summon watches the fight and acts on its own exactly once. `summonUsed`
++ * gates that to a single firing per battle per ninja.
++ *
++ * Every trigger routes through here so the once-only rule, the log line and
++ * the effect resolution can never drift apart between call sites.
++ */
++function summonFor(u: Unit): SummonDef | null {
++  return u.summonId ? SUMMON_BY_ID[u.summonId] ?? null : null;
++}
++
++function partyOf(b: Battle, u: Unit): Unit[] {
++  return b.units.filter((x) => x.alive && x.foe === u.foe);
++}
++
++/**
++ * Fire `u`'s summon if it is present, unused, and matches `trigger`.
++ * Returns true when it actually fired.
++ */
++function fireSummon(b: Battle, u: Unit, trigger: SummonDef["trigger"]): boolean {
++  if (!u.alive && trigger !== "bonded_fatal") return false;
++  if (u.summonUsed) return false;
++  const sm = summonFor(u);
++  if (!sm || sm.trigger !== trigger) return false;
++  u.summonUsed = true;
++
++  log(b, `${u.name} summons ${sm.name} — ${sm.species}!`, "crit");
++
++  switch (sm.effect) {
++    case "shield": {
++      for (const ally of partyOf(b, u)) {
++        ally.summonShieldRounds = Math.max(ally.summonShieldRounds ?? 0, sm.rounds ?? 2);
++        ally.summonShieldPct = Math.max(ally.summonShieldPct ?? 0, sm.power);
++      }
++      log(b, `${sm.name} shields the squad — ${Math.round(sm.power * 100)}% less damage for ${sm.rounds} rounds.`, "heal");
++      break;
++    }
++    case "haste_party": {
++      for (const ally of partyOf(b, u)) {
++        ally.summonHasteRounds = Math.max(ally.summonHasteRounds ?? 0, sm.rounds ?? 2);
++        ally.summonHastePct = Math.max(ally.summonHastePct ?? 0, sm.power);
++      }
++      log(b, `${sm.name} calls the opening — the squad moves ${Math.round(sm.power * 100)}% faster.`, "heal");
++      break;
++    }
++    case "heal_bonded": {
++      const heal = Math.max(1, Math.round(u.maxHp * sm.power));
++      u.hp = Math.min(u.maxHp, u.hp + heal);
++      log(b, `${sm.name} closes ${u.name}'s wounds for ${heal} HP.`, "heal");
++      break;
++    }
++    case "restore_chakra": {
++      const gain = Math.max(1, Math.round(u.maxCp * sm.power));
++      u.cp = Math.min(u.maxCp, u.cp + gain);
++      log(b, `${sm.name} feeds ${gain} chakra back to ${u.name}.`, "heal");
++      break;
++    }
++    case "revive": {
++      // Called from damage() before the death is committed.
++      u.hp = Math.max(1, Math.round(u.maxHp * sm.power));
++      u.alive = true;
++      log(b, `${sm.name} refuses the killing blow — ${u.name} stands at ${u.hp} HP!`, "crit");
++      break;
++    }
++    case "cleanse_party": {
++      for (const ally of partyOf(b, u)) {
++        ally.burnRounds = 0; ally.poisonRounds = 0; ally.bleedRounds = 0;
++        ally.slowRounds = 0; ally.slowPct = 0;
++        ally.fearRounds = 0; ally.fearAvoidPct = 0; ally.fearSourceUid = null;
++        ally.confusionRounds = 0; ally.confusionChance = 0;
++        ally.genjutsuMissRounds = 0; ally.genjutsuMissChance = 0;
++        ally.chakraLockRounds = 0;
++        ally.stun = 0;
++      }
++      log(b, `${sm.name} scatters every illusion and affliction on the squad.`, "heal");
++      break;
++    }
++    case "strike_one": {
++      const foes = b.units.filter((x) => x.alive && x.foe !== u.foe);
++      if (!foes.length) break;
++      const target = foes.reduce((best, x) => (unitCombatPower(x) > unitCombatPower(best) ? x : best), foes[0]);
++      const raw = (u.atk + u.nin) * 0.5 * sm.power;
++      const dealt = damage(b, u, target, raw, "crit", true);
++      log(b, `${sm.name} tears into ${target.name} for ${dealt}!`, "crit");
++      break;
++    }
++    case "strike_all": {
++      const foes = b.units.filter((x) => x.alive && x.foe !== u.foe);
++      let total = 0;
++      for (const target of foes) total += damage(b, u, target, (u.atk + u.nin) * 0.5 * sm.power, "crit", true);
++      if (foes.length) log(b, `${sm.name} sweeps the enemy line for ${total} total damage!`, "crit");
++      break;
++    }
++  }
++  return true;
++}
++
++/** Check the whole party for a trigger that is not tied to one ninja. */
++function fireSummonsForSide(b: Battle, foe: boolean, trigger: SummonDef["trigger"]): void {
++  for (const u of b.units.filter((x) => x.foe === foe && x.alive)) fireSummon(b, u, trigger);
+ }
+ 
+ function effectiveDefense(t: Unit): number {
+@@ -748,7 +864,7 @@
+   if (!t.alive) return;
+   if (proc.chance != null && Math.random() >= proc.chance) return;
+   const scale = Math.max(u.nin, u.atk * 0.7, u.ken * 0.9);
+-  const amount = Math.max(1, Math.round(proc.value ?? scale * (proc.status === "poison" ? 0.12 : proc.status === "bleed" ? 0.13 : 0.14)));
++  const amount = isDamageOverTime(proc.status) ? Math.max(proc.value ?? 0, statusTickDamage(proc.status, scale, 1, false, u.jutsuBurnAmp ?? 1)) : Math.max(1, Math.round(proc.value ?? scale * 0.14));
+   switch (proc.status) {
+     case "burn":
+       t.burnRounds = Math.max(t.burnRounds ?? 0, proc.rounds);
+@@ -906,6 +1022,7 @@
+     const reduction = Math.max(guardReduction, braceReduction, barrierReduction);
+     if (reduction > 0) dmg = Math.max(1, Math.round(dmg * (1 - reduction)));
+   }
++  if ((target.summonShieldRounds ?? 0) > 0) dmg = Math.max(1, Math.round(dmg * (1 - (target.summonShieldPct ?? 0))));
+   target.hp = Math.max(0, target.hp - dmg);
+   b.flash = { uid: target.uid, amount: dmg, kind, n: (b.flash?.n ?? 0) + 1 };
+   if (src && src.lifesteal > 0) {
+@@ -959,9 +1076,12 @@
+     target.hp = Math.max(1, Math.round(target.maxHp * target.pk.deathDefyPct));
+     log(b, `${target.name} refuses to fall!`, "crit");
+   }
++  if (target.hp <= 0) fireSummon(b, target, "bonded_fatal");
++  if (target.hp > 0 && target.hp <= target.maxHp * 0.35) fireSummon(b, target, "bonded_low_hp");
+   if (target.hp <= 0) {
+     target.alive = false;
+     log(b, `${target.name} is down!`, "down");
++    fireSummonsForSide(b, target.foe, "ally_fallen");
+     // v17: kill spoils from technique development.
+     if (src?.pk && src.alive && src.foe !== target.foe) {
+       if (src.pk.killHealPct > 0) {
+@@ -1026,7 +1146,7 @@
+   let total = 0;
+   let healed = 0;
+   const hitNames: string[] = [];
+-  const jutsuStat = j.stat === "gen" ? u.gen : j.stat === "ken" ? u.ken : j.stat === "tac" ? u.tac : j.stat === "doj" ? u.doj : j.stat === "med" ? u.med : j.stat === "spd" ? u.spd : j.stat === "atk" ? u.atk : u.nin;
++  const jutsuStat = jutsuAttackStat(u, j);
+ 
+   for (const t of targets) {
+     if (!t.alive) continue;
+@@ -1056,21 +1176,21 @@
+       case "burn": {
+         if (!friendly && t.alive) {
+           t.burnRounds = Math.max(t.burnRounds ?? 0, (j.effectValue ?? 2) + (u.jutsuBurnRoundsBonus ?? 0));
+-          t.burnDamage = Math.max(t.burnDamage ?? 0, Math.max(1, Math.round(jutsuStat * (j.target === "all_foes" ? 0.13 : 0.18) * (u.jutsuBurnAmp ?? 1))));
++          t.burnDamage = Math.max(t.burnDamage ?? 0, statusTickDamage("burn", jutsuStat, u.jutsuPower, j.target === "all_foes", u.jutsuBurnAmp ?? 1));
+         }
+         break;
+       }
+       case "poison": {
+         if (!friendly && t.alive) {
+           t.poisonRounds = Math.max(t.poisonRounds ?? 0, j.effectValue ?? 2);
+-          t.poisonDamage = Math.max(t.poisonDamage ?? 0, Math.max(1, Math.round(jutsuStat * 0.14)));
++          t.poisonDamage = Math.max(t.poisonDamage ?? 0, statusTickDamage("poison", jutsuStat, u.jutsuPower, j.target === "all_foes", u.jutsuBurnAmp ?? 1));
+         }
+         break;
+       }
+       case "bleed": {
+         if (!friendly && t.alive) {
+           t.bleedRounds = Math.max(t.bleedRounds ?? 0, j.effectValue ?? 2);
+-          t.bleedDamage = Math.max(t.bleedDamage ?? 0, Math.max(1, Math.round(jutsuStat * 0.16)));
++          t.bleedDamage = Math.max(t.bleedDamage ?? 0, statusTickDamage("bleed", jutsuStat, u.jutsuPower, j.target === "all_foes", u.jutsuBurnAmp ?? 1));
+         }
+         break;
+       }
+@@ -1295,6 +1415,12 @@
+ }
+ 
+ export function doAction(b: Battle, action: BAction, targetUid?: string, jutsuId?: string): { kind: string; targets: string[] } {
++  const u = currentUnit(b);
++  const result = doActionInner(b, action, targetUid, jutsuId);
++  if (u?.alive && u.cp <= u.maxCp * 0.25) fireSummon(b, u, "chakra_empty");
++  return result;
++}
++function doActionInner(b: Battle, action: BAction, targetUid?: string, jutsuId?: string): { kind: string; targets: string[] } {
+   const u = currentUnit(b);
+   if (!u) return { kind: "none", targets: [] };
+   bingoBeforeAction(b, u, action);
+@@ -1571,6 +1697,23 @@
+ }
+ 
+ /* ---------------- turn cycle ---------------- */
++
++function tickAffliction(b: Battle, u: Unit, effect: "burn" | "poison" | "bleed"): void {
++  const roundsKey = `${effect}Rounds` as const, damageKey = `${effect}Damage` as const;
++  if (!u.alive || (u[roundsKey] ?? 0) <= 0) return;
++  const shield = (u.summonShieldRounds ?? 0) > 0 ? u.summonShieldPct ?? 0 : 0;
++  const tick = Math.min(u.hp, Math.max(1, Math.round((u[damageKey] ?? 0) * (1 - shield))));
++  u.hp = Math.max(0, u.hp - tick); u[roundsKey] = Math.max(0, (u[roundsKey] ?? 0) - 1);
++  if (u[roundsKey] === 0) u[damageKey] = 0;
++  b.flash = { uid: u.uid, amount: tick, kind: "hit", n: (b.flash?.n ?? 0) + 1 };
++  log(b, `${u.name} takes ${tick} ${effect} damage`, "hit");
++  if (u.hp <= 0 && u.pk?.deathDefyPct && !u.deathDefyUsed) {
++    u.deathDefyUsed = true; u.hp = Math.max(1, Math.round(u.maxHp * u.pk.deathDefyPct)); log(b, `${u.name} refuses to fall!`, "crit");
++  }
++  if (u.hp <= 0) fireSummon(b, u, "bonded_fatal");
++  if (u.hp > 0 && u.hp <= u.maxHp * 0.35) fireSummon(b, u, "bonded_low_hp");
++  if (u.hp <= 0) { u.alive = false; log(b, `${u.name} is down!`, "down"); fireSummonsForSide(b, u.foe, "ally_fallen"); }
++}
+ 
+ export function nextTurn(b: Battle, towerLvl = 0): void {
+   if (bingoCheckEscape(b)) return;
+@@ -1620,23 +1763,9 @@
+           if (heal > 0) { u.hp += heal; log(b, `${u.name} recovers ${heal} HP from a water current`, "heal"); }
+           u.jutsuRegenRounds = Math.max(0, (u.jutsuRegenRounds ?? 0) - 1);
+         }
+-        if ((u.burnRounds ?? 0) > 0 && (u.burnDamage ?? 0) > 0) {
+-          const burn = Math.min(u.hp, u.burnDamage ?? 0);
+-          u.hp = Math.max(0, u.hp - burn);
+-          u.burnRounds = Math.max(0, (u.burnRounds ?? 0) - 1);
+-          log(b, `${u.name} burns for ${burn}`, "hit");
+-          if (u.hp <= 0) { u.alive = false; log(b, `${u.name} is down!`, "down"); }
+-        }
+-        if ((u.poisonRounds ?? 0) > 0 && (u.poisonDamage ?? 0) > 0 && u.alive) {
+-          const tick = Math.min(u.hp, u.poisonDamage ?? 0); u.hp = Math.max(0, u.hp - tick);
+-          u.poisonRounds = Math.max(0, (u.poisonRounds ?? 0) - 1); log(b, `${u.name} suffers ${tick} poison damage`, "hit");
+-          if (u.hp <= 0) { u.alive = false; log(b, `${u.name} is down!`, "down"); }
+-        }
+-        if ((u.bleedRounds ?? 0) > 0 && (u.bleedDamage ?? 0) > 0 && u.alive) {
+-          const tick = Math.min(u.hp, u.bleedDamage ?? 0); u.hp = Math.max(0, u.hp - tick);
+-          u.bleedRounds = Math.max(0, (u.bleedRounds ?? 0) - 1); log(b, `${u.name} bleeds for ${tick}`, "hit");
+-          if (u.hp <= 0) { u.alive = false; log(b, `${u.name} is down!`, "down"); }
+-        }
++        tickAffliction(b, u, "burn");
++        tickAffliction(b, u, "poison");
++        tickAffliction(b, u, "bleed");
+         if ((u.slowRounds ?? 0) > 0) u.slowRounds = Math.max(0, (u.slowRounds ?? 0) - 1);
+         if ((u.defShredRounds ?? 0) > 0) { u.defShredRounds = Math.max(0, (u.defShredRounds ?? 0) - 1); if ((u.defShredRounds ?? 0) <= 0) u.defShredPct = 0; }
+         if ((u.braceRounds ?? 0) > 0) { u.braceRounds = Math.max(0, (u.braceRounds ?? 0) - 1); if ((u.braceRounds ?? 0) <= 0) u.braceStrength = 0; }
+@@ -1654,7 +1783,10 @@
+         if ((u.confusionRounds ?? 0) > 0) { u.confusionRounds = Math.max(0, (u.confusionRounds ?? 0) - 1); if ((u.confusionRounds ?? 0) <= 0) u.confusionChance = 0; }
+         if ((u.genjutsuMissRounds ?? 0) > 0) { u.genjutsuMissRounds = Math.max(0, (u.genjutsuMissRounds ?? 0) - 1); if ((u.genjutsuMissRounds ?? 0) <= 0) u.genjutsuMissChance = 0; }
+         if ((u.chakraLockRounds ?? 0) > 0) u.chakraLockRounds = Math.max(0, (u.chakraLockRounds ?? 0) - 1);
+-      }
++        if ((u.summonShieldRounds ?? 0) > 0) u.summonShieldRounds!--;
++        if ((u.summonHasteRounds ?? 0) > 0) u.summonHasteRounds!--;
++      }
++      if (b.round === 3) { fireSummonsForSide(b, false, "round_three"); fireSummonsForSide(b, true, "round_three"); }
+       if ((b.bingoTargetCannotFleeRounds ?? 0) > 0) b.bingoTargetCannotFleeRounds = Math.max(0, (b.bingoTargetCannotFleeRounds ?? 0) - 1);
+       if (b.bingoRuntime && b.bingoRuntime.hazardRounds > 0) b.bingoRuntime.hazardRounds -= 1;
+       applyBingoRoundState(b);
+@@ -1845,5 +1977,25 @@
+   u.jutsuPierceBonus = jf.pierceBonus; u.jutsuStunBonus = jf.stunBonus; u.jutsuChakraCost = jf.chakraCost;
+   u.jutsuShredBonus = jf.shredBonus; u.jutsuBraceAmp = jf.braceAmp; u.jutsuTauntBonus = jf.tauntBonus;
+   u.jutsuRetaliationBonus = jf.retaliationBonus; u.jutsuExtraTurnBonus = jf.extraTurnBonus;
++  // Bonded summon: the always-on half of the pact, plus the id the
++  // intervention engine reads during the fight.
++  const pact = equippedSummon(n);
++  if (pact) {
++    u.summonId = pact.id;
++    u.summonUsed = false;
++    const bd = pact.bond;
++    if (bd.hp) { u.maxHp = Math.max(1, Math.round(u.maxHp * bd.hp)); u.hp = u.maxHp; }
++    if (bd.cp) { u.maxCp = Math.max(1, Math.round(u.maxCp * bd.cp)); u.cp = u.maxCp; }
++    if (bd.atk) u.atk *= bd.atk;
++    if (bd.def) u.def *= bd.def;
++    if (bd.spd) u.spd *= bd.spd;
++    if (bd.jutsuPower) u.jutsuPower *= bd.jutsuPower;
++    if (bd.crit) u.crit = clamp(u.crit + bd.crit, 0, 0.85);
++    if (bd.dodge) u.dodge = clamp(u.dodge + bd.dodge, 0, 0.60);
++    if (bd.regen) u.regen += bd.regen;
++  } else {
++    u.summonId = null;
++  }
++
+   return u;
+ }
+--- /dev/null
++++ b/src/game/clanExpansion.ts
+@@ -0,0 +1,904 @@
++import type { JutsuDef } from "./jutsu";
++
++export const EXPANSION_CLAN_JUTSU: JutsuDef[] = [
++  {
++    "id": "clan_kamioriClan_razor_0",
++    "name": "Paper Kunai",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "razor",
++    "pathLabel": "Paper Blades",
++    "pathSummary": "Piercing cuts and bleeding wounds",
++    "stat": "ken",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.7,
++    "target": "foe",
++    "effect": "bleed",
++    "desc": "Inflicts Bleed. Exact power, target and effects are shown below.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_kamioriClan_razor_1",
++    "name": "Razor Origami",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "razor",
++    "pathLabel": "Paper Blades",
++    "pathSummary": "Piercing cuts and bleeding wounds",
++    "stat": "ken",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 1.02,
++    "target": "foe",
++    "effect": "pierce",
++    "desc": "Ignores 24% of defence and bypasses guard.",
++    "effectValue": 24
++  },
++  {
++    "id": "clan_kamioriClan_razor_2",
++    "name": "Thousand Paper Cuts",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "razor",
++    "pathLabel": "Paper Blades",
++    "pathSummary": "Piercing cuts and bleeding wounds",
++    "stat": "ken",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 14,
++    "power": 0.54,
++    "target": "foe",
++    "effect": "bleed",
++    "desc": "Inflicts Bleed. Exact power, target and effects are shown below.",
++    "hits": 2,
++    "effectValue": 3
++  },
++  {
++    "id": "clan_kamioriClan_razor_3",
++    "name": "White Crane Execution",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "razor",
++    "pathLabel": "Paper Blades",
++    "pathSummary": "Piercing cuts and bleeding wounds",
++    "stat": "ken",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 1.45,
++    "target": "foe",
++    "effect": "bleed",
++    "desc": "Inflicts Bleed. Exact power, target and effects are shown below.",
++    "effectValue": 4
++  },
++  {
++    "id": "clan_kamioriClan_seals_0",
++    "name": "Ember Script",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "seals",
++    "pathLabel": "Explosive Seals",
++    "pathSummary": "Focused burns and spreading fire",
++    "stat": "nin",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.62,
++    "target": "foe",
++    "effect": "burn",
++    "desc": "Inflicts Burn. Exact power, target and effects are shown below.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_kamioriClan_seals_1",
++    "name": "Linked Detonations",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "seals",
++    "pathLabel": "Explosive Seals",
++    "pathSummary": "Focused burns and spreading fire",
++    "stat": "nin",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.42,
++    "target": "all_foes",
++    "effect": "burn",
++    "desc": "Inflicts Burn. Exact power, target and effects are shown below.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_kamioriClan_seals_2",
++    "name": "Ever-Burning Ink",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "seals",
++    "pathLabel": "Explosive Seals",
++    "pathSummary": "Focused burns and spreading fire",
++    "stat": "nin",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "burnAmp": 1.25,
++      "burnRounds": 1
++    }
++  },
++  {
++    "id": "clan_kamioriClan_seals_3",
++    "name": "Ten Thousand Seals",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "seals",
++    "pathLabel": "Explosive Seals",
++    "pathSummary": "Focused burns and spreading fire",
++    "stat": "nin",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0.78,
++    "target": "all_foes",
++    "effect": "burn",
++    "desc": "Inflicts Burn. Exact power, target and effects are shown below.",
++    "effectValue": 4
++  },
++  {
++    "id": "clan_kamioriClan_wards_0",
++    "name": "Folded Bulwark",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "wards",
++    "pathLabel": "Folded Wards",
++    "pathSummary": "Paper armour and squad barriers",
++    "stat": "tac",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0,
++    "target": "ally",
++    "effect": "guard",
++    "desc": "Reduces non-piercing damage by 30% for 2 rounds, increased by barrier mastery.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_kamioriClan_wards_1",
++    "name": "Paper Sanctuary",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "wards",
++    "pathLabel": "Folded Wards",
++    "pathSummary": "Paper armour and squad barriers",
++    "stat": "tac",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "guard",
++    "desc": "Reduces non-piercing damage by 30% for 2 rounds, increased by barrier mastery.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_kamioriClan_wards_2",
++    "name": "Layered Lamination",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "wards",
++    "pathLabel": "Folded Wards",
++    "pathSummary": "Paper armour and squad barriers",
++    "stat": "tac",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "def": 1.08,
++      "guardAmp": 1.15
++    }
++  },
++  {
++    "id": "clan_kamioriClan_wards_3",
++    "name": "Fortress of White Pages",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "wards",
++    "pathLabel": "Folded Wards",
++    "pathSummary": "Paper armour and squad barriers",
++    "stat": "tac",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "guard",
++    "desc": "Reduces non-piercing damage by 30% for 4 rounds, increased by barrier mastery.",
++    "effectValue": 4
++  },
++  {
++    "id": "clan_kamioriClan_script_0",
++    "name": "Absorption Tag",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "script",
++    "pathLabel": "Chakra Scripts",
++    "pathSummary": "Seal enemy chakra and recover reserves",
++    "stat": "nin",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.48,
++    "target": "foe",
++    "effect": "none",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "cpDrainPct": 0.1
++  },
++  {
++    "id": "clan_kamioriClan_script_1",
++    "name": "Flowing Ink",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "script",
++    "pathLabel": "Chakra Scripts",
++    "pathSummary": "Seal enemy chakra and recover reserves",
++    "stat": "nin",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "flow",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "allyCpRestorePct": 0.12
++  },
++  {
++    "id": "clan_kamioriClan_script_2",
++    "name": "Living Scroll",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "script",
++    "pathLabel": "Chakra Scripts",
++    "pathSummary": "Seal enemy chakra and recover reserves",
++    "stat": "nin",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "cp": 1.12,
++      "chakraCost": 0.94
++    }
++  },
++  {
++    "id": "clan_kamioriClan_script_3",
++    "name": "Great Unbinding Script",
++    "requiresTrait": "kamioriClan",
++    "style": "Kamiori Clan \u00b7 Paper Seals",
++    "path": "script",
++    "pathLabel": "Chakra Scripts",
++    "pathSummary": "Seal enemy chakra and recover reserves",
++    "stat": "nin",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "cleanse",
++    "desc": "Clears stun, burn, poison, bleeding, slows, armour shred and hostile illusions.",
++    "allyCpRestorePct": 0.18
++  },
++  {
++    "id": "clan_hibikiClan_discord_0",
++    "name": "Dissonant Note",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "discord",
++    "pathLabel": "Discord",
++    "pathSummary": "Sonic disruption and chakra denial",
++    "stat": "gen",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.62,
++    "target": "foe",
++    "effect": "slow",
++    "desc": "Reduces Speed by 20% for 2 rounds.",
++    "effectValue": 2
++  },
++  {
++    "id": "clan_hibikiClan_discord_1",
++    "name": "Broken Rhythm",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "discord",
++    "pathLabel": "Discord",
++    "pathSummary": "Sonic disruption and chakra denial",
++    "stat": "gen",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.82,
++    "target": "foe",
++    "effect": "stun",
++    "desc": "Base 58% chance to stun for 1 turn.",
++    "effectValue": 1
++  },
++  {
++    "id": "clan_hibikiClan_discord_2",
++    "name": "Chakra Dissonance",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "discord",
++    "pathLabel": "Discord",
++    "pathSummary": "Sonic disruption and chakra denial",
++    "stat": "gen",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 14,
++    "power": 0.91,
++    "target": "foe",
++    "effect": "none",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "cpDrainPct": 0.22
++  },
++  {
++    "id": "clan_hibikiClan_discord_3",
++    "name": "Silencing Chorus",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "discord",
++    "pathLabel": "Discord",
++    "pathSummary": "Sonic disruption and chakra denial",
++    "stat": "gen",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0.69,
++    "target": "all_foes",
++    "effect": "stun",
++    "desc": "Base 32% chance to stun for 1 turn.",
++    "cpDrainPct": 0.12,
++    "effectValue": 1
++  },
++  {
++    "id": "clan_hibikiClan_cadence_0",
++    "name": "Marching Beat",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "cadence",
++    "pathLabel": "Battle Cadence",
++    "pathSummary": "Team speed and chakra restoration",
++    "stat": "tac",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "tempo",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "speedBuffPct": 0.12,
++    "speedBuffRounds": 2
++  },
++  {
++    "id": "clan_hibikiClan_cadence_1",
++    "name": "Resonant Breathing",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "cadence",
++    "pathLabel": "Battle Cadence",
++    "pathSummary": "Team speed and chakra restoration",
++    "stat": "tac",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "flow",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "allyCpRestorePct": 0.12
++  },
++  {
++    "id": "clan_hibikiClan_cadence_2",
++    "name": "Perfect Timing",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "cadence",
++    "pathLabel": "Battle Cadence",
++    "pathSummary": "Team speed and chakra restoration",
++    "stat": "tac",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "spd": 1.1,
++      "chakraCost": 0.94
++    }
++  },
++  {
++    "id": "clan_hibikiClan_cadence_3",
++    "name": "Thunderous Overture",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "cadence",
++    "pathLabel": "Battle Cadence",
++    "pathSummary": "Team speed and chakra restoration",
++    "stat": "tac",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "tempo",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "speedBuffPct": 0.22,
++    "speedBuffRounds": 3,
++    "allyCpRestorePct": 0.14
++  },
++  {
++    "id": "clan_hibikiClan_shatter_0",
++    "name": "Tuning Strike",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "shatter",
++    "pathLabel": "Shattering Waves",
++    "pathSummary": "Armour fracture and piercing sound",
++    "stat": "nin",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.68,
++    "target": "foe",
++    "effect": "shred",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "shredPct": 0.12,
++    "shredRounds": 2
++  },
++  {
++    "id": "clan_hibikiClan_shatter_1",
++    "name": "Resonance Spear",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "shatter",
++    "pathLabel": "Shattering Waves",
++    "pathSummary": "Armour fracture and piercing sound",
++    "stat": "nin",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.99,
++    "target": "foe",
++    "effect": "pierce",
++    "desc": "Ignores 28% of defence and bypasses guard.",
++    "effectValue": 28
++  },
++  {
++    "id": "clan_hibikiClan_shatter_2",
++    "name": "Fracture Pulse",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "shatter",
++    "pathLabel": "Shattering Waves",
++    "pathSummary": "Armour fracture and piercing sound",
++    "stat": "nin",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 14,
++    "power": 0.67,
++    "target": "all_foes",
++    "effect": "shred",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "shredPct": 0.18,
++    "shredRounds": 2
++  },
++  {
++    "id": "clan_hibikiClan_shatter_3",
++    "name": "Cathedral Collapse",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "shatter",
++    "pathLabel": "Shattering Waves",
++    "pathSummary": "Armour fracture and piercing sound",
++    "stat": "nin",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 1.04,
++    "target": "all_foes",
++    "effect": "pierce",
++    "desc": "Ignores 35% of defence and bypasses guard.",
++    "effectValue": 35
++  },
++  {
++    "id": "clan_hibikiClan_echoes_0",
++    "name": "Echo Reading",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "echoes",
++    "pathLabel": "Echo Sense",
++    "pathSummary": "Evasion, sensory focus and precision",
++    "stat": "gen",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "dodge": 0.04
++    }
++  },
++  {
++    "id": "clan_hibikiClan_echoes_1",
++    "name": "Blind-Spot Bell",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "echoes",
++    "pathLabel": "Echo Sense",
++    "pathSummary": "Evasion, sensory focus and precision",
++    "stat": "gen",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.85,
++    "target": "foe",
++    "effect": "crit",
++    "desc": "Gains +14 percentage points critical-hit chance.",
++    "effectValue": 14
++  },
++  {
++    "id": "clan_hibikiClan_echoes_2",
++    "name": "Harmonic Focus",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "echoes",
++    "pathLabel": "Echo Sense",
++    "pathSummary": "Evasion, sensory focus and precision",
++    "stat": "gen",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "crit": 0.05,
++      "jutsuPower": 1.08
++    }
++  },
++  {
++    "id": "clan_hibikiClan_echoes_3",
++    "name": "Final Reverberation",
++    "requiresTrait": "hibikiClan",
++    "style": "Hibiki Clan \u00b7 Resonance Arts",
++    "path": "echoes",
++    "pathLabel": "Echo Sense",
++    "pathSummary": "Evasion, sensory focus and precision",
++    "stat": "gen",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0.63,
++    "target": "foe",
++    "effect": "none",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "hits": 3
++  },
++  {
++    "id": "clan_kasumoriClan_venom_0",
++    "name": "Venom Needle",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "venom",
++    "pathLabel": "Venom Mist",
++    "pathSummary": "Lingering poison and area attrition",
++    "stat": "med",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.56,
++    "target": "foe",
++    "effect": "poison",
++    "desc": "Inflicts Poison. Exact power, target and effects are shown below.",
++    "effectValue": 3
++  },
++  {
++    "id": "clan_kasumoriClan_venom_1",
++    "name": "Miasma Cloud",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "venom",
++    "pathLabel": "Venom Mist",
++    "pathSummary": "Lingering poison and area attrition",
++    "stat": "med",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.38,
++    "target": "all_foes",
++    "effect": "poison",
++    "desc": "Inflicts Poison. Exact power, target and effects are shown below.",
++    "effectValue": 3
++  },
++  {
++    "id": "clan_kasumoriClan_venom_2",
++    "name": "Condensed Toxin",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "venom",
++    "pathLabel": "Venom Mist",
++    "pathSummary": "Lingering poison and area attrition",
++    "stat": "med",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 14,
++    "power": 0.85,
++    "target": "foe",
++    "effect": "poison",
++    "desc": "Inflicts Poison. Exact power, target and effects are shown below.",
++    "effectValue": 4
++  },
++  {
++    "id": "clan_kasumoriClan_venom_3",
++    "name": "Silent Marsh",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "venom",
++    "pathLabel": "Venom Mist",
++    "pathSummary": "Lingering poison and area attrition",
++    "stat": "med",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0.72,
++    "target": "all_foes",
++    "effect": "poison",
++    "desc": "Inflicts Poison. Exact power, target and effects are shown below.",
++    "effectValue": 5
++  },
++  {
++    "id": "clan_kasumoriClan_ambush_0",
++    "name": "Drifting Silhouette",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "ambush",
++    "pathLabel": "Mist Ambush",
++    "pathSummary": "Evasion and precision attacks",
++    "stat": "ste",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "dodge": 0.04
++    }
++  },
++  {
++    "id": "clan_kasumoriClan_ambush_1",
++    "name": "Needle in the Fog",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "ambush",
++    "pathLabel": "Mist Ambush",
++    "pathSummary": "Evasion and precision attacks",
++    "stat": "ste",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.94,
++    "target": "foe",
++    "effect": "crit",
++    "desc": "Gains +15 percentage points critical-hit chance.",
++    "effectValue": 15
++  },
++  {
++    "id": "clan_kasumoriClan_ambush_2",
++    "name": "Veiled Footwork",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "ambush",
++    "pathLabel": "Mist Ambush",
++    "pathSummary": "Evasion and precision attacks",
++    "stat": "ste",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "spd": 1.1,
++      "crit": 0.04
++    }
++  },
++  {
++    "id": "clan_kasumoriClan_ambush_3",
++    "name": "Vanishing Fang",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "ambush",
++    "pathLabel": "Mist Ambush",
++    "pathSummary": "Evasion and precision attacks",
++    "stat": "ste",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 1.44,
++    "target": "foe",
++    "effect": "poison",
++    "desc": "Inflicts Poison. Exact power, target and effects are shown below.",
++    "executeBelow": 0.14,
++    "effectValue": 3
++  },
++  {
++    "id": "clan_kasumoriClan_antidote_0",
++    "name": "Clearblood Draught",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "antidote",
++    "pathLabel": "Antidote Arts",
++    "pathSummary": "Cleansing and frontline recovery",
++    "stat": "med",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0,
++    "target": "ally",
++    "effect": "cleanse",
++    "desc": "Clears stun, burn, poison, bleeding, slows, armour shred and hostile illusions."
++  },
++  {
++    "id": "clan_kasumoriClan_antidote_1",
++    "name": "Restorative Vapour",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "antidote",
++    "pathLabel": "Antidote Arts",
++    "pathSummary": "Cleansing and frontline recovery",
++    "stat": "med",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "cleanse",
++    "desc": "Clears stun, burn, poison, bleeding, slows, armour shred and hostile illusions.",
++    "allyHealPct": 0.1
++  },
++  {
++    "id": "clan_kasumoriClan_antidote_2",
++    "name": "Apothecary Training",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "antidote",
++    "pathLabel": "Antidote Arts",
++    "pathSummary": "Cleansing and frontline recovery",
++    "stat": "med",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 0,
++    "power": 0,
++    "target": "self",
++    "effect": "none",
++    "desc": "Permanent mastery while learned. Exact bonuses below; no equipped Jutsu slot required.",
++    "passive": {
++      "hp": 1.1,
++      "chakraCost": 0.94
++    }
++  },
++  {
++    "id": "clan_kasumoriClan_antidote_3",
++    "name": "Breath of Renewal",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "antidote",
++    "pathLabel": "Antidote Arts",
++    "pathSummary": "Cleansing and frontline recovery",
++    "stat": "med",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0,
++    "target": "all_allies",
++    "effect": "cleanse",
++    "desc": "Clears stun, burn, poison, bleeding, slows, armour shred and hostile illusions.",
++    "allyHealPct": 0.2
++  },
++  {
++    "id": "clan_kasumoriClan_corrode_0",
++    "name": "Caustic Spittle",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "corrode",
++    "pathLabel": "Corrosive Haze",
++    "pathSummary": "Armour erosion and protected attrition",
++    "stat": "nin",
++    "tier": 0,
++    "levelReq": 1,
++    "chakra": 5,
++    "power": 0.64,
++    "target": "foe",
++    "effect": "shred",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "shredPct": 0.12,
++    "shredRounds": 2
++  },
++  {
++    "id": "clan_kasumoriClan_corrode_1",
++    "name": "Souring Veil",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "corrode",
++    "pathLabel": "Corrosive Haze",
++    "pathSummary": "Armour erosion and protected attrition",
++    "stat": "nin",
++    "tier": 1,
++    "levelReq": 3,
++    "chakra": 9,
++    "power": 0.53,
++    "target": "all_foes",
++    "effect": "shred",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "shredPct": 0.16,
++    "shredRounds": 2
++  },
++  {
++    "id": "clan_kasumoriClan_corrode_2",
++    "name": "Acid Mantle",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "corrode",
++    "pathLabel": "Corrosive Haze",
++    "pathSummary": "Armour erosion and protected attrition",
++    "stat": "nin",
++    "tier": 2,
++    "levelReq": 8,
++    "chakra": 14,
++    "power": 0,
++    "target": "self",
++    "effect": "brace",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "braceStrength": 0.28,
++    "braceRounds": 3
++  },
++  {
++    "id": "clan_kasumoriClan_corrode_3",
++    "name": "Dissolving Horizon",
++    "requiresTrait": "kasumoriClan",
++    "style": "Kasumori Clan \u00b7 Venom Mist",
++    "path": "corrode",
++    "pathLabel": "Corrosive Haze",
++    "pathSummary": "Armour erosion and protected attrition",
++    "stat": "nin",
++    "tier": 3,
++    "levelReq": 16,
++    "chakra": 20,
++    "power": 0.9,
++    "target": "all_foes",
++    "effect": "shred",
++    "desc": "A clan technique. Exact power, target and effects are shown below.",
++    "shredPct": 0.25,
++    "shredRounds": 3
++  }
++];
+--- a/src/game/content.ts
++++ b/src/game/content.ts
+@@ -134,6 +134,9 @@
+   lastStand: { name: "Last Stand", desc: "+15% maximum HP and returns 10% of melee damage taken to the attacker.", icon: "LS", rarity: "rare" },
+   executioner: { name: "Executioner", desc: "+5% battle ATK and +20 percentage points critical damage.", boost: "ken", icon: "E", rarity: "rare" },
+ 
++  kamioriClan: {"name": "Kamiori Clan \u00b7 Paper Seals", "desc": "+12% chakra and +8% Jutsu damage. Paper blades, explosive seals, folded wards and chakra scripts.", "boost": "nin", "icon": "KP", "rarity": "unique"},
++  hibikiClan: {"name": "Hibiki Clan \u00b7 Resonance Arts", "desc": "+8% Speed and +5 percentage points dodge. Resonance disrupts enemies, directs allies and breaks armour.", "boost": "gen", "icon": "HR", "rarity": "unique"},
++  kasumoriClan: {"name": "Kasumori Clan \u00b7 Venom Mist", "desc": "+10% HP and +10% chakra. Persistent poison, mist ambushes, antidotes and corrosion.", "boost": "med", "icon": "KV", "rarity": "unique"},
+   sealingExpert: { name: "Sealing Expert", desc: "+12% maximum chakra and +5 percentage points mission success. Unlocks the exclusive Sealing Formula Jutsu branch.", boost: "nin", icon: "SE", rarity: "rare" },
+   boneBloodline: { name: "Kaguya Clan · Shikotsumyaku", desc: "+18% maximum HP, +12% battle DEF and +8 percentage points counter. Unlocks four Bone Dance specialisations.", boost: "ken", icon: "KC", rarity: "unique" },
+   shadowBinder: { name: "Nara Clan · Shadow Possession", desc: "+6 percentage points mission success and +5 percentage points dodge. Unlocks four Shadow Technique specialisations.", boost: "gen", icon: "NC", rarity: "unique" },
+@@ -430,15 +433,505 @@
+ };
+ 
+ export const NINJA_NAMES = [
+-  "Kaze", "Kuro", "Hana", "Rin", "Sora", "Tora", "Yuki", "Hayate", "Mika",
+-  "Shin", "Ayame", "Ginta", "Ren", "Kohaku", "Saya", "Tsubasa", "Inori",
+-  "Kenji", "Moe", "Isamu", "Noa", "Gin", "Hoshi", "Kuma", "Aoi", "Jiro",
+-  "Raiden", "Suzu", "Take", "Nozomi", "Fuu", "Kaito", "Emi", "Daichi",
++  "Kaze",
++  "Kuro",
++  "Hana",
++  "Rin",
++  "Sora",
++  "Tora",
++  "Yuki",
++  "Hayate",
++  "Mika",
++  "Shin",
++  "Ayame",
++  "Ginta",
++  "Ren",
++  "Kohaku",
++  "Saya",
++  "Tsubasa",
++  "Inori",
++  "Kenji",
++  "Moe",
++  "Isamu",
++  "Noa",
++  "Gin",
++  "Hoshi",
++  "Kuma",
++  "Aoi",
++  "Jiro",
++  "Raiden",
++  "Suzu",
++  "Take",
++  "Nozomi",
++  "Fuu",
++  "Kaito",
++  "Emi",
++  "Daichi",
++  "Akira",
++  "Akane",
++  "Aki",
++  "Akihiko",
++  "Akio",
++  "Akito",
++  "Akari",
++  "Amane",
++  "Arata",
++  "Asahi",
++  "Asuka",
++  "Atsuki",
++  "Atsushi",
++  "Ayaka",
++  "Ayano",
++  "Azusa",
++  "Chiharu",
++  "Chika",
++  "Chisato",
++  "Chiyo",
++  "Chizuru",
++  "Dai",
++  "Daigo",
++  "Daisuke",
++  "Eiji",
++  "Eiko",
++  "Eita",
++  "Eri",
++  "Fubuki",
++  "Fumiko",
++  "Fumio",
++  "Fuyumi",
++  "Gen",
++  "Genji",
++  "Genzo",
++  "Haru",
++  "Haruka",
++  "Haruki",
++  "Haruma",
++  "Haruto",
++  "Hideaki",
++  "Hideki",
++  "Hideo",
++  "Hikaru",
++  "Hinata",
++  "Hiro",
++  "Hiroaki",
++  "Hiroki",
++  "Hiromi",
++  "Hiroshi",
++  "Hiroto",
++  "Hitomi",
++  "Honoka",
++  "Hotaru",
++  "Ichika",
++  "Ichiro",
++  "Itsuki",
++  "Izumi",
++  "Jun",
++  "Junichi",
++  "Junko",
++  "Kaede",
++  "Kagari",
++  "Kaho",
++  "Kanna",
++  "Kanon",
++  "Kaori",
++  "Kaoru",
++  "Karin",
++  "Kasumi",
++  "Katsumi",
++  "Katsuo",
++  "Katsuya",
++  "Kazue",
++  "Kazuha",
++  "Kazuki",
++  "Kazuma",
++  "Kazumi",
++  "Kazuo",
++  "Kei",
++  "Keiji",
++  "Keiko",
++  "Keisuke",
++  "Kenta",
++  "Kentaro",
++  "Kiku",
++  "Kirika",
++  "Kiyomi",
++  "Kiyoshi",
++  "Koji",
++  "Kokoro",
++  "Kota",
++  "Kotone",
++  "Kou",
++  "Kouhei",
++  "Kumiko",
++  "Kyoko",
++  "Makoto",
++  "Mami",
++  "Mamoru",
++  "Mana",
++  "Manami",
++  "Mao",
++  "Mari",
++  "Mariko",
++  "Masaki",
++  "Masami",
++  "Masao",
++  "Masaru",
++  "Masashi",
++  "Masato",
++  "Mayu",
++  "Mayuko",
++  "Megumi",
++  "Michi",
++  "Michiko",
++  "Michiru",
++  "Midori",
++  "Mie",
++  "Miharu",
++  "Mikoto",
++  "Mina",
++  "Minako",
++  "Minato",
++  "Minori",
++  "Mio",
++  "Misaki",
++  "Mitsuki",
++  "Mitsuo",
++  "Miwa",
++  "Miyako",
++  "Miyu",
++  "Miyuki",
++  "Mizuki",
++  "Momoka",
++  "Nagi",
++  "Nagisa",
++  "Naho",
++  "Nami",
++  "Nana",
++  "Nanami",
++  "Nao",
++  "Naoki",
++  "Naoko",
++  "Naomi",
++  "Naoto",
++  "Natsuki",
++  "Natsumi",
++  "Natsuo",
++  "Nene",
++  "Niko",
++  "Noboru",
++  "Nobu",
++  "Nobuko",
++  "Noriko",
++  "Osamu",
++  "Rei",
++  "Reika",
++  "Reiko",
++  "Reo",
++  "Riku",
++  "Rika",
++  "Riko",
++  "Ritsu",
++  "Roka",
++  "Rumi",
++  "Runa",
++  "Ruri",
++  "Ryo",
++  "Ryohei",
++  "Ryoko",
++  "Ryoma",
++  "Ryota",
++  "Ryusei",
++  "Saburo",
++  "Sachiko",
++  "Saki",
++  "Sakura",
++  "San",
++  "Sanami",
++  "Saori",
++  "Satoshi",
++  "Satsuki",
++  "Sayuri",
++  "Sei",
++  "Seiji",
++  "Seika",
++  "Seina",
++  "Setsuna",
++  "Shigeru",
++  "Shiki",
++  "Shingo",
++  "Shinya",
++  "Shiori",
++  "Shiro",
++  "Shizuka",
++  "Sho",
++  "Shogo",
++  "Shoko",
++  "Shoma",
++  "Shun",
++  "Shunpei",
++  "Sogen",
++  "Sohma",
++  "Sota",
++  "Sumi",
++  "Sumika",
++  "Sumire",
++  "Susumu",
++  "Taichi",
++  "Taiga",
++  "Taiki",
++  "Taka",
++  "Takao",
++  "Takashi",
++  "Takeo",
++  "Takeshi",
++  "Takumi",
++  "Tamaki",
++  "Tamao",
++  "Tatsuya",
++  "Tetsu",
++  "Tetsuya",
++  "Tomo",
++  "Tomoe",
++  "Tomoko",
++  "Tomomi",
++  "Toru",
++  "Toshiki",
++  "Toshio",
++  "Touka",
++  "Tsugumi",
++  "Tsukasa",
++  "Tsukiko",
++  "Ume",
++  "Umeko",
++  "Wakana",
++  "Yasu",
++  "Yasuko",
++  "Yasuo",
++  "Yoko",
++  "Yori",
++  "Yoriko",
++  "Yoshio",
++  "Yua",
++  "Yui",
++  "Yuina",
++  "Yuji",
++  "Yukari",
++  "Yukiko",
++  "Yukio",
++  "Yuma",
++  "Yume",
++  "Yumeko",
++  "Yumi",
++  "Yuna",
++  "Yuri",
++  "Yuriko",
++  "Yusuke",
++  "Yuto",
++  "Yuya",
++  "Zen"
+ ];
+ 
+ export const SURNAMES = [
+-  "Amagiri", "Kurosawa", "Hyodo", "Shirane", "Akatsuchi", "Yugure",
+-  "Nanase", "Sakaki", "Tsukino", "Hazama", "Reikan", "Momochi",
++  "Amagiri",
++  "Kurosawa",
++  "Hyodo",
++  "Shirane",
++  "Akatsuchi",
++  "Yugure",
++  "Nanase",
++  "Sakaki",
++  "Tsukino",
++  "Hazama",
++  "Reikan",
++  "Momochi",
++  "Aizawa",
++  "Akabane",
++  "Akamine",
++  "Akiyama",
++  "Amamiya",
++  "Ando",
++  "Aoki",
++  "Arakawa",
++  "Arashi",
++  "Asakura",
++  "Ashikaga",
++  "Ayakawa",
++  "Chiba",
++  "Chigusa",
++  "Date",
++  "Endo",
++  "Fujihara",
++  "Fujikawa",
++  "Fujimoto",
++  "Fujimura",
++  "Fujisaki",
++  "Fujiwara",
++  "Fukuda",
++  "Fukumori",
++  "Fushimi",
++  "Futaba",
++  "Goto",
++  "Hagiwara",
++  "Hamada",
++  "Hasegawa",
++  "Hashiba",
++  "Hashimoto",
++  "Hattori",
++  "Hayashi",
++  "Higure",
++  "Hino",
++  "Hirano",
++  "Hoshikawa",
++  "Hoshino",
++  "Ichihara",
++  "Ichikawa",
++  "Ichinose",
++  "Igarashi",
++  "Ikeda",
++  "Imagawa",
++  "Inaba",
++  "Inoue",
++  "Ishida",
++  "Ishihara",
++  "Ishikawa",
++  "Iwasaki",
++  "Izawa",
++  "Kagawa",
++  "Kageyama",
++  "Kajita",
++  "Kamata",
++  "Kaneko",
++  "Kanzaki",
++  "Kasai",
++  "Kashiwagi",
++  "Kato",
++  "Kawaguchi",
++  "Kawahara",
++  "Kawamura",
++  "Kawano",
++  "Kazehara",
++  "Kikuchi",
++  "Kisaragi",
++  "Kitagawa",
++  "Kitamura",
++  "Kiyokawa",
++  "Kobayashi",
++  "Kodama",
++  "Kogane",
++  "Kondo",
++  "Kujo",
++  "Kurihara",
++  "Kusunoki",
++  "Makino",
++  "Masuda",
++  "Matsubara",
++  "Matsuda",
++  "Matsumoto",
++  "Matsunaga",
++  "Matsuo",
++  "Mikami",
++  "Minami",
++  "Minazuki",
++  "Minegishi",
++  "Mishima",
++  "Mitsuhashi",
++  "Miyahara",
++  "Miyamoto",
++  "Miyazaki",
++  "Mochizuki",
++  "Mori",
++  "Morikawa",
++  "Morimoto",
++  "Morino",
++  "Mukai",
++  "Murakami",
++  "Murata",
++  "Nagano",
++  "Nagase",
++  "Nagata",
++  "Nakagawa",
++  "Nakahara",
++  "Nakajima",
++  "Nakamura",
++  "Nakano",
++  "Naruse",
++  "Nishida",
++  "Nishimura",
++  "Nishino",
++  "Nomura",
++  "Obara",
++  "Ogata",
++  "Ogawa",
++  "Ohara",
++  "Okabe",
++  "Okada",
++  "Okamoto",
++  "Okazaki",
++  "Okazawa",
++  "Oshima",
++  "Otori",
++  "Otsuka",
++  "Ozaki",
++  "Saegusa",
++  "Saeki",
++  "Sagara",
++  "Saionji",
++  "Sakamoto",
++  "Sakurai",
++  "Sanada",
++  "Sasaki",
++  "Sato",
++  "Sawada",
++  "Senba",
++  "Shibata",
++  "Shibasaki",
++  "Shimada",
++  "Shimizu",
++  "Shinohara",
++  "Shirakawa",
++  "Shishido",
++  "Sugawara",
++  "Sugimoto",
++  "Sugiyama",
++  "Suzuki",
++  "Tachibana",
++  "Takada",
++  "Takagi",
++  "Takahashi",
++  "Takamori",
++  "Takeda",
++  "Takigawa",
++  "Tamura",
++  "Tanabe",
++  "Tanaka",
++  "Terada",
++  "Tokuda",
++  "Tokunaga",
++  "Toyama",
++  "Tsuda",
++  "Tsukihara",
++  "Uchida",
++  "Ueda",
++  "Uehara",
++  "Ueno",
++  "Uesugi",
++  "Usui",
++  "Wakabayashi",
++  "Watanabe",
++  "Yagami",
++  "Yamada",
++  "Yamagata",
++  "Yamagishi",
++  "Yamaguchi",
++  "Yamamoto",
++  "Yamashita",
++  "Yanagi",
++  "Yanagida",
++  "Yasuda",
++  "Yoshida",
++  "Yoshikawa",
++  "Yoshimura",
++  "Yukimura"
+ ];
+ 
+ export const CLANS = [
+--- a/src/game/engine.ts
++++ b/src/game/engine.ts
+@@ -1,9 +1,10 @@
++import { clanRecruitChance, kekkeiRecruitChance, legendScoutChance, recruitName } from "./recruitment";
+ import type { Bld, Ev, GameState, Mission, NinRank, Ninja, Rank, Skill, VillageTechId } from "./types";
+ import {
+   AP_BASE, BAND_COLORS, BUILDINGS, CLANS, DOJO_CHANCE, DOJO_XP_DAY, EAT_PER_DAY,
+   FARM_RICE, FATIGUE_PER_DAY_OUT, HAIR_COLORS, MISSION_CAP, MISSION_MIN_RANK,
+-  MISSION_TEMPLATES, NATURE_META, NINJA_NAMES, OUTFIT_COLORS, RANK_META, REPAIR_COST,
+-  REST_PER_DAY, SCOUT_COST, SHRINE_REST, SKILLS, SKILL_META, SKIN_TONES, SURNAMES, TEA_GOLD,
++  MISSION_TEMPLATES, NATURE_META, OUTFIT_COLORS, RANK_META, REPAIR_COST,
++  REST_PER_DAY, SCOUT_COST, SHRINE_REST, SKILLS, SKILL_META, SKIN_TONES, TEA_GOLD,
+   TRAIT_IDS, TRAIT_META, TECH_BY_ID, nextRank, rankIndex,
+ } from "./content";
+ import type { Nature, ReportLine, ReportXp } from "./types";
+@@ -61,7 +62,7 @@
+ function rollTraits(s: GameState, pot: number, legendId?: string): import("./types").TraitId[] {
+   const common = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "common");
+   const uncommon = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "uncommon");
+-  const rare = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "rare" && id !== "dojutsuPotential" && (id !== "kekkeiTalent" || pot >= 4));
++  const rare = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "rare" && id !== "dojutsuPotential" && id !== "kekkeiTalent");
+   const unique = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "unique");
+   const count = pot >= 5 ? 3 : pot >= 3 ? 2 : 1;
+   const out: import("./types").TraitId[] = [];
+@@ -76,8 +77,7 @@
+   // Clan/bloodline uniques are genuine scouting jackpots. Only ordinary recruits roll them,
+   // and no normal recruit can receive more than one UNIQUE trait.
+   if (!legendId && unique.length) {
+-    const uniqueChance = (pot >= 5 ? 0.090 : pot >= 4 ? 0.052 : pot >= 3 ? 0.020 : pot >= 2 ? 0.004 : 0)
+-      + (hasTech(s, "hall_elite_recruitment") ? 0.012 : 0);
++    const uniqueChance = clanRecruitChance(s, pot);
+     if (Math.random() < uniqueChance) {
+       const candidates = unique.filter((id) => pot >= 5 || !MYTHIC_UNIQUE_TRAITS.has(id));
+       let total = candidates.reduce((sum, id) => sum + uniqueTraitWeight(id), 0);
+@@ -87,6 +87,7 @@
+       if (chosen) add(chosen);
+     }
+   }
++  if (!legendId && Math.random() < kekkeiRecruitChance(s, pot)) add("kekkeiTalent");
+   while (out.length < count) {
+     const r = Math.random();
+     const rareChance = Math.min(0.6, (pot >= 5 ? 0.28 : pot >= 4 ? 0.16 : pot >= 3 ? 0.07 : 0.02) + (hasTech(s, "hall_elite_recruitment") ? 0.10 : 0));
+@@ -211,10 +212,9 @@
+ 
+ /* ---------------- generation ---------------- */
+ 
+-export function makeNinja(s: GameState, elite = false, legendId?: string): Ninja {
+-  const used = new Set(s.ninjas.map((n) => n.name.split(" ")[0]));
+-  const pool = NINJA_NAMES.filter((n) => !used.has(n));
+-  const first = pool.length ? pick(pool) : pick(NINJA_NAMES);
++export function makeNinja(s: GameState, elite = false, legendId?: string, reserved: Ninja[] = []): Ninja {
++  const roster = [...s.ninjas, ...reserved];
++  const name = recruitName(roster.map(n => n.name));
+   let nature = pick(Object.keys(NATURE_META)) as Nature;
+   const legend = legendId ? LEGENDS[legendId] : null;
+   let pot = legend?.pot ?? ri(1, 5);
+@@ -257,7 +257,7 @@
+   }
+   if (legend) for (const k of SKILLS) { sk[k] += legend.bonus[k] ?? 0; if (legend.bonus[k]) growth[k] = Math.max(growth[k], 1.45); }
+   const n: Ninja = {
+-    id: s.nextId++, name: `${first} ${pick(SURNAMES)}`, seed: Math.random(),
++    id: s.nextId++, name, seed: Math.random(),
+     look: { hair: ri(0, 7), hairColor: ri(0, HAIR_COLORS.length - 1), skin: ri(0, SKIN_TONES.length - 1), eyes: ri(0, 5), mark: ri(0, 4), outfit: ri(0, OUTFIT_COLORS.length - 1), band: ri(0, BAND_COLORS.length - 1), acc: ri(0, 3), build: ri(0, 2) },
+     nature, secondaryNature, traits, rank: "genin", level: 1, xp: 0, sp: 0, pot, s: sk, growth,
+     dojutsuAwakening: legendId === "doujutsu" ? "legend" : traitIdsHaveDojutsu(traits) ? "bloodline" : null,
+@@ -267,7 +267,7 @@
+   // Uniform draw WITHOUT replacement: every unused portrait is equally likely
+   // and no two recruits share art until the pool is exhausted.
+   const usedArt = new Set<number>();
+-  for (const m of s.ninjas) usedArt.add(ninjaArtId(m));
++  for (const m of roster) usedArt.add(ninjaArtId(m));
+   const freeArt = GENERAL_ART_IDS.filter((artId) => !usedArt.has(artId));
+   if (freeArt.length) n.portrait = freeArt[Math.floor(Math.random() * freeArt.length)];
+   return n;
+@@ -564,11 +564,13 @@
+   // a rare unique shinobi may be among the hopefuls — never one you already hold
+   const owned = new Set(s.ninjas.map((n) => n.legend).filter(Boolean) as string[]);
+   const available = SCOUT_LEGEND_IDS.filter((id) => !owned.has(id));
+-  const chance = Math.min(0.60, 0.1 + s.day * 0.012 + s.b.hall * 0.04 + (hasTech(s, "hall_elite_recruitment") ? 0.06 : 0) + (hasTech(s, "tea_black_market") ? 0.06 : 0));
++  const chance = legendScoutChance(s);
+   const legendId = available.length && Math.random() < chance ? pickScoutLegend(available) : null;
+   const slot = Math.floor(Math.random() * 3);
+ 
+-  s.scout = [0, 1, 2].map((i) => makeNinja(s, false, legendId && i === slot ? legendId : undefined));
++  const hopefuls: Ninja[] = [];
++  for (let i = 0; i < 3; i++) hopefuls.push(makeNinja(s, false, legendId && i === slot ? legendId : undefined, hopefuls));
++  s.scout = hopefuls;
+   if (legendId) ev.push({ type: "legend_found", legend: legendId });
+   ev.push({ type: "scout" });
+   return true;
+--- a/src/game/jutsu.ts
++++ b/src/game/jutsu.ts
+@@ -1,3 +1,4 @@
++import { EXPANSION_CLAN_JUTSU } from "./clanExpansion";
+ import type { Nature, Ninja, TraitId } from "./types";
+ 
+ export type JutsuTarget = "foe" | "all_foes" | "ally" | "all_allies" | "self";
+@@ -308,8 +309,8 @@
+   ]),
+   ...R("boneBloodline", "Bone Arsenal", "dance", "Dance", "Speed / critical blade forms", "ken", [
+     { id: "bone_dance_step", name: "Bone Dance Step", levelReq: 1, chakra: 5, power: 0, target: "self", effect: "crit", effectValue: 6, desc: "A fluid bone-blade stance improves tempo." },
+-    { id: "bone_camellia", name: "Camellia Dance", levelReq: 3, chakra: 11, power: 1.05, target: "foe", effect: "bleed", effectValue: 12, desc: "Fast bone-sword assault with critical pressure." },
+-    { id: "bone_funeral_dance", name: "Funeral Dance", levelReq: 8, chakra: 18, power: 1.42, target: "foe", effect: "bleed", effectValue: 20, desc: "Deep Dance technique: lethal close-range bone combat." },
++    { id: "bone_camellia", name: "Camellia Dance", levelReq: 3, chakra: 11, power: 1.05, target: "foe", effect: "bleed", effectValue: 2, desc: "Fast bone-sword assault with critical pressure." },
++    { id: "bone_funeral_dance", name: "Funeral Dance", levelReq: 8, chakra: 18, power: 1.42, target: "foe", effect: "bleed", effectValue: 3, desc: "Deep Dance technique: lethal close-range bone combat." },
+   ]),
+ 
+   ...R("shadowBinder", "Shadow Binding", "snare", "Snare", "Stun / lockdown", "gen", [
+@@ -1378,7 +1379,7 @@
+   { id: "clan_mindLinkClan_probe_3", name: "Mind Destruction Technique", levelReq: 16, chakra: 19, power: 1.52, target: "foe", effect: "crit", desc: "Mind Destruction Technique · mindLinkClan clan specialisation.", effectValue: 18, executeBelow: 0.28, requiresTrait: "mindLinkClan", style: "Yamanaka Mind Arts", path: "probe", pathLabel: "Probe", pathSummary: "Slow / damage through information", tier: 3, stat: "gen" },
+   { id: "clan_mindLinkClan_clarity_3", name: "Collective Mind Restoration", levelReq: 16, chakra: 19, power: 0, target: "all_allies", effect: "cleanse", desc: "Collective Mind Restoration · mindLinkClan clan specialisation.", allyHealPct: 0.22, requiresTrait: "mindLinkClan", style: "Yamanaka Mind Arts", path: "clarity", pathLabel: "Clarity", pathSummary: "Cleanse / recovery", tier: 3, stat: "gen" },
+ ];
+-JUTSU.push(...CLAN_JUTSU);
++JUTSU.push(...CLAN_JUTSU, ...EXPANSION_CLAN_JUTSU);
+ 
+ // Specialist techniques deliberately sit above ordinary elemental releases. A rare
+ // shinobi recruited later in the campaign should gain a stronger toolkit, not a
+@@ -1443,8 +1444,8 @@
+ /**
+  * Jutsu access is intentionally exclusive. Ordinary shinobi train their elemental
+  * release. Dual-nature shinobi replace those base releases with their combined
+- * Kekkei tree. Clan/bloodline/sealing specialists replace both with their exclusive
+- * style. Legends use their personal arts (plus a matching bloodline tree if they
++ * Kekkei tree. Clan/bloodline/sealing specialists replace ordinary elements with their
++ * exclusive style while retaining a genuine combined-nature tree. Legends use their personal arts (plus a matching bloodline tree if they
+  * genuinely possess one). This keeps a rare identity from becoming "extra buttons".
+  */
+ export function jutsuForNinja(n: Ninja): JutsuDef[] {
+@@ -1453,6 +1454,7 @@
+   const traits = specialistJutsuTraits(n);
+   return JUTSU.filter((j) => {
+     if (j.requiresLegend != null) return n.legend === j.requiresLegend;
++    if (j.requiresKekkei != null) return pair === j.requiresKekkei;
+     if (traits.length > 0) return j.requiresTrait != null && traits.includes(j.requiresTrait);
+     if (n.legend) return false;
+     if (pair) return j.requiresKekkei != null && j.requiresKekkei === pair;
+--- a/src/game/perks.ts
++++ b/src/game/perks.ts
+@@ -414,6 +414,9 @@
+   shadowborn: "ste", hotblood: "tai", analyst: "gen", medicnin: "med", swift: "spd", wildcard: "nin",
+   bladeborn: "ken", ambidextrous: "ken", tactician: "tac", naturalLeader: "tac", protective: "tac",
+   dojutsuPotential: "doj", sharinganEye: "doj", byakuganEye: "doj", ketsuryuganEye: "doj", rinneganEye: "doj", tenseiganEye: "doj", otsutsukiClan: "doj",
++  kamioriClan: "nin",
++  hibikiClan: "gen",
++  kasumoriClan: "med",
+   shadowBinder: "gen", mindLinkClan: "gen", swarmHost: "ste", boneBloodline: "ken", akimichiClan: "tai", inuzukaClan: "spd", hozukiClan: "nin", yukiClan: "nin", uzumakiClan: "nin", jugoClan: "tai", kuramaClan: "gen", iburiClan: "ste", senjuClan: "med", kamizuruClan: "ste", tsuchigumoClan: "nin", kedoinClan: "ste", woodReleaseBloodline: "nin", scout: "ste", infiltrator: "ste", elementalsavant: "nin",
+   combatmedic: "med", formationcaptain: "tac", weaponadept: "ken", chakramonster: "nin",
+ };
+@@ -710,7 +713,7 @@
+ 
+ export const LEGENDS: Record<string, Legend> = {
+   jinchuriki: {
+-    id: "jinchuriki", title: "Jinchūriki", epithet: "the Sealed Beast", color: "#ff7a3d",
++    id: "jinchuriki", scoutWeight: 0.25, title: "Jinchūriki", epithet: "the Sealed Beast", color: "#ff7a3d",
+     blurb: "A tailed beast sleeps behind the seal. Terrifying reserves, terrifying risk.",
+     bonus: { tai: 8, nin: 9 }, pot: 5,
+     perk: mk("lg_beastcloak", "Beast Cloak", "", "#ff7a3d",
+@@ -1046,6 +1049,9 @@
+       case "executioner": out.atk *= 1.05; out.critMult += 0.20; break;
+       case "sealingExpert": out.cp *= 1.12; out.missionBonus += 0.05; break;
+       case "boneBloodline": out.hp *= 1.18; out.def *= 1.12; out.counter += 0.08; break;
++      case "kamioriClan": out.cp *= 1.12; out.jutsu *= 1.08; break;
++      case "hibikiClan": out.dodge += 0.05; break;
++      case "kasumoriClan": out.hp *= 1.10; out.cp *= 1.10; break;
+       case "shadowBinder": out.missionBonus += 0.06; out.dodge += 0.05; break;
+       case "swarmHost": out.cp *= 1.10; out.dodge += 0.04; out.missionBonus += 0.04; break;
+       case "crystalRelease": out.def *= 1.15; out.jutsu *= 1.10; break;
+--- /dev/null
++++ b/src/game/recruitment.ts
+@@ -0,0 +1,26 @@
++import type { GameState } from "./types";
++import { NINJA_NAMES, SURNAMES } from "./content";
++export function clanRecruitChance(s: Pick<GameState, "techs">, pot: number): number {
++  return [0.10, 0.16, 0.22, 0.28, 0.34][Math.max(0, Math.min(4, pot - 1))] + (s.techs.includes("hall_elite_recruitment") ? 0.04 : 0);
++}
++export function kekkeiRecruitChance(s: Pick<GameState, "techs">, pot: number): number {
++  return (pot >= 4 ? 0.12 : 0.08) + (s.techs.includes("hall_elite_recruitment") ? 0.02 : 0);
++}
++/** Per three candidates. Elapsed days never inflate legendary recruitment. */
++export function legendScoutChance(s: Pick<GameState, "techs" | "b">): number {
++  return Math.min(0.06, 0.02 + Math.min(2, Math.max(0, s.b.hall - 1)) * 0.005 + (s.techs.includes("hall_elite_recruitment") ? 0.02 : 0) + (s.techs.includes("tea_black_market") ? 0.01 : 0));
++}
++export function recruitName(existing: readonly string[], random = Math.random): string {
++  const used = new Set(existing), firsts = new Set(existing.map(n => n.split(" ")[0]));
++  const fresh = NINJA_NAMES.filter(n => !firsts.has(n)), pool = fresh.length ? fresh : NINJA_NAMES;
++  const first = pool[Math.floor(random() * pool.length)], start = Math.floor(random() * SURNAMES.length);
++  for (let i = 0; i < SURNAMES.length; i++) {
++    const name = `${first} ${SURNAMES[(start + i) % SURNAMES.length]}`;
++    if (!used.has(name)) return name;
++  }
++  for (const given of NINJA_NAMES) for (const surname of SURNAMES) {
++    const name = `${given} ${surname}`; if (!used.has(name)) return name;
++  }
++  let suffix = 2; while (used.has(`${first} ${SURNAMES[start]} ${suffix}`)) suffix++;
++  return `${first} ${SURNAMES[start]} ${suffix}`;
++}
+--- a/src/game/save.ts
++++ b/src/game/save.ts
+@@ -1,3 +1,4 @@
++import { ensureSummonState } from "./summons";
+ import type { GameState } from "./types";
+ import { hasDojutsuBloodline } from "./clanBloodlines";
+ import { ensureBingoState } from "./bingo";
+@@ -82,6 +83,7 @@
+     if (!Array.isArray(state.reports)) state.reports = [];
+     if (state.phase === "menu") state.phase = "playing";
+     ensureBingoState(state);
++    ensureSummonState(state);
+ 
+     return {
+       version: typeof parsed.version === "number" ? parsed.version : SAVE_VERSION,
+--- /dev/null
++++ b/src/game/statusDamage.ts
+@@ -0,0 +1,18 @@
++import type { JutsuDef } from "./jutsu";
++import type { Unit } from "./types";
++export type DamageOverTime = "burn" | "poison" | "bleed";
++export function isDamageOverTime(effect: string): effect is DamageOverTime { return effect === "burn" || effect === "poison" || effect === "bleed"; }
++export function statusTickDamage(effect: DamageOverTime, stat: number, power = 1, area = false, burnAmp = 1): number {
++  const coefficient = { burn: 0.55, poison: 0.45, bleed: 0.50 }[effect];
++  return Math.max(1, Math.round((5 + Math.max(0, stat) * coefficient) * Math.max(0, power) * (area ? 0.65 : 1) * (effect === "burn" ? burnAmp : 1)));
++}
++export function jutsuAttackStat(u: Unit, j: JutsuDef): number {
++  if (j.stat === "ste") return u.ste ?? u.nin;
++  return j.stat ? u[j.stat] : u.nin;
++}
++export function jutsuStatusPreview(u: Unit, j: JutsuDef): string | null {
++  if (!isDamageOverTime(j.effect) || j.passive) return null;
++  const damage = statusTickDamage(j.effect, jutsuAttackStat(u, j), u.jutsuPower, j.target === "all_foes", u.jutsuBurnAmp ?? 1);
++  const rounds = (j.effectValue ?? 2) + (j.effect === "burn" ? u.jutsuBurnRoundsBonus ?? 0 : 0);
++  return `${j.effect.toUpperCase()}: ${damage} HP/round for ${rounds} rounds. Ignores defence and guard; summon shields reduce ticks. Reapplication keeps the stronger tick and longer duration.`;
++}
+--- /dev/null
++++ b/src/game/summons.ts
+@@ -0,0 +1,358 @@
++import type { GameState, Ninja } from "./types";
++
++/**
++ * Animal summons — a third progression axis alongside gear and Jutsu.
++ *
++ * The design problem: a summon that just adds stats is a second equipment
++ * slot, and a summon you spend chakra to activate is a second Jutsu. Summons
++ * instead run on **interventions**: a once-per-battle effect that fires
++ * automatically the moment its trigger condition is met, without consuming the
++ * ninja's turn or any chakra.
++ *
++ * That makes them the only system in the game that acts on your behalf. You
++ * choose a summon for the situation it rescues you from rather than for a
++ * number it adds, and two ninjas with identical gear and Jutsu can still play
++ * very differently depending on the pact they carry.
++ *
++ * Each summon also carries a small always-on bond, so an unspent intervention
++ * is never a wasted slot.
++ */
++
++export type SummonRarity = "common" | "rare" | "epic" | "legendary";
++
++/** When the once-per-battle intervention fires. */
++export type SummonTrigger =
++  | "battle_start"      // immediately, before the first turn
++  | "bonded_low_hp"     // the bonded ninja drops below 35% HP
++  | "bonded_fatal"      // a blow would kill the bonded ninja
++  | "ally_fallen"       // any ally is knocked out
++  | "chakra_empty"      // the bonded ninja is at or below 25% chakra
++  | "round_three";      // start of round 3
++
++/** What the intervention does when it fires. */
++export type SummonEffect =
++  | "shield"            // grant temporary damage reduction to the whole party
++  | "heal_bonded"       // restore HP to the bonded ninja
++  | "revive"            // cancel the fatal blow and leave them at low HP
++  | "restore_chakra"    // refill part of the bonded ninja's chakra
++  | "strike_all"        // the summon attacks every enemy
++  | "strike_one"        // the summon attacks the strongest enemy
++  | "cleanse_party"     // clear all debuffs and illusions from your side
++  | "haste_party";      // party-wide speed and extra-turn surge
++
++export interface SummonDef {
++  id: string;
++  name: string;
++  species: string;
++  /** Filename stem under /summons. */
++  art: string;
++  kanji: string;
++  rarity: SummonRarity;
++  /** Accent colour used by the portrait badge and cards. */
++  tint: string;
++  trigger: SummonTrigger;
++  effect: SummonEffect;
++  /** Effect magnitude; meaning depends on `effect`. */
++  power: number;
++  /** Rounds the effect persists, where that applies. */
++  rounds?: number;
++  /** Always-on bond, applied while the summon is equipped. */
++  bond: {
++    atk?: number;
++    def?: number;
++    spd?: number;
++    hp?: number;
++    cp?: number;
++    crit?: number;
++    dodge?: number;
++    regen?: number;
++    jutsuPower?: number;
++  };
++  bondText: string;
++  appearance: string;
++  flavour: string;
++}
++
++export const SUMMON_RARITY_META: Record<SummonRarity, { name: string; color: string; weight: number; rank: number; border: string }> = {
++  common: { name: "Common", color: "#b9bec8", border: "#727986", weight: 50, rank: 1 },
++  rare: { name: "Rare", color: "#67b8ff", border: "#3488ce", weight: 30, rank: 2 },
++  epic: { name: "Epic", color: "#cf7cff", border: "#924fc1", weight: 15, rank: 3 },
++  legendary: { name: "Legendary", color: "#ffd35d", border: "#d19c22", weight: 5, rank: 4 },
++};
++
++export const SUMMONS: SummonDef[] = [
++  {
++    id: "sum_toad", name: "Gamaza", species: "Battle Toad", art: "toad", kanji: "",
++    rarity: "common", tint: "#e2762f",
++    trigger: "bonded_low_hp", effect: "shield", power: 0.35, rounds: 2,
++    bond: { hp: 1.08, def: 1.06 },
++    bondText: "+8% max HP · +6% DEF",
++    appearance: "A broad orange-and-brown toad in a faded blue haori, a notched staff held across its lap.",
++    flavour: "Contract toads are stubborn, unhurried and famously hard to move. Gamaza treats a losing fight as a personal insult.",
++  },
++  {
++    id: "sum_hawk", name: "Shirakaze", species: "Scout Hawk", art: "hawk", kanji: "",
++    rarity: "common", tint: "#c8a86a",
++    trigger: "battle_start", effect: "haste_party", power: 0.18, rounds: 2,
++    bond: { spd: 1.10, crit: 0.03 },
++    bondText: "+10% SPD · +3pp crit",
++    appearance: "A brown-and-white hawk with barred wings and hard golden eyes, already half-launched from the branch.",
++    flavour: "Sent up before the first exchange, Shirakaze reads the enemy line and screams the opening down to the squad.",
++  },
++  {
++    id: "sum_wolf", name: "Kiba", species: "Tracking Wolf", art: "wolf", kanji: "",
++    rarity: "common", tint: "#9aa4b0",
++    trigger: "ally_fallen", effect: "strike_one", power: 1.45,
++    bond: { atk: 1.07, spd: 1.05 },
++    bondText: "+7% ATK · +5% SPD",
++    appearance: "A lean grey wolf in a low hunting crouch, pale blue eyes fixed forward.",
++    flavour: "Pack law is simple. Something took one of ours, so something is about to be taken apart.",
++  },
++  {
++    id: "sum_serpent", name: "Murasaki", species: "Venom Serpent", art: "serpent", kanji: "",
++    rarity: "rare", tint: "#8f6ac4",
++    trigger: "round_three", effect: "strike_all", power: 0.72,
++    bond: { atk: 1.06, jutsuPower: 1.08 },
++    bondText: "+6% ATK · +8% Jutsu power",
++    appearance: "A thick violet-black serpent coiled on itself, head raised, amber eyes unblinking.",
++    flavour: "Murasaki waits. She lets the fight settle into a rhythm, and then she breaks it across the whole enemy line.",
++  },
++  {
++    id: "sum_monkey", name: "Enma", species: "War Monkey", art: "monkey", kanji: "",
++    rarity: "rare", tint: "#c4483a",
++    trigger: "bonded_low_hp", effect: "strike_all", power: 0.85,
++    bond: { atk: 1.10, def: 1.04 },
++    bondText: "+10% ATK · +4% DEF",
++    appearance: "A red-faced monkey with corded shoulders, gripping a worn hardwood staff in both hands.",
++    flavour: "Enma does not believe in defensive fighting. If his partner is bleeding, the correct response is to hit everything at once.",
++  },
++  {
++    id: "sum_turtle", name: "Genbu", species: "Stone Tortoise", art: "turtle", kanji: "",
++    rarity: "rare", tint: "#6f8a63",
++    trigger: "battle_start", effect: "shield", power: 0.28, rounds: 3,
++    bond: { hp: 1.14, def: 1.12, spd: 0.95 },
++    bondText: "+14% max HP · +12% DEF · −5% SPD",
++    appearance: "An ancient tortoise under a moss-grown shell of overlapping stone plates.",
++    flavour: "Genbu arrives slowly and leaves slowly, and in between very little gets through.",
++  },
++  {
++    id: "sum_beetle", name: "Kabuto", species: "Iron Beetle", art: "beetle", kanji: "",
++    rarity: "rare", tint: "#5f7a4a",
++    trigger: "chakra_empty", effect: "restore_chakra", power: 0.45,
++    bond: { def: 1.09, cp: 1.10 },
++    bondText: "+9% DEF · +10% max chakra",
++    appearance: "A armoured beetle the size of a shield, carapace shot through with green and bronze iridescence.",
++    flavour: "The hive stores chakra the way other colonies store honey, and Kabuto is generous with the reserve.",
++  },
++  {
++    id: "sum_crane", name: "Sagiri", species: "Medical Crane", art: "crane", kanji: "",
++    rarity: "epic", tint: "#e8d6da",
++    trigger: "bonded_low_hp", effect: "heal_bonded", power: 0.42,
++    bond: { hp: 1.06, regen: 3 },
++    bondText: "+6% max HP · regenerate 3 HP per round",
++    appearance: "A white crane with a scarlet crown, wings held part-open above long dark legs.",
++    flavour: "Sagiri does not fight. She descends when the bleeding starts, and the field medics have long since stopped arguing with her.",
++  },
++  {
++    id: "sum_boar", name: "Inoshishi", species: "War Boar", art: "boar", kanji: "",
++    rarity: "epic", tint: "#8a5a3c",
++    trigger: "round_three", effect: "strike_one", power: 2.10,
++    bond: { atk: 1.14, hp: 1.05, dodge: -0.03 },
++    bondText: "+14% ATK · +5% max HP · −3pp dodge",
++    appearance: "A bristling black boar in strapped plate barding, tusks scarred and head already lowered.",
++    flavour: "A charge with a long wind-up and no brakes. Inoshishi picks the biggest thing on the field and removes it.",
++  },
++  {
++    id: "sum_fox", name: "Byakko", species: "Spirit Fox", art: "fox", kanji: "",
++    rarity: "legendary", tint: "#d8c8ee",
++    trigger: "bonded_fatal", effect: "revive", power: 0.40,
++    bond: { cp: 1.12, jutsuPower: 1.10, dodge: 0.04 },
++    bondText: "+12% max chakra · +10% Jutsu power · +4pp dodge",
++    appearance: "A white fox trailing many luminous tails, pale violet fox-fire drifting from each one.",
++    flavour: "The oldest pacts are not written down. Byakko simply decides that today is not the day, and the wound closes.",
++  },
++];
++
++export const SUMMON_BY_ID: Record<string, SummonDef> = Object.fromEntries(SUMMONS.map((x) => [x.id, x]));
++
++const _ids = SUMMONS.map((x) => x.id);
++if (new Set(_ids).size !== _ids.length) throw new Error("Duplicate summon id detected");
++
++export const SUMMON_TRIGGER_TEXT: Record<SummonTrigger, string> = {
++  battle_start: "at the start of the battle",
++  bonded_low_hp: "the first time the bonded ninja drops below 35% HP",
++  bonded_fatal: "the first time a blow would kill the bonded ninja",
++  ally_fallen: "the first time any ally is knocked out",
++  chakra_empty: "the first time the bonded ninja falls below 25% chakra",
++  round_three: "at the start of round 3",
++};
++
++/** Plain-language mechanics, generated from the same numbers combat uses. */
++export function summonMechanics(x: SummonDef): string {
++  const t = SUMMON_TRIGGER_TEXT[x.trigger];
++  const r = x.rounds ?? 0;
++  let effect: string;
++  switch (x.effect) {
++    case "shield":
++      effect = `the whole squad takes ${Math.round(x.power * 100)}% less damage for ${r} rounds`;
++      break;
++    case "heal_bonded":
++      effect = `the bonded ninja recovers ${Math.round(x.power * 100)}% of their max HP`;
++      break;
++    case "revive":
++      effect = `the killing blow is cancelled and the ninja survives at ${Math.round(x.power * 100)}% HP`;
++      break;
++    case "restore_chakra":
++      effect = `the bonded ninja recovers ${Math.round(x.power * 100)}% of their max chakra`;
++      break;
++    case "strike_all":
++      effect = `the summon attacks every enemy for ${x.power.toFixed(2)}× power`;
++      break;
++    case "strike_one":
++      effect = `the summon attacks the strongest enemy for ${x.power.toFixed(2)}× power`;
++      break;
++    case "cleanse_party":
++      effect = "every debuff and illusion on your side is cleared";
++      break;
++    case "haste_party":
++      effect = `the squad gains +${Math.round(x.power * 100)}% SPD for ${r} rounds`;
++      break;
++  }
++  return `INTERVENTION — once per battle, ${t}, ${effect}. This costs no chakra and does not use the ninja's turn. BOND — ${x.bondText}, active whenever the summon is equipped.`;
++}
++
++/* ---------------------------------------------------------------- state */
++
++export interface SummonState {
++  /** Owned summon ids and how many copies of each. */
++  inventory: Record<string, number>;
++  recent: string[];
++  totalPulls: number;
++  /** Pity counter: pulls since the last epic or better. */
++  sinceEpic: number;
++}
++
++type SummonCarrier = { summonId?: string | null };
++type SummonGameState = GameState & { summons?: SummonState };
++
++export function ensureSummonState(s: GameState): SummonState {
++  const st = s as SummonGameState;
++  if (!st.summons) st.summons = { inventory: {}, recent: [], totalPulls: 0, sinceEpic: 0 };
++  if (!st.summons.inventory || typeof st.summons.inventory !== "object") st.summons.inventory = {};
++  if (!Array.isArray(st.summons.recent)) st.summons.recent = [];
++  if (typeof st.summons.totalPulls !== "number") st.summons.totalPulls = 0;
++  if (typeof st.summons.sinceEpic !== "number") st.summons.sinceEpic = 0;
++  return st.summons;
++}
++
++/** The summon bonded to this ninja, if any. */
++export function equippedSummon(n: Ninja): SummonDef | null {
++  const id = (n as Ninja & SummonCarrier).summonId;
++  return id ? SUMMON_BY_ID[id] ?? null : null;
++}
++
++export function summonBondedCount(s: GameState, summonId: string): number {
++  return s.ninjas.reduce((sum, n) => sum + ((n as Ninja & SummonCarrier).summonId === summonId ? 1 : 0), 0);
++}
++
++export function summonAvailableCount(s: GameState, summonId: string): number {
++  const owned = ensureSummonState(s).inventory[summonId] ?? 0;
++  return Math.max(0, owned - summonBondedCount(s, summonId));
++}
++
++/**
++ * A summon can serve one ninja at a time. Unlike equipment, which is
++ * deliberately unrestricted, a pact is exclusive — that exclusivity is what
++ * makes choosing who carries the Spirit Fox an actual decision.
++ */
++export function bondSummon(s: GameState, n: Ninja, summonId: string): boolean {
++  if (!canChangeSummon(s, n)) return false;
++  if (!SUMMON_BY_ID[summonId]) return false;
++  const carrier = n as Ninja & SummonCarrier;
++  if (carrier.summonId === summonId) return true;
++  if (summonAvailableCount(s, summonId) <= 0) return false;
++  carrier.summonId = summonId;
++  return true;
++}
++
++export function canChangeSummon(s: GameState, n: Ninja): boolean {
++  return s.ninjas.includes(n) && ["playing", "paused"].includes(s.phase) && n.status === "ready";
++}
++export function releaseSummon(s: GameState, n: Ninja): boolean {
++  if (!canChangeSummon(s, n)) return false;
++  (n as Ninja & SummonCarrier).summonId = null;
++  return true;
++}
++
++/* ---------------------------------------------------------------- gacha */
++
++export const SUMMON_PULL_GOLD = 260;
++export const SUMMON_PULL_RICE = 130;
++export const SUMMON_PACKS = [
++  { pulls: 1 as const, discount: 0, label: "1 PACT" },
++  { pulls: 5 as const, discount: 0.10, label: "5 PACTS" },
++] as const;
++
++/**
++ * Summon pacts are a separate draw from the equipment supply line, with their
++ * own currency cost, their own pity timer and no shared inventory.
++ */
++export function summonPullCost(pulls: 1 | 5, s?: Pick<GameState, "b" | "techs">): { gold: number; rice: number; discount: number } {
++  const pack = SUMMON_PACKS.find((x) => x.pulls === pulls)!;
++  // The Shrine is the spiritual building, so it — not the Forge — discounts pacts.
++  const shrine = s ? Math.min(0.18, (s.b.shrine ?? 0) * 0.06) : 0;
++  const mult = (1 - pack.discount) * (1 - shrine);
++  return {
++    gold: Math.round(SUMMON_PULL_GOLD * pulls * mult),
++    rice: Math.round(SUMMON_PULL_RICE * pulls * mult),
++    discount: 1 - mult,
++  };
++}
++
++function rollSummonRarity(pity: number): SummonRarity {
++  // Hard pity at 12 draws without an epic or better, so a long unlucky run
++  // still terminates. The equipment gacha has no pity; this one does because
++  // there are only ten summons and duplicates are far more visible.
++  if (pity >= 11) return Math.random() < 0.25 ? "legendary" : "epic";
++  let r = Math.random() * 100;
++  for (const rarity of ["legendary", "epic", "rare", "common"] as SummonRarity[]) {
++    const w = SUMMON_RARITY_META[rarity].weight;
++    if (r < w) return rarity;
++    r -= w;
++  }
++  return "common";
++}
++
++export function pullSummons(s: GameState, pulls: 1 | 5): { ok: boolean; error?: string; items: SummonDef[]; newIds: string[] } {
++  if (![1, 5].includes(pulls) || s.phase !== "playing") return { ok: false, error: "Resume village play before drawing pacts.", items: [], newIds: [] };
++  const cost = summonPullCost(pulls, s);
++  if (s.ap < 1) return { ok: false, error: "No actions remaining today.", items: [], newIds: [] };
++  if (s.gold < cost.gold) return { ok: false, error: `Need ${cost.gold.toLocaleString()} gold.`, items: [], newIds: [] };
++  if (s.rice < cost.rice) return { ok: false, error: `Need ${cost.rice.toLocaleString()} rice.`, items: [], newIds: [] };
++
++  const st = ensureSummonState(s);
++  s.ap -= 1;
++  s.gold -= cost.gold;
++  s.rice -= cost.rice;
++
++  const items: SummonDef[] = [];
++  const newIds: string[] = [];
++  for (let i = 0; i < pulls; i++) {
++    const rarity = rollSummonRarity(st.sinceEpic);
++    const pool = SUMMONS.filter((x) => x.rarity === rarity);
++    const pick = pool[Math.floor(Math.random() * pool.length)];
++    if (rarity === "epic" || rarity === "legendary") st.sinceEpic = 0;
++    else st.sinceEpic += 1;
++    if (!st.inventory[pick.id]) newIds.push(pick.id);
++    st.inventory[pick.id] = (st.inventory[pick.id] ?? 0) + 1;
++    items.push(pick);
++  }
++  st.totalPulls += pulls;
++  st.recent = [...items.map((x) => x.id).reverse(), ...st.recent].slice(0, 60);
++  return { ok: true, items, newIds };
++}
++
++export function ownedSummonCount(s: GameState): number {
++  const inv = ensureSummonState(s).inventory;
++  return Object.keys(inv).filter((id) => (inv[id] ?? 0) > 0).length;
++}
+--- a/src/game/types.ts
++++ b/src/game/types.ts
+@@ -22,6 +22,7 @@
+   | "naturalLeader" | "patient" | "dutiful" | "proud" | "quickstudy" | "combatmedic"
+   | "formationcaptain" | "weaponadept" | "secondwind" | "surefooted" | "guardbreaker"
+   | "deepreserves" | "counterspecialist" | "chakramonster" | "opportunist"
++  | "kamioriClan" | "hibikiClan" | "kasumoriClan"
+   | "kekkeiTalent"
+   | "battleHardened" | "quickLearner" | "chakraDense" | "precisionFighter" | "stubborn"
+   | "duelist" | "nightOperative" | "calmUnderFire" | "fieldSurvivor" | "missionVeteran"
+@@ -81,6 +82,7 @@
+   techniqueTree?: string[][];
+   /** Jutsu granted by missions/events are free and must not consume shared JP. */
+   jutsuGranted?: string[];
++  summonId?: string | null;
+   /** unlocked tech-tree node ids */
+   perks: string[];
+   /** legendary archetype id, if this is a unique shinobi */
+@@ -176,6 +178,7 @@
+   ken: number;
+   doj: number;
+   tac: number;
++  ste?: number;
+   guard: boolean;
+   stun: number;
+   alive: boolean;
+@@ -196,6 +199,12 @@
+   techniques: string[];      // all learned active Skill/Technique-tree combat arts
+   equipmentSpecial: string | null; // legacy highest-rarity gear technique
+   equipmentSpecials: string[];      // every equipped gear technique shown in Gear submenu
++  summonId?: string | null;
++  summonUsed?: boolean;
++  summonShieldRounds?: number;
++  summonShieldPct?: number;
++  summonHasteRounds?: number;
++  summonHastePct?: number;
+   /** Temporary elemental-jutsu battle states. */
+   burnRounds?: number;
+   burnDamage?: number;
