@@ -86,12 +86,16 @@ python overrides/apply_bingo_book_v7_1.py >/dev/null
 # Final stage: portrait pool expansions and the technique overhaul stack.
 # v27 (251-310) runs before v17 (which validates a 310-portrait tree);
 # v28 (311-370) runs after v17 and converts its own webps; v29 replaces
-# regenerated portraits on top; v18/v19 last.
+# regenerated portraits; v32 preserves those portrait IDs in battle units;
+# v30/v31 handle UI/building art; v18/v19 remain last.
 python overrides/apply_ninja_portraits_v27.py >/dev/null
 python overrides/apply_village_depth_v17_technique_nodes.py >/dev/null
 python overrides/apply_ninja_portraits_v28.py >/dev/null
 if [ -f overrides/apply_ninja_portraits_v29.py ]; then
   python overrides/apply_ninja_portraits_v29.py >/dev/null
+fi
+if [ -f overrides/apply_battle_portrait_identity_v32.py ]; then
+  python overrides/apply_battle_portrait_identity_v32.py >/dev/null
 fi
 if [ -f overrides/apply_ui_daily_panel_v30.py ]; then
   python overrides/apply_ui_daily_panel_v30.py >/dev/null
