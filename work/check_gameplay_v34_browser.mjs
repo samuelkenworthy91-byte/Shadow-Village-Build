@@ -44,7 +44,7 @@ try {
   const saved = () => page.evaluate(key => JSON.parse(localStorage.getItem(key)).state, key);
   const resume = async () => {
     await page.reload({ waitUntil: 'networkidle' });
-    await page.getByRole('button', { name: 'CONTINUE', exact: true }).first().click();
+    await page.getByRole('button', { name: /V34 Mobile QC.*CONTINUE/ }).first().click();
     await page.getByRole('button', { name: 'Summons', exact: true }).click();
   };
   await resume();
