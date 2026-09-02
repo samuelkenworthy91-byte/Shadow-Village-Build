@@ -395,3 +395,30 @@ if count != 1:
 write(p, s)
 
 print("Village depth v1 implementation applied")
+
+
+# VILLAGE_DEPTH_V3_RUNTIME_HOOK
+import runpy as _village_depth_runpy
+from pathlib import Path as _VillageDepthPath
+_village_depth_runpy.run_path("overrides/apply_village_depth_v3.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v4_jutsu_battle.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v5_infrastructure.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v6_orders.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v6_typefix.py", run_name="__main__")
+_vd_sw = _VillageDepthPath("app/public/sw.js")
+_vd_sw_text = _vd_sw.read_text(encoding="utf-8").replace("shadow-village-depth-v5-infrastructure-threat", "shadow-village-depth-v1-jutsu-potential-v5-infrastructure-threat")
+_vd_sw.write_text(_vd_sw_text, encoding="utf-8")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v7_scout_uniques.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v8_jutsu_paths.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v8_typefix.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v9_playtest_core.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v9_identity_uniques.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v10_personal_legend_arts.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v11_clans_dojutsu.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v12_genjutsu.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v13_elemental_roles.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v13_1_innate_signature_hotfix.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v14_purchase_reliability.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v15_dynamic_technique_rows.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v16_specialist_combat.py", run_name="__main__")
+_village_depth_runpy.run_path("overrides/apply_village_depth_v16_typefix.py", run_name="__main__")
