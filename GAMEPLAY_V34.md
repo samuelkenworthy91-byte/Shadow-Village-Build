@@ -37,3 +37,5 @@ Production compilation, gameplay regression tests and portrait checks pass. The 
 - Portrait regression: 340 approved portraits; all 370 historical saved IDs; 10,000 legacy identities; 82 repairs and 30 retired portraits retained.
 - Patch replay verifies exact source hashes and an idempotent second application.
 - Mobile browser gate covers 360px and 412px screens, artwork, five-pact draw, pity reveal, bonding/releasing, reload persistence, clan + Kekkei rendering and learning.
+
+Mobile verification found that stacked portrait, bloodline, summon and promotion panels could consume all available height. Ninja details now scroll as one dialog so Jutsu controls remain reachable on short phones.
