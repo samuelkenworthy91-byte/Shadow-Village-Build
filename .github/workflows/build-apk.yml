@@ -253,6 +253,21 @@ jobs:
             --splashBackgroundColor '#0d0e1a' \
             --splashBackgroundColorDark '#0d0e1a'
 
+      - name: Replace launcher icons with new Kage Life artwork
+        working-directory: app
+        run: |
+          set -euo pipefail
+          base64 -d ../overrides/kage_life_app_icon.b64 > /tmp/kage-life-icon.jpg
+          identify /tmp/kage-life-icon.jpg
+          count=0
+          while IFS= read -r -d '' f; do
+            geometry="$(identify -format '%wx%h' "$f")"
+            convert /tmp/kage-life-icon.jpg -resize "${geometry}^" -gravity center -extent "$geometry" "$f"
+            count=$((count + 1))
+          done < <(find android/app/src/main/res -type f \( -name 'ic_launcher*.png' -o -name 'ic_launcher*.webp' \) -print0)
+          test "$count" -gt 0
+          echo "Replaced $count launcher icon resources"
+
       - name: Verify Android display name
         working-directory: app
         run: |
