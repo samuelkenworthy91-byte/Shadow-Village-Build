@@ -47,6 +47,14 @@ jobs:
           test -n "$LAST_RUN"
           gh run download "$LAST_RUN" -n Kage-Life-APK -D previous-apk
 
+      - name: Ensure ImageMagick is available
+        run: |
+          set -euo pipefail
+          if ! command -v identify >/dev/null 2>&1; then
+            sudo apt-get install -y -qq imagemagick
+          fi
+          identify -version | head -1
+
       - name: Download verified pre-Arena base source
         env:
           GH_TOKEN: ${{ github.token }}
