@@ -42,16 +42,18 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq imagemagick
 
-      - name: Download current main patched source
+      - name: Download verified pre-Arena base source
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           rm -rf app
           mkdir -p app
-          RUN_ID="$(gh run list --workflow build-apk.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          # This is the exact base used by the verified portrait-QC APK.
+          # Keep it pinned: newer main snapshots already contain these patches.
+          RUN_ID="33427595025"
           test -n "$RUN_ID"
-          echo "Using successful main patched-source run $RUN_ID"
+          echo "Using verified base patched-source run $RUN_ID"
           gh run download "$RUN_ID" -n Shadow-Village-v16-Patched-Source -D app
           test -f app/package.json
           test -f app/src/App.tsx

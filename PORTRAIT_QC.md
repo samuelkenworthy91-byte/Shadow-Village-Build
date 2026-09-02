@@ -29,7 +29,7 @@ individual PNGs under `public/ninjas`.
 
 ## Build integration
 
-The playtest workflow applies `apply_portrait_qc_v33.py` **last**, after v19.
+The main and playtest workflows apply `apply_portrait_qc_v33.py` **last**, after v19.
 Earlier patch stages still use their historical 250/310/370 code anchors, but
 asset checks compare actual approved IDs for that stage instead of assuming
 contiguous filenames. The finalizer installs the reviewed sources again,
@@ -37,7 +37,7 @@ prunes retired runtime files, and writes the approved selection/cache lists.
 
 The checked baseline for local validation is the successful playtest workflow's
 patched-source artifact. The older archive-based `work/rebuild_app.sh` has an
-existing MissionBoard/v19 anchor mismatch; the playtest workflow is authoritative.
+existing MissionBoard/v19 anchor mismatch; the main/playtest pipeline is authoritative.
 
 ## Verification
 
@@ -54,3 +54,15 @@ Checks cover all 340 asset paths; hashes and transparency seeds in all 82
 repaired portraits; all 370 possible old saved assignments; 10,000 legacy
 identities; invalid saved values; a full 340-recruit no-repeat draw; pool
 exhaustion; Bingo Book paths; and exact agreement with the offline cache.
+
+## Main build promotion
+
+`build-apk.yml` now uses the same complete patch order and portrait checks as
+successful test run `33615961251` (`cbc67b1`). Both workflows pin the pre-Arena
+source to run `33427595025` at main commit `714e8cc`, the exact base used by that
+test. This prevents a later main snapshot from receiving the patches twice.
+Main uploads `Kage-Life-APK` and `Kage-Life-Patched-Source`.
+
+The pinned source is currently a GitHub Actions artifact expiring on
+2026-11-29. Preserve or replace that baseline before expiry to keep this
+artifact-based pipeline reproducible.

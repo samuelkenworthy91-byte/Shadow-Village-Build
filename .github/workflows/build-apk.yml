@@ -1,17 +1,18 @@
-name: Build Shadow Village APK
+name: Build Kage Life APK
 
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-      - v16-specialist-combat-rework
-      - feature/bingo-book-endgame
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   build-apk:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -41,236 +42,145 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq imagemagick
 
-      - name: Unpack game
-        run: |
-          rm -rf app
-          mkdir -p app
-          unzip -q ninja-settlement-management-game-art-swap.zip -d app
-
-      - name: Apply art and framing update
-        run: |
-          cp overrides/src/components/NinjaSprite.tsx app/src/components/NinjaSprite.tsx
-          cp overrides/src/components/HUD.tsx app/src/components/HUD.tsx
-          cp overrides/src/game/ninjaArt.ts app/src/game/ninjaArt.ts
-          cp overrides/public/sw.js app/public/sw.js
-          cp overrides/public/manifest.webmanifest app/public/manifest.webmanifest
-          cat overrides/icon_parts/*.txt | tr -d '\n\r' | base64 --decode > /tmp/shadow-village-logo.png
-          convert /tmp/shadow-village-logo.png -resize 512x512 app/public/icon.png
-          mkdir -p app/assets
-          convert /tmp/shadow-village-logo.png -resize 1024x1024 app/assets/logo.png
-
-      - name: Apply raid balance and transparency update
-        working-directory: app
-        run: python ../overrides/apply_raid_balance.py
-
-      - name: Apply raid classes and defender selection
-        run: |
-          cat overrides/raid_patch_b64_v22/part_* | tr -d '\n\r' | base64 --decode > /tmp/raid-v22.patch
-          cd app
-          set +e
-          patch -p1 --forward < /tmp/raid-v22.patch
-          PATCH_RC=$?
-          set -e
-          test -f src/components/RaidDefenseModal.tsx
-          grep -q 'raid_select' src/game/types.ts
-          grep -q 'beginRaidBattle' src/game/engine.ts
-          cd ..
-          cp overrides/raid_sw_v22.js app/public/sw.js
-          mkdir -p app/public/raiders
-          cp overrides/raid_assets_direct_v22/raiders/*.webp app/public/raiders/
-          cp overrides/raid_assets_direct_v22/bg-raid-field.jpg app/public/bg-raid-field.jpg
-          echo "Patch return code: $PATCH_RC"
-
-      - name: Apply rank-up exam update
-        run: |
-          cd app
-          python ../overrides/apply_rank_exam.py
-          cd ..
-          cat overrides/rank_exam_assets_b64_v23/part_* | tr -d '\n\r' | base64 --decode > app/public/bg-exam-arena.jpg
-          test -s app/public/bg-exam-arena.jpg
-
-      - name: Apply raid rebalance and local save slots
-        run: |
-          cat overrides/v24_patch_parts/part_* > /tmp/v24.patch
-          cd app
-          patch -p1 < /tmp/v24.patch
-          cd ..
-          cp overrides/src/game/save.ts app/src/game/save.ts
-          sed -i 's/shadow-village-v6-rank-exams/shadow-village-v7-save-slots/' app/public/sw.js
-
-      - name: Apply universal battle target selection
-        run: |
-          cd app
-          python ../overrides/apply_target_selection.py
-          cd ..
-          sed -i 's/shadow-village-v7-save-slots/shadow-village-v8-target-selection/' app/public/sw.js
-
-      - name: Apply expanded ninja progression
-        run: |
-          python overrides/apply_progression_expansion.py
-          grep -q '"ken" | "doj" | "tac"' app/src/game/types.ts
-          grep -q 'SAVE_VERSION = 2' app/src/game/save.ts
-
-      - name: Apply progression v0.2 village development
-        run: |
-          cat overrides/progression_v02.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v02.patch
-          cd app
-          patch -p1 < /tmp/progression-v02.patch
-          cd ..
-
-      - name: Apply progression v0.2.1 XP correction
-        run: |
-          cd app
-          patch -p1 < ../overrides/progression_v021.patch
-          cd ..
-
-      - name: Apply progression v0.3 elemental bloodlines
-        run: |
-          cat overrides/progression_v03.patch.gz.b64 | tr -d '\n\r' | base64 --decode | gzip -d > /tmp/progression-v03.patch
-          cd app
-          patch -p1 < /tmp/progression-v03.patch
-          cd ..
-
-      - name: Apply progression v0.3.2 point-spend QoL
-        run: |
-          cd app
-          patch -p1 < ../overrides/progression_v032.patch
-          cd ..
-
-      - name: Apply progression v0.3.3 Dojutsu awakening gate
-        run: |
-          cd app
-          patch -p1 < ../overrides/progression_v033.patch
-          cd ..
-
-      - name: Apply 250 ninja portrait library
+      - name: Download verified pre-Arena base source
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          python overrides/portrait_library.py install --max-id 250
-          python overrides/apply_ninja_portraits_v26.py
-          python overrides/portrait_library.py validate --max-id 250
-
-      - name: Apply equipment gacha system
-        run: |
-          python overrides/apply_equipment_gacha.py
-          python overrides/apply_equipment_gacha_v2.py
-          grep -q 'Array.from({ length: 400 }' app/src/game/equipment.ts
-          grep -q 'applyEquipmentToBattleUnit' app/src/game/battle.ts
-
-      - name: Stage village depth v2 and queue v3-v16
-        run: |
-          python overrides/apply_village_depth_v2_shim.py
-          test -f app/src/game/specialMissionsV2.ts
-          grep -q 'apply_village_depth_v16_specialist_combat.py' overrides/apply_village_depth_v1.py
-          grep -q 'apply_village_depth_v16_typefix.py' overrides/apply_village_depth_v1.py
-
-      - name: Apply village depth full stack v1-v16
-        run: |
-          python overrides/apply_village_depth_v1.py
-
-      - name: Validate v16 integration
-        run: |
-          grep -q 'export function specialistJutsuTraits' app/src/game/jutsu.ts
-          grep -q 'export function combatTechniqueIds' app/src/game/perks.ts
-          grep -q '"technique"' app/src/game/types.ts
-          grep -q 'COMBAT TECHNIQUES' app/src/components/BattleScreen.tsx
-          grep -q 'EQUIPPED GEAR TECHNIQUES' app/src/components/BattleScreen.tsx
-          grep -q 'ONE DEFINING JUTSU STYLE' app/src/components/JutsuTree.tsx
-          grep -q 'shadow-village-depth-v1-jutsu-potential-v16-specialist-combat-rework' app/public/sw.js
-          ! grep -q 'case "special":' app/src/game/battle.ts
-          ! grep -q '{ id: "special"' app/src/components/BattleScreen.tsx
-
-      - name: Apply Bingo Book endgame v1
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
-        run: |
-          python overrides/apply_bingo_book_v1.py
+          rm -rf app
+          mkdir -p app
+          # This is the exact base used by the verified portrait-QC APK.
+          # Keep it pinned: newer main snapshots already contain these patches.
+          RUN_ID="33427595025"
+          test -n "$RUN_ID"
+          echo "Using verified base patched-source run $RUN_ID"
+          gh run download "$RUN_ID" -n Shadow-Village-v16-Patched-Source -D app
+          test -f app/package.json
+          test -f app/src/App.tsx
           test -f app/src/game/bingo.ts
-          test -f app/src/game/huntEvents.ts
-          test -f app/src/components/BingoBookScreen.tsx
-          grep -q 'EXILE_MISSING_NIN_CHANCE = 0.03' app/src/game/bingo.ts
-          grep -q 'HUNT_MIN_EVENT_HP_RATIO = 0.10' app/src/game/bingo.ts
-          grep -q 'BINGO_ACTIVE_PARTY_SIZE = 3' app/src/game/bingo.ts
-          grep -q 'EXILE NINJA' app/src/components/NinjaDetail.tsx
-          grep -q 'BingoBookScreen' app/src/App.tsx
-          grep -q 'SAVE_VERSION = 3' app/src/game/save.ts
-          grep -q 'shadow-village-bingo-book-v1' app/public/sw.js
 
-      - name: Apply Bingo Book full roster and 80 assets
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+      - name: Verify Kage Life identity
         run: |
-          python overrides/bingo_assets_v1/import_batch.py --start 1 --end 80 --require-complete
-          test "$(find app/public/bingo -maxdepth 1 -name 'bingo_*.png' | wc -l)" -eq 80
-          python overrides/apply_bingo_book_v3.py
-          grep -q 'for (let i = 4; i <= 80; i++)' app/src/game/bingo.ts
-          grep -q 'resolvedStandard >= 24' app/src/game/bingo.ts
-          grep -q '80 unique targets · 10 Black Book superbosses' app/src/components/BingoBookScreen.tsx
-          grep -q 'shadow-village-bingo-book-v3-80-targets' app/public/sw.js
+          set -euo pipefail
+          grep -q 'Kage Life — Ninja Village Management' app/index.html
+          grep -q 'villageName: string' app/src/game/types.ts
+          grep -q 'VILLAGE NAME' app/src/components/Overlays.tsx
+          grep -q 'You are the Kage' app/src/components/Overlays.tsx
 
-      - name: Apply Bingo Book lethal target battles
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+      - name: Apply v27 portrait expansion 251-310
         run: |
-          python overrides/apply_bingo_book_v4.py
-          grep -q 'mode?: "raid" | "exam" | "bingo"' app/src/game/types.ts
-          grep -q 'export function startBingoBattle' app/src/game/battle.ts
-          grep -q 'export function beginBingoBossBattle' app/src/game/bingoHunt.ts
-          grep -q 'TARGET DEFEATED · FATE DECISION' app/src/components/BingoBookScreen.tsx
-          grep -q 'kind.startsWith("bingo_")' app/src/components/NinjaSprite.tsx
-          grep -q 'shadow-village-bingo-book-v4-boss-battles' app/public/sw.js
+          set -euo pipefail
+          python overrides/portrait_library.py install --max-id 310
+          python overrides/apply_ninja_portraits_v27.py
+          python overrides/portrait_library.py validate --max-id 310
 
-      - name: Apply Bingo detention and recruitment
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+      - name: Apply v17 technique tree overhaul
         run: |
-          python overrides/apply_bingo_book_v5.py
-          grep -q 'bingoArt?: string | null' app/src/game/types.ts
-          grep -q 'export function recruitBingoPrisoner' app/src/game/engine.ts
-          grep -q 'export function interrogateBingoPrisoner' app/src/game/bingoHunt.ts
-          grep -q 'DETENTION FILE' app/src/components/BingoBookScreen.tsx
-          grep -q 'shadow-village-bingo-book-v5-detention-recruitment' app/public/sw.js
+          set -euo pipefail
+          python overrides/apply_village_depth_v17_technique_nodes.py
+          grep -q 'TECHNIQUE_NODES' app/src/game/techniques.ts
+          grep -q 'outgoingTechniqueMult' app/src/game/battle.ts
 
-      - name: Apply Bingo 102-event hunts and active boss mechanics
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+      - name: Apply v28 portrait expansion 311-370
         run: |
-          python overrides/apply_bingo_book_v6.py
-          grep -q 'export const HUNT_EVENT_TOTAL = HUNT_EVENTS.length' app/src/game/huntEvents.ts
-          grep -q 'HUNT_EXPANSION_GROUPS' app/src/game/huntEvents.ts
-          grep -q 'Signals in the Canopy' app/src/game/huntEvents.ts
-          grep -q 'The Endless Road' app/src/game/huntEvents.ts
-          grep -q 'export type BingoMechanicId' app/src/game/bingo.ts
-          grep -q 'bossMechanicIds' app/src/game/bingo.ts
-          grep -q 'function applyBingoRoundState' app/src/game/battle.ts
-          grep -q 'BINGO FALSE BODY' app/src/game/battle.ts
-          grep -q 'shadow-village-bingo-book-v6-events-mechanics' app/public/sw.js
+          set -euo pipefail
+          python overrides/apply_ninja_portraits_v28.py
+          python overrides/portrait_library.py validate
+          grep -q 'length: 370' app/src/game/ninjaArt.ts
 
-      - name: Apply graphical physical Bingo Book v7/v8
-        if: github.ref == 'refs/heads/feature/bingo-book-endgame' || github.ref == 'refs/heads/main'
+      - name: Apply v29 individual portraits and no-repeat assignment
         run: |
-          python overrides/apply_bingo_book_v7.py
-          python overrides/apply_bingo_book_v7_1.py
-          test -f app/src/components/BingoBookOverlay.tsx
-          grep -q 'export type BingoDiscoveryKey' app/src/game/bingo.ts
-          grep -q 'export function recordBingoDiscovery' app/src/game/bingo.ts
-          grep -q 'export function bingoUnreadCount' app/src/game/bingo.ts
-          grep -q 'recordBingoDiscovery' app/src/game/bingoHunt.ts
-          grep -q 'BingoBookOverlay' app/src/App.tsx
-          grep -q 'sRef.current.phase !== "paused"' app/src/App.tsx
-          ! grep -q 'shadow-village-bingo-slot3-kage-test-v1' app/src/App.tsx
-          ! grep -q 'id: "bingo"' app/src/App.tsx
-          grep -q 'BINGO BOOK' app/src/components/Overlays.tsx
-          grep -q '100dvh-1rem' app/src/components/Overlays.tsx
-          grep -q 'bbFlipNext' app/src/components/BingoBookOverlay.tsx
-          grep -q 'bb-stamp' app/src/components/BingoBookOverlay.tsx
-          grep -q 'orientation:portrait' app/src/components/BingoBookOverlay.tsx
-          grep -q 'shadow-village-main-polish-v1' app/public/sw.js
+          set -euo pipefail
+          python overrides/apply_ninja_portraits_v29.py
+          grep -q 'portrait?: number' app/src/game/types.ts
+          grep -q 'const freeArt = GENERAL_ART_IDS.filter' app/src/game/engine.ts
+          grep -q 'n.portrait' app/src/game/ninjaArt.ts
 
-      - name: Upload v16 patched source snapshot
+      - name: Apply v30 Mission Board daily projections
+        run: |
+          set -euo pipefail
+          python overrides/apply_ui_daily_panel_v30.py
+          grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
+          grep -q "TOMORROW'S PROJECTIONS" app/src/components/MissionBoard.tsx
+          ! grep -q 'gain={nextGoldFromBuildings}' app/src/components/HUD.tsx
+
+      - name: Apply v31 generated building art
+        run: |
+          set -euo pipefail
+          SRC_COUNT="$(find overrides/building_assets_v31 -maxdepth 1 -name 'bld_*.webp' | wc -l)"
+          test "$SRC_COUNT" -gt 0
+          python overrides/apply_building_art_v31.py
+          OUT_COUNT="$(find app/public/buildings -maxdepth 1 -name 'bld_*.webp' | wc -l)"
+          test "$OUT_COUNT" -eq "$SRC_COUNT"
+          grep -q 'className="b-art"' app/src/components/Scene.tsx
+          grep -q 'BLD_ART.has(t)' app/src/components/Scene.tsx
+          echo "v31 building art installed: $OUT_COUNT assets"
+
+      - name: Apply v18 elemental type advantage
+        run: |
+          set -euo pipefail
+          python overrides/apply_village_depth_v18_type_advantage.py
+          grep -q 'NATURE_BEATS' app/src/game/battle.ts
+          grep -q 'typeUnderdogBonus' app/src/game/perks.ts
+
+      - name: Apply v19 dekanji and clarity pass
+        run: |
+          set -euo pipefail
+          python overrides/apply_village_depth_v19_dekanji.py
+          grep -q 'kage-life-v4-elemental-clarity' app/public/sw.js
+
+      - name: Apply reviewed portrait quality control
+        run: |
+          set -euo pipefail
+          python overrides/apply_portrait_qc_v33.py
+          python work/check_portrait_qc_v33.py
+
+      - name: Validate complete Kage Life source
+        run: |
+          set -euo pipefail
+          test -f app/src/game/techniques.ts
+          python overrides/portrait_library.py validate
+          SRC_BLD_COUNT="$(find overrides/building_assets_v31 -maxdepth 1 -name 'bld_*.webp' | wc -l)"
+          OUT_BLD_COUNT="$(find app/public/buildings -maxdepth 1 -name 'bld_*.webp' | wc -l)"
+          test "$SRC_BLD_COUNT" -gt 0
+          test "$OUT_BLD_COUNT" -eq "$SRC_BLD_COUNT"
+          grep -q 'Portrait QC v33' app/src/game/ninjaArt.ts
+          grep -q 'kage-life-v5-portrait-qc' app/public/sw.js
+          grep -q 'portrait?: number' app/src/game/types.ts
+          grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
+          grep -q 'className="b-art"' app/src/components/Scene.tsx
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          rx = re.compile(r'[\u3000-\u303f\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]')
+          roots = [Path('app/src'), Path('app/index.html'), Path('app/public/sw.js')]
+          bad = []
+          for root in roots:
+              files = root.rglob('*') if root.is_dir() else [root]
+              for p in files:
+                  if p.is_file() and p.suffix in {'.ts','.tsx','.css','.html','.js'}:
+                      text = p.read_text(encoding='utf-8', errors='ignore')
+                      if rx.search(text):
+                          bad.append(str(p))
+          if bad:
+              raise SystemExit('Japanese/CJK remains in: ' + ', '.join(bad[:20]))
+          print('PR5 V31 source validation passed: 340 approved portraits, building sprites, zero CJK')
+          PY
+
+      - name: Upload patched source
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-v16-Patched-Source
+          name: Kage-Life-Patched-Source
           path: app
 
       - name: Install dependencies
         working-directory: app
         run: npm install
+
+      - name: Verify portrait selection and saved identities
+        run: |
+          app/node_modules/.bin/esbuild work/check_portrait_selection_v33.ts --bundle --platform=node --outfile=/tmp/check-portrait-selection.cjs
+          node /tmp/check-portrait-selection.cjs
 
       - name: Install Capacitor build tools
         working-directory: app
@@ -286,7 +196,7 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Generate Android app icon
+      - name: Generate Android Kage Life icon and splash
         working-directory: app
         run: |
           npx capacitor-assets generate --android \
@@ -295,14 +205,19 @@ jobs:
             --splashBackgroundColor '#0d0e1a' \
             --splashBackgroundColorDark '#0d0e1a'
 
+      - name: Verify Android display name
+        working-directory: app
+        run: |
+          grep -q 'appName: "Kage Life"' capacitor.config.ts
+
       - name: Build APK
         working-directory: app/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload v16 APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Shadow-Village-v16-Specialist-Combat-APK
+          name: Kage-Life-APK
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
