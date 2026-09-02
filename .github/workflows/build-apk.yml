@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - work/gameplay-v34
 
 permissions:
   contents: read
@@ -135,6 +136,9 @@ jobs:
           python overrides/apply_portrait_qc_v33.py
           python work/check_portrait_qc_v33.py
 
+      - name: Apply v34 gameplay and restore summons
+        run: python overrides/apply_gameplay_v34.py
+
       - name: Validate complete Kage Life source
         run: |
           set -euo pipefail
@@ -145,7 +149,7 @@ jobs:
           test "$SRC_BLD_COUNT" -gt 0
           test "$OUT_BLD_COUNT" -eq "$SRC_BLD_COUNT"
           grep -q 'Portrait QC v33' app/src/game/ninjaArt.ts
-          grep -q 'kage-life-v5-portrait-qc' app/public/sw.js
+          grep -q 'kage-life-v6-clans-summons' app/public/sw.js
           grep -q 'portrait?: number' app/src/game/types.ts
           grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
           grep -q 'className="b-art"' app/src/components/Scene.tsx
@@ -181,6 +185,26 @@ jobs:
         run: |
           app/node_modules/.bin/esbuild work/check_portrait_selection_v33.ts --bundle --platform=node --outfile=/tmp/check-portrait-selection.cjs
           node /tmp/check-portrait-selection.cjs
+
+      - name: Verify gameplay balance and summon mechanics
+        run: |
+          app/node_modules/.bin/esbuild work/check_gameplay_v34.ts --bundle --platform=node --outfile=/tmp/check-gameplay-v34.cjs
+          node /tmp/check-gameplay-v34.cjs
+
+      - name: Verify mobile summon and jutsu screens
+        timeout-minutes: 8
+        run: |
+          npm install --prefix /tmp/kage-browser playwright@1.62.1
+          /tmp/kage-browser/node_modules/.bin/playwright install --with-deps chromium
+          node work/check_gameplay_v34_browser.mjs
+
+      - name: Upload mobile verification screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-Mobile-QC
+          path: browser-results
+          if-no-files-found: ignore
 
       - name: Install Capacitor build tools
         working-directory: app

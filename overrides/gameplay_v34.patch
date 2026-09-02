@@ -127,7 +127,7 @@
            <div className={cn("border-b border-white/8 p-2.5", promo.ready && "bg-gold/[0.07]")}>
 --- /dev/null
 +++ b/src/components/SummonScreen.tsx
-@@ -0,0 +1,387 @@
+@@ -0,0 +1,391 @@
 +import { useState } from "react";
 +import type { GameState, Ninja } from "../game/types";
 +import {
@@ -212,6 +212,8 @@
 +  return (
 +    <button
 +      type="button"
++      aria-label={`View ${owned > 0 ? x.name : x.species} pact`}
++      aria-pressed={selected}
 +      onClick={onSelect}
 +      className={cn(
 +        "w-full rounded-xl p-2 text-left ring-1 ring-inset transition",
@@ -273,7 +275,7 @@
 +              <span className="text-[8px] font-bold text-paper/40">Lv {n.level}</span>
 +              <button
 +                type="button"
-+                onClick={() => { releaseSummon(s, n); onChanged(); }}
++                disabled={!canChangeSummon(s, n)} onClick={() => { releaseSummon(s, n); onChanged(); }}
 +                className="rounded-md bg-black/35 px-2 py-1 text-[8px] font-black text-vermil ring-1 ring-vermil/20"
 +              >
 +                RELEASE
@@ -292,6 +294,7 @@
 +            <button
 +              key={n.id}
 +              type="button"
++              aria-label={`Bond ${x.name} to ${n.name}`}
 +              disabled={blocked}
 +              onClick={() => { if (bondSummon(s, n, x.id)) onChanged(); }}
 +              className={cn(
@@ -372,7 +375,7 @@
 +      <div className="mb-2 grid grid-cols-2 gap-2">
 +        {SUMMON_PACKS.map((pack) => {
 +          const cost = summonPullCost(pack.pulls, s);
-+          const afford = s.gold >= cost.gold && s.rice >= cost.rice && s.ap >= 1;
++          const afford = s.phase === "playing" && s.gold >= cost.gold && s.rice >= cost.rice && s.ap >= 1;
 +          return (
 +            <button
 +              key={pack.pulls}
@@ -483,7 +486,7 @@
 +      {open && (
 +        <div className="mt-1.5 max-h-44 space-y-1 overflow-y-auto rounded-xl bg-black/20 p-1.5 ring-1 ring-white/6">
 +          {pact && (
-+            <button type="button" onClick={() => { releaseSummon(s, n); onChanged(); setOpen(false); }} className="w-full rounded-lg bg-black/35 p-1.5 text-[8.5px] font-black text-vermil ring-1 ring-vermil/20">
++            <button type="button" disabled={!canChangeSummon(s, n)} onClick={() => { releaseSummon(s, n); onChanged(); setOpen(false); }} className="w-full rounded-lg bg-black/35 p-1.5 text-[8.5px] font-black text-vermil ring-1 ring-vermil/20">
 +              RELEASE {pact.name.toUpperCase()}
 +            </button>
 +          )}
@@ -494,6 +497,7 @@
 +              <button
 +                key={x.id}
 +                type="button"
++                aria-label={`Bond ${x.name} to ${n.name}`}
 +                disabled={isMine || free <= 0 || !canChangeSummon(s, n)}
 +                onClick={() => { if (bondSummon(s, n, x.id)) { onChanged(); setOpen(false); } }}
 +                className={cn(
@@ -689,16 +693,34 @@
  }
  
  function effectiveDefense(t: Unit): number {
-@@ -748,7 +864,7 @@
+@@ -744,11 +860,11 @@
+   return m;
+ }
+ 
+-function applyStatusProc(b: Battle, u: Unit, t: Unit, proc: { status: string; chance?: number; rounds: number; value?: number }): void {
++function applyStatusProc(b: Battle, u: Unit, t: Unit, proc: { status: string; chance?: number; rounds: number; value?: number; scale?: number; power?: number; area?: boolean }): void {
    if (!t.alive) return;
    if (proc.chance != null && Math.random() >= proc.chance) return;
-   const scale = Math.max(u.nin, u.atk * 0.7, u.ken * 0.9);
+-  const scale = Math.max(u.nin, u.atk * 0.7, u.ken * 0.9);
 -  const amount = Math.max(1, Math.round(proc.value ?? scale * (proc.status === "poison" ? 0.12 : proc.status === "bleed" ? 0.13 : 0.14)));
-+  const amount = isDamageOverTime(proc.status) ? Math.max(proc.value ?? 0, statusTickDamage(proc.status, scale, 1, false, u.jutsuBurnAmp ?? 1)) : Math.max(1, Math.round(proc.value ?? scale * 0.14));
++  const scale = proc.scale ?? Math.max(u.nin, u.atk * 0.7, u.ken * 0.9);
++  const amount = isDamageOverTime(proc.status) ? Math.max(proc.value ?? 0, statusTickDamage(proc.status, scale, proc.power ?? 1, proc.area ?? false, u.jutsuBurnAmp ?? 1)) : Math.max(1, Math.round(proc.value ?? scale * 0.14));
    switch (proc.status) {
      case "burn":
        t.burnRounds = Math.max(t.burnRounds ?? 0, proc.rounds);
-@@ -906,6 +1022,7 @@
+@@ -792,7 +908,10 @@
+ function applyTechRiders(b: Battle, u: Unit, t: Unit, tech: TechniqueTech): void {
+   if (t.alive) {
+     if (tech.stunRounds) t.stun = Math.max(t.stun ?? 0, tech.stunRounds);
+-    if (tech.status) applyStatusProc(b, u, t, { status: tech.status, chance: 1, rounds: tech.statusRounds ?? 2 });
++    if (tech.status) {
++      const scale = tech.stat === "tai" ? u.atk / 1.45 : tech.stat === "ste" ? u.ste ?? u.atk / 1.6 : tech.stat === "spd" ? u.spd / 1.4 : u[tech.stat];
++      applyStatusProc(b, u, t, { status: tech.status, chance: 1, rounds: tech.statusRounds ?? 2, scale, area: tech.aoe, power: ["nin", "gen", "med", "doj"].includes(tech.stat) ? u.jutsuPower : 1 });
++    }
+     if (tech.executeBelow && t.hp / Math.max(1, t.maxHp) <= tech.executeBelow) {
+       const finishing = damage(b, u, t, t.hp * 1.5, "crit", true);
+       log(b, `${tech.name} finds the killing angle — ${t.name} is cut down! (${finishing})`, "crit");
+@@ -906,6 +1025,7 @@
      const reduction = Math.max(guardReduction, braceReduction, barrierReduction);
      if (reduction > 0) dmg = Math.max(1, Math.round(dmg * (1 - reduction)));
    }
@@ -706,7 +728,7 @@
    target.hp = Math.max(0, target.hp - dmg);
    b.flash = { uid: target.uid, amount: dmg, kind, n: (b.flash?.n ?? 0) + 1 };
    if (src && src.lifesteal > 0) {
-@@ -959,9 +1076,12 @@
+@@ -959,9 +1079,12 @@
      target.hp = Math.max(1, Math.round(target.maxHp * target.pk.deathDefyPct));
      log(b, `${target.name} refuses to fall!`, "crit");
    }
@@ -719,7 +741,7 @@
      // v17: kill spoils from technique development.
      if (src?.pk && src.alive && src.foe !== target.foe) {
        if (src.pk.killHealPct > 0) {
-@@ -1026,7 +1146,7 @@
+@@ -1026,7 +1149,7 @@
    let total = 0;
    let healed = 0;
    const hitNames: string[] = [];
@@ -728,7 +750,7 @@
  
    for (const t of targets) {
      if (!t.alive) continue;
-@@ -1056,21 +1176,21 @@
+@@ -1056,21 +1179,21 @@
        case "burn": {
          if (!friendly && t.alive) {
            t.burnRounds = Math.max(t.burnRounds ?? 0, (j.effectValue ?? 2) + (u.jutsuBurnRoundsBonus ?? 0));
@@ -753,7 +775,7 @@
          }
          break;
        }
-@@ -1295,6 +1415,12 @@
+@@ -1295,6 +1418,12 @@
  }
  
  export function doAction(b: Battle, action: BAction, targetUid?: string, jutsuId?: string): { kind: string; targets: string[] } {
@@ -766,7 +788,7 @@
    const u = currentUnit(b);
    if (!u) return { kind: "none", targets: [] };
    bingoBeforeAction(b, u, action);
-@@ -1571,6 +1697,23 @@
+@@ -1571,6 +1700,23 @@
  }
  
  /* ---------------- turn cycle ---------------- */
@@ -790,7 +812,7 @@
  
  export function nextTurn(b: Battle, towerLvl = 0): void {
    if (bingoCheckEscape(b)) return;
-@@ -1620,23 +1763,9 @@
+@@ -1620,23 +1766,9 @@
            if (heal > 0) { u.hp += heal; log(b, `${u.name} recovers ${heal} HP from a water current`, "heal"); }
            u.jutsuRegenRounds = Math.max(0, (u.jutsuRegenRounds ?? 0) - 1);
          }
@@ -817,7 +839,7 @@
          if ((u.slowRounds ?? 0) > 0) u.slowRounds = Math.max(0, (u.slowRounds ?? 0) - 1);
          if ((u.defShredRounds ?? 0) > 0) { u.defShredRounds = Math.max(0, (u.defShredRounds ?? 0) - 1); if ((u.defShredRounds ?? 0) <= 0) u.defShredPct = 0; }
          if ((u.braceRounds ?? 0) > 0) { u.braceRounds = Math.max(0, (u.braceRounds ?? 0) - 1); if ((u.braceRounds ?? 0) <= 0) u.braceStrength = 0; }
-@@ -1654,7 +1783,10 @@
+@@ -1654,7 +1786,10 @@
          if ((u.confusionRounds ?? 0) > 0) { u.confusionRounds = Math.max(0, (u.confusionRounds ?? 0) - 1); if ((u.confusionRounds ?? 0) <= 0) u.confusionChance = 0; }
          if ((u.genjutsuMissRounds ?? 0) > 0) { u.genjutsuMissRounds = Math.max(0, (u.genjutsuMissRounds ?? 0) - 1); if ((u.genjutsuMissRounds ?? 0) <= 0) u.genjutsuMissChance = 0; }
          if ((u.chakraLockRounds ?? 0) > 0) u.chakraLockRounds = Math.max(0, (u.chakraLockRounds ?? 0) - 1);
@@ -829,7 +851,7 @@
        if ((b.bingoTargetCannotFleeRounds ?? 0) > 0) b.bingoTargetCannotFleeRounds = Math.max(0, (b.bingoTargetCannotFleeRounds ?? 0) - 1);
        if (b.bingoRuntime && b.bingoRuntime.hazardRounds > 0) b.bingoRuntime.hazardRounds -= 1;
        applyBingoRoundState(b);
-@@ -1845,5 +1977,25 @@
+@@ -1845,5 +1980,25 @@
    u.jutsuPierceBonus = jf.pierceBonus; u.jutsuStunBonus = jf.stunBonus; u.jutsuChakraCost = jf.chakraCost;
    u.jutsuShredBonus = jf.shredBonus; u.jutsuBraceAmp = jf.braceAmp; u.jutsuTauntBonus = jf.tauntBonus;
    u.jutsuRetaliationBonus = jf.retaliationBonus; u.jutsuExtraTurnBonus = jf.extraTurnBonus;
@@ -1774,6 +1796,24 @@
    sealingExpert: { name: "Sealing Expert", desc: "+12% maximum chakra and +5 percentage points mission success. Unlocks the exclusive Sealing Formula Jutsu branch.", boost: "nin", icon: "SE", rarity: "rare" },
    boneBloodline: { name: "Kaguya Clan · Shikotsumyaku", desc: "+18% maximum HP, +12% battle DEF and +8 percentage points counter. Unlocks four Bone Dance specialisations.", boost: "ken", icon: "KC", rarity: "unique" },
    shadowBinder: { name: "Nara Clan · Shadow Possession", desc: "+6 percentage points mission success and +5 percentage points dodge. Unlocks four Shadow Technique specialisations.", boost: "gen", icon: "NC", rarity: "unique" },
+@@ -294,7 +297,7 @@
+   { id: "hall_mission_admin", branch: "hall", name: "Mission Administration", desc: "+2 maximum open contracts on the mission board.", requiresLevel: 1, cost: { gold: 80, rice: 10 } },
+   { id: "hall_expanded_roster", branch: "hall", name: "Expanded Roster", desc: "+2 maximum ninja capacity.", requiresLevel: 2, cost: { gold: 130, rice: 25 } },
+   { id: "hall_talent_scouts", branch: "hall", name: "Talent Scouts", desc: "Scouted ninja roll potential twice and keep the better result.", requiresLevel: 2, cost: { gold: 170, rice: 35 } },
+-  { id: "hall_elite_recruitment", branch: "hall", name: "Elite Recruitment", desc: "+10 percentage points rare-trait chance on recruits and +6 percentage points unique-ninja scout chance.", requiresLevel: 3, cost: { gold: 260, rice: 60 } },
++  { id: "hall_elite_recruitment", branch: "hall", name: "Elite Recruitment", desc: "+10 percentage points ordinary rare-trait chance, +4 clan inheritance, +2 Kekkei Talent, and +2 legendary scout chance (6% total cap).", requiresLevel: 3, cost: { gold: 260, rice: 60 } },
+ 
+   { id: "farm_efficiency", branch: "farm", name: "Efficient Irrigation", desc: "+25% daily rice income from Rice Paddies.", requiresLevel: 1, cost: { gold: 60, rice: 15 } },
+   { id: "farm_ration_stores", branch: "farm", name: "Ration Stores", desc: "Ninja consume 25% less rice each day.", requiresLevel: 1, cost: { gold: 85, rice: 20 } },
+@@ -304,7 +307,7 @@
+   { id: "tea_merchant_contacts", branch: "tea", name: "Merchant Contacts", desc: "+25% daily gold income from Tea Houses.", requiresLevel: 1, cost: { gold: 70, rice: 10 } },
+   { id: "tea_contract_network", branch: "tea", name: "Contract Network", desc: "New mission contracts pay 15% more gold and rice.", requiresLevel: 1, cost: { gold: 100, rice: 20 } },
+   { id: "tea_recruitment_rumours", branch: "tea", name: "Recruitment Rumours", desc: "Scouting costs 10 less gold and 5 less rice.", requiresLevel: 2, cost: { gold: 135, rice: 30 } },
+-  { id: "tea_black_market", branch: "tea", name: "Black-Market Intelligence", desc: "+6 percentage points unique-ninja scout chance.", requiresLevel: 3, cost: { gold: 210, rice: 45 } },
++  { id: "tea_black_market", branch: "tea", name: "Black-Market Intelligence", desc: "+1 percentage point legendary scout chance (6% total cap).", requiresLevel: 3, cost: { gold: 210, rice: 45 } },
+ 
+   { id: "dojo_advanced_drills", branch: "dojo", name: "Advanced Drills", desc: "+50% passive Dōjō XP for ready ninja each day.", requiresLevel: 1, cost: { gold: 90, rice: 20 } },
+   { id: "dojo_kenjutsu_hall", branch: "dojo", name: "Kenjutsu Hall", desc: "Kenjutsu growth is +15%, and direct Kenjutsu training gains +1 extra point.", requiresLevel: 2, cost: { gold: 145, rice: 35 } },
 @@ -430,15 +433,505 @@
  };
  
@@ -2310,8 +2350,12 @@
    const unique = TRAIT_IDS.filter((id) => TRAIT_META[id].rarity === "unique");
    const count = pot >= 5 ? 3 : pot >= 3 ? 2 : 1;
    const out: import("./types").TraitId[] = [];
-@@ -76,8 +77,7 @@
-   // Clan/bloodline uniques are genuine scouting jackpots. Only ordinary recruits roll them,
+@@ -73,11 +74,10 @@
+   if (legendId === "masked_assassin") add("nightOperative");
+   if (legendId === "gate_master") add("relentless");
+   if (legendId === "seal_bearer") add("chakraAnchor");
+-  // Clan/bloodline uniques are genuine scouting jackpots. Only ordinary recruits roll them,
++  // Clan inheritance is uncommon. Only ordinary recruits roll it,
    // and no normal recruit can receive more than one UNIQUE trait.
    if (!legendId && unique.length) {
 -    const uniqueChance = (pot >= 5 ? 0.090 : pot >= 4 ? 0.052 : pot >= 3 ? 0.020 : pot >= 2 ? 0.004 : 0)
