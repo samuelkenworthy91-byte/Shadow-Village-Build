@@ -38,6 +38,14 @@ jobs:
           path: ~/.android/debug.keystore
           key: shadow-village-debug-keystore-v1
 
+      - name: Require the existing signing key
+        run: test -s ~/.android/debug.keystore
+
+      - name: Download last delivered APK for update verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download 33647060245 -n Kage-Life-APK -D previous-apk
+
       - name: Install image tools
         run: |
           sudo apt-get update -qq
@@ -142,6 +150,9 @@ jobs:
       - name: Apply v35 phone safe area
         run: python overrides/apply_phone_safe_area_v35.py
 
+      - name: Apply v36 jutsu descriptions and flavour
+        run: python overrides/apply_jutsu_descriptions_v36.py
+
       - name: Validate complete Kage Life source
         run: |
           set -euo pipefail
@@ -152,7 +163,7 @@ jobs:
           test "$SRC_BLD_COUNT" -gt 0
           test "$OUT_BLD_COUNT" -eq "$SRC_BLD_COUNT"
           grep -q 'Portrait QC v33' app/src/game/ninjaArt.ts
-          grep -q 'kage-life-v7-phone-safe-area' app/public/sw.js
+          grep -q 'kage-life-v8-jutsu-mechanics' app/public/sw.js
           grep -q 'viewport-fit=contain' app/index.html
           grep -q 'portrait?: number' app/src/game/types.ts
           grep -q 'function DailyProjections' app/src/components/MissionBoard.tsx
@@ -195,6 +206,11 @@ jobs:
           app/node_modules/.bin/esbuild work/check_gameplay_v34.ts --bundle --platform=node --outfile=/tmp/check-gameplay-v34.cjs
           node /tmp/check-gameplay-v34.cjs
 
+      - name: Verify descriptions and existing save slots
+        run: |
+          app/node_modules/.bin/esbuild work/check_jutsu_descriptions_v36.ts --bundle --platform=node --outfile=/tmp/check-v36.cjs
+          node /tmp/check-v36.cjs
+
       - name: Verify mobile summon and jutsu screens
         timeout-minutes: 8
         run: |
@@ -224,6 +240,9 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Set increasing Android update version
+        run: python work/configure_android_update_v36.py
+
       - name: Generate Android Kage Life icon and splash
         working-directory: app
         run: |
@@ -243,6 +262,15 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+
+      - name: Verify install and save compatibility with last APK
+        run: python work/check_apk_upgrade_v36.py
+
+      - name: Upload update compatibility report
+        uses: actions/upload-artifact@v4
+        with:
+          name: Kage-Life-Upgrade-QC
+          path: upgrade-results
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

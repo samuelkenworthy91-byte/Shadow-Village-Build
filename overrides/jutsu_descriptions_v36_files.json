@@ -1,0 +1,35 @@
+{
+  "files": {
+    "src/components/JutsuTree.tsx": {
+      "before": "9a495a60b60e96760fbf2accf17302497acd32377b50c5dfc1031e36e74f8f57",
+      "after": "b80ae9e4455b4e955c9f184e8b106839d70adc57aad29f5a541e14e08f7dd472"
+    },
+    "src/components/BattleScreen.tsx": {
+      "before": "5eaf5bf92cd22652b8e236a83bb531d9aeb325b0d9a66712b8de7b4ded96106c",
+      "after": "31c528ab653d5243c66e6843d9bfe8e5ac7257020ab2a0479a98ade39731bc1c"
+    },
+    "public/sw.js": {
+      "before": "1a00f5718f3bb08b540d2277e16bd69c1c42f06b3cf61726ee644147c1744999",
+      "after": "81665b43f620ec3a67afd465c8a481b030b92f5cfd70783a71d712b8baf4819b"
+    },
+    "src/game/jutsuDescription.ts": {
+      "before": null,
+      "after": "8f03a0b8c9f043ba211b614c3b9574523bdfc6f4dc0a04101a582cf03768e6ad"
+    },
+    "src/game/jutsuFlavour.ts": {
+      "before": null,
+      "after": "c76a297eb829b703043ce51b530e2965cd9fe69ff43bde167107207c85d4f836"
+    }
+  },
+  "unchanged": {
+    "src/game/save.ts": "d81f4451f44ef068c0813b0df54cfcdb336ba23c7a7e5e04d1f8d03a5d0be5c9",
+    "src/game/types.ts": "5ba858089cd2bbd6398ff52cc6be5e60e907fce574d95aa777f668e5381248dd",
+    "src/game/jutsu.ts": "5660b39b26156eceb301201effd5dbee3e01f7236626618899ac4c5391987ca6",
+    "src/game/battle.ts": "bf70362775ed5b7e532bd950bc884dd788d8af8fb69793332c164c5c05b02e12",
+    "src/game/engine.ts": "d798c8e05f28400c288d554ccd2bd6aedc2111d397153b980b8ace3b31a86448",
+    "src/game/clanExpansion.ts": "2bdc311db9a0e7f91487595fc59862ea952fb0f11fa44701d8a56d3aa4942708",
+    "src/game/summons.ts": "4c207253b0abb2888d3edcb6afd766bd131723ac59c6f45281428a49d5ec54e9",
+    "capacitor.config.ts": "0ab3a2a7c6b15a296035bde232db90374188262fead9fc3f822159d30879344b",
+    "index.html": "13f9bf6b4868c178e32bab81ab8d8165b41496cc80512a13f6da1a3b0ee2d988"
+  }
+}

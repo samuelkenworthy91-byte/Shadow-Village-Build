@@ -1,0 +1,495 @@
+--- a/src/components/JutsuTree.tsx
++++ b/src/components/JutsuTree.tsx
+@@ -1,7 +1,8 @@
++import { jutsuFlavour } from '../game/jutsuFlavour';
+ import { unitFromNinja } from "../game/battle";
+-import { jutsuStatusPreview } from "../game/statusDamage";
++import { describeJutsu } from "../game/jutsuDescription";
+ import type { Ninja, TraitId } from "../game/types";
+-import { JUTSU, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
++import { JUTSU, jutsuCostForNinja, canLearnJutsu, jutsuForNinja, jutsuLearnBlockReason, jutsuPointsAvailable, knownJutsuIds, learnJutsu, ninjaKekkeiKey, ninjaNatures, specialistJutsuTraits, toggleJutsuEquip, type JutsuDef } from "../game/jutsu";
+ import { NATURE_META, TRAIT_META, KEKKEI_META } from "../game/content";
+ import { LEGENDS } from "../game/perks";
+ import { dojutsuFamilyLabel } from "../game/clanBloodlines";
+@@ -10,41 +11,6 @@
+ function sourceRows(nodes: JutsuDef[]): JutsuDef[][] {
+   const maxTier = Math.max(...nodes.map((j) => j.tier));
+   return Array.from({ length: maxTier + 1 }, (_, tier) => nodes.filter((j) => j.tier === tier).sort((a, b) => a.pathLabel.localeCompare(b.pathLabel)));
+-}
+-
+-function specialText(j: JutsuDef): string[] {
+-  const out: string[] = [];
+-  if ((j.hits ?? 1) > 1) out.push(`${j.hits} HITS`);
+-  if (j.recoilPct) out.push(`RECOIL ${Math.round(j.recoilPct*100)}% HP`);
+-  if (j.selfHealPct) out.push(`SELF HEAL ${Math.round(j.selfHealPct*100)}%`);
+-  if (j.cpDrainPct) out.push(`CP DRAIN ${Math.round(j.cpDrainPct*100)}%`);
+-  if (j.cpRestorePct) out.push(`CP RESTORE ${Math.round(j.cpRestorePct*100)}%`);
+-  if (j.allyHealPct) out.push(`TEAM HEAL ${Math.round(j.allyHealPct*100)}%`);
+-  if (j.executeBelow) out.push(`EXECUTE <${Math.round(j.executeBelow*100)}%`);
+-  if (j.shredPct) out.push(`SHRED ${Math.round(j.shredPct*100)}% · ${j.shredRounds ?? 2}R`);
+-  if (j.tauntRounds) out.push(`TAUNT ${j.tauntRounds}R`);
+-  if (j.retaliationPct) out.push(`RETALIATE ${Math.round(j.retaliationPct*100)}% · ${j.retaliationRounds ?? 2}R`);
+-  if (j.braceStrength) out.push(`GUARD ${Math.round(j.braceStrength*100)}% · ${j.braceRounds ?? 2}R`);
+-  if (j.speedBuffPct) out.push(`SPD +${Math.round(j.speedBuffPct*100)}% · ${j.speedBuffRounds ?? 2}R`);
+-  if (j.allyCpRestorePct) out.push(`CP +${Math.round(j.allyCpRestorePct*100)}%`);
+-  if (j.extraTurnChance) out.push(`BONUS TURN ${Math.round(j.extraTurnChance*100)}%`);
+-  if (j.ranged) out.push(`RANGED · BYPASS GUARD`);
+-  return out;
+-}
+-
+-function passiveText(j: JutsuDef): string[] {
+-  const p = j.passive; if (!p) return []; const out: string[] = [];
+-  const pct = (v: number) => `${Math.round((v - 1) * 100)}%`;
+-  if (p.hp) out.push(`HP +${pct(p.hp)}`); if (p.cp) out.push(`CP +${pct(p.cp)}`);
+-  if (p.atk) out.push(`ATK +${pct(p.atk)}`); if (p.def) out.push(`DEF +${pct(p.def)}`); if (p.spd) out.push(`SPD +${pct(p.spd)}`);
+-  if (p.jutsuPower) out.push(`JUTSU +${pct(p.jutsuPower)}`); if (p.crit) out.push(`CRIT +${Math.round(p.crit*100)}pp`); if (p.dodge) out.push(`DODGE +${Math.round(p.dodge*100)}pp`);
+-  if (p.counter) out.push(`COUNTER +${Math.round(p.counter*100)}pp`); if (p.burnAmp) out.push(`BURN +${pct(p.burnAmp)}`); if (p.burnRounds) out.push(`BURN +${p.burnRounds}R`);
+-  if (p.guardAmp) out.push(`BARRIER +${pct(p.guardAmp)}`); if (p.regenAmp) out.push(`REGEN +${pct(p.regenAmp)}`);
+-  if (p.pierceBonus) out.push(`PIERCE +${Math.round(p.pierceBonus*100)}pp`); if (p.stunBonus) out.push(`STUN +${Math.round(p.stunBonus*100)}pp`);
+-  if (p.shredBonus) out.push(`SHRED +${Math.round(p.shredBonus*100)}pp`); if (p.braceAmp) out.push(`GUARD +${pct(p.braceAmp)}`);
+-  if (p.tauntBonus) out.push(`TAUNT +${Math.round(p.tauntBonus*100)}pp`); if (p.retaliationBonus) out.push(`RETALIATE +${Math.round(p.retaliationBonus*100)}pp`);
+-  if (p.extraTurnBonus) out.push(`BONUS TURN +${Math.round(p.extraTurnBonus*100)}pp`);
+-  if (p.chakraCost) out.push(`COST ${Math.round((1-p.chakraCost)*100)}% LESS`); return out;
+ }
+ 
+ export default function JutsuTree({ n, onChanged }: { n: Ninja; onChanged: () => void }) {
+@@ -57,11 +23,15 @@
+ 
+   const card = (j: JutsuDef) => {
+     const has = known.has(j.id), eq = equipped.has(j.id), learnable = canLearnJutsu(n, j.id), locked = !has && !learnable;
++    const description = describeJutsu(previewUnit, j, jutsuCostForNinja(n, j));
+     const reason = j.tier === 0 ? "INNATE FOUNDATION" : (jutsuLearnBlockReason(n, j.id) ?? "Locked");
+     return <div key={j.id} className={cn("rounded-lg p-2 ring-1 ring-inset", has ? "bg-jade/8 ring-jade/20" : "bg-black/20 ring-white/6", locked && "opacity-55")}>
+       <div className="mb-1 flex items-center justify-between gap-1"><span className="rounded bg-black/35 px-1.5 py-[2px] text-[7px] font-black uppercase tracking-wider text-gold/80">{j.pathLabel}</span>{j.passive && <span className="rounded bg-[#79cf69]/15 px-1 py-[1px] text-[7px] font-black text-[#9bea8f]">PASSIVE</span>}{eq && <span className="rounded bg-gold/15 px-1 py-[1px] text-[7px] font-black text-gold">EQUIPPED</span>}</div>
+-      <p className="text-[9px] font-black leading-tight text-paper">{j.name}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/52">{j.desc}</p>{jutsuStatusPreview(previewUnit, j) && <p className="mt-1 text-[8px] leading-relaxed text-gold/80">{jutsuStatusPreview(previewUnit, j)}</p>}
+-      <div className="mt-1 flex flex-wrap gap-1"><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">Lv {j.levelReq}</span>{!j.passive && <><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-[#75bfff]">{j.chakra} CP</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.power.toFixed(2)}×</span><span className="rounded bg-black/30 px-1 py-[1px] text-[7px] font-bold text-paper/40">{j.effect.toUpperCase()}</span></>}{passiveText(j).map(x => <span key={x} className="rounded bg-jade/10 px-1 py-[1px] text-[7px] font-black text-jade">{x}</span>)}{specialText(j).map(x => <span key={x} className="rounded bg-[#9b7cff]/10 px-1 py-[1px] text-[7px] font-black text-[#c5b7ff]">{x}</span>)}</div>
++      <p className="text-[11px] font-black leading-tight text-paper">{j.name}</p>
++      <p className="mt-1 text-[10px] italic leading-relaxed text-paper/65">{jutsuFlavour(j)}</p>
++      <p className="mt-1 text-[10px] font-bold leading-relaxed text-gold">{description.scaling}</p>
++      <div className="mt-1 space-y-1 text-[9.5px] leading-relaxed text-paper/75">{description.lines.map((line, index) => <p key={index}>{line}</p>)}</div>
++      <p className="mt-1 text-[8px] font-bold text-paper/45">Requires Lv {j.levelReq}</p>
+       <p className="mt-1 text-[7px] font-bold uppercase tracking-wide text-paper/30">{j.pathSummary}</p><div className="mt-2">
+         {!has && j.tier > 0 && <button disabled={!learnable} onClick={() => learn(j.id)} className="w-full rounded-lg bg-gold px-2 py-1.5 text-[8px] font-black text-[#2b2118] disabled:cursor-not-allowed disabled:bg-white/8 disabled:text-paper/25">{learnable ? "LEARN · 1 JP" : reason}</button>}
+         {has && j.passive && <div className="w-full rounded-lg bg-jade/10 px-2 py-1.5 text-center text-[8px] font-black text-jade ring-1 ring-jade/20">PASSIVE ACTIVE</div>}
+@@ -71,9 +41,15 @@
+ 
+   const treeBlock = (key: string, title: string, subtitle: string, icon: string, color: string, nodes: JutsuDef[], rare = false) => <div key={key} className={cn("rounded-xl p-2 ring-1", rare ? "bg-gold/[0.04] ring-gold/15" : "bg-black/20 ring-white/7")}>
+     <div className="mb-2 flex items-center gap-2"><span className="grid h-7 w-7 place-items-center rounded-lg text-sm font-black" style={{backgroundColor:`${color}22`,color}}>{icon}</span><div className="min-w-0"><p className={cn("text-[10px] font-black",rare?"text-gold":"text-paper")}>{title}</p><p className="text-[8px] font-bold leading-relaxed text-paper/40">{subtitle}</p></div></div>
+-    <div className="space-y-2.5">{sourceRows(nodes).map((row,tier)=><div key={tier}><div className="mb-1 flex items-center gap-2"><span className="rounded bg-white/5 px-1.5 py-[2px] text-[7px] font-black tracking-[0.16em] text-paper/45">T{tier}</span><span className="text-[7px] font-bold text-paper/28">{tier===0?"4 foundations · innate":"follow the path directly above · active or passive · 1 JP"}</span></div><div className="grid grid-cols-2 gap-1.5">{row.map(card)}</div></div>)}</div></div>;
++    <div className="space-y-2.5">{sourceRows(nodes).map((row,tier)=><div key={tier}><div className="mb-1 flex items-center gap-2"><span className="rounded bg-white/5 px-1.5 py-[2px] text-[7px] font-black tracking-[0.16em] text-paper/45">T{tier}</span><span className="text-[7px] font-bold text-paper/28">{tier===0?"4 foundations · innate":"follow the path directly above · active or passive · 1 JP"}</span></div><div className="grid grid-cols-1 gap-1.5 min-[420px]:grid-cols-2">{row.map(card)}</div></div>)}</div></div>;
+ 
+   return <div><div className="mb-2 flex items-center justify-between gap-2"><div><p className="text-[9px] font-black tracking-[0.18em] text-gold/75">JUTSU PATH TREES</p><p className="mt-0.5 text-[9px] leading-relaxed text-paper/45">Jutsu and Genjutsu spend the same JP pool. These trees mix active Jutsu with permanent mastery passives; every purchase here means one fewer point available to the Genjutsu control tree.</p></div><div className="shrink-0 rounded-lg bg-black/30 px-2 py-1 text-center ring-1 ring-white/8"><p className="text-[8px] font-black tracking-wider text-paper/40">SHARED JP</p><p className="text-sm font-black tabular-nums text-gold">{points}</p></div></div>
++    <details className="mb-3 rounded-lg bg-black/25 p-2 text-[10px] leading-relaxed text-paper/70">
++      <summary className="cursor-pointer font-bold text-gold">Which stats improve my jutsu?</summary>
++      <p className="mt-2">Each card names the combat stat it actually uses. ATK comes from TAI × 1.22 + KEN × 0.52 + NIN × 0.28 + rank bonuses, then traits, equipment and learned bonuses apply. For Akimichi attacks, Taijutsu is the strongest direct contributor.</p>
++      <p className="mt-1">Combat SPD includes trained Speed, Tactics and level. GEN includes a Dōjutsu contribution. All damaging jutsu also use Jutsu power, even when they scale from ATK, KEN or STE. Healing and support cards explain their own formulas instead.</p>
++      <p className="mt-1">Numbers use this ninja’s current stats and learned masteries. A preview for an unlearned move does not include any masteries you might buy later. Percentage-point bonuses add to a chance; percentage bonuses multiply a stat.</p>
++    </details>
+     <div className="mb-3 rounded-lg bg-gold/[0.05] p-2 ring-1 ring-gold/12"><p className="text-[8px] font-black text-gold">ONE DEFINING JUTSU STYLE</p><p className="mt-1 text-[8px] leading-relaxed text-paper/45">Ordinary shinobi use their elemental release. A dual-nature Kekkei replaces both base elements with its combined tree. Clan, sealing, bloodline and eye specialists replace elemental access with their exclusive style. Legends use their personal arts. Specialist techniques have a deliberately higher power budget than ordinary releases.</p></div>
+     <div className="space-y-3">{eyeFamily && <div className="rounded-lg bg-[#d86565]/[0.06] p-2 ring-1 ring-[#d86565]/15"><p className="text-[8px] font-black text-[#ff9d9d]">DŌJUTSU · {eyeFamily.toUpperCase()}</p><p className="mt-1 text-[8px] leading-relaxed text-paper/45">The DŌJ stat is shared visual mastery, but this lineage has its own exclusive eye tree below. Different eyes no longer share the same signature progression.</p></div>}{n.legend && LEGENDS[n.legend] && <><div className="pt-1"><p className="mb-1 text-[8px] font-black tracking-[0.16em] text-[#c5b7ff]">PERSONAL LEGEND ARTS · UNIQUE TO THIS SHINOBI TYPE</p></div>{treeBlock(`legend-${n.legend}`,`${LEGENDS[n.legend].title} · Personal Arts`,`Four innate foundations from Lv1, then four distinct choices at every personal tier. These share the normal JP pool, so specialising reaches the deepest techniques sooner.`,`★`,LEGENDS[n.legend].color,JUTSU.filter(j=>j.requiresLegend===n.legend),true)}</>}
+       {baseNatures.map(nature=>{const meta=NATURE_META[nature]; const nodes=JUTSU.filter(j=>j.nature===nature); const identity=nature==="fire"?"BURN · DoT · EXECUTE · AGGRESSION":nature==="water"?"SUSTAIN · CONTROL · CLEANSE · FLOW":nature==="wind"?"MULTI-HIT · CRIT · ARMOUR SHRED · RANGE":nature==="earth"?"GUARD · BARRIERS · TAUNT · RETALIATION":"SPEED · STUN · BURST · EXTRA-TURN PRESSURE"; return treeBlock(nature,`${nature==="light"?"Lightning":meta.name} Jutsu`,identity,meta.name.charAt(0),meta.color,nodes);})}
+--- a/src/components/BattleScreen.tsx
++++ b/src/components/BattleScreen.tsx
+@@ -1,4 +1,5 @@
+-import { jutsuStatusPreview } from "../game/statusDamage";
++import { jutsuFlavour } from '../game/jutsuFlavour';
++import { describeJutsu } from "../game/jutsuDescription";
+ import { useEffect, useRef, useState } from "react";
+ import { Flame, PackageOpen, Shield, Sparkles, Swords, Wand2, Zap } from "lucide-react";
+ import type { BAction, Battle, GameState, Unit } from "../game/types";
+@@ -393,7 +394,7 @@
+         </div>
+ 
+         {/* command menu */}
+-        <div className="mt-1.5 shrink-0 rounded-xl bg-black/55 p-2 ring-1 ring-white/10 backdrop-blur">
++        <div className="mt-1.5 max-h-[35dvh] shrink-0 overflow-y-auto rounded-xl bg-black/55 p-2 ring-1 ring-white/10 backdrop-blur">
+           {over ? (
+             <div className="flex items-center gap-3">
+               <div className="min-w-0 flex-1">
+@@ -419,14 +420,16 @@
+                 <span className="text-[8.5px] text-paper/40">Choose technique · range/effect shown below</span>
+                 <button onClick={() => setJutsuOpen(false)} className="btn-ghost ml-auto h-7 rounded-lg px-2.5 text-[9px] font-black">BACK</button>
+               </div>
+-              <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
++              <div className="grid grid-cols-1 gap-1 min-[420px]:grid-cols-2 sm:grid-cols-4">
+                 {equippedJutsu.map((j) => {
+                   const cost = activeNinja ? jutsuCostForNinja(activeNinja, j) : j.chakra;
+                   const affordable = cur.cp >= cost;
++                  const description = describeJutsu(cur, j, cost);
+                   return <button key={j.id} disabled={!affordable} onClick={() => chooseJutsu(j)} className="btn-ink min-h-[54px] rounded-lg px-2 py-1.5 text-left disabled:opacity-35">
+                     <div className="flex items-center justify-between gap-1"><span className="truncate text-[9.5px] font-black text-paper">{j.name}</span><span className="text-[8px] font-black text-[#7db9ec]">{cost}cp</span></div>
+-                    <p className="mt-0.5 text-[7.5px] font-bold uppercase tracking-wide text-gold/70">{j.target.replace(/_/g, " ")} · {j.effect}{j.effectValue ? ` ${j.effectValue}` : ""}</p>
+-                    <p className="mt-0.5 line-clamp-1 text-[7.5px] text-paper/35">{j.desc}</p>{cur && jutsuStatusPreview(cur, j) && <p className="mt-1 text-[8px] text-gold/80">{jutsuStatusPreview(cur, j)}</p>}
++                    <p className="mt-1 text-[10px] italic leading-relaxed text-paper/65">{jutsuFlavour(j)}</p>
++      <p className="mt-1 text-[9px] font-bold text-gold/85">{description.scaling}</p>
++                    <div className="mt-1 space-y-1 text-[8.5px] leading-relaxed text-paper/65">{description.lines.map((line, index) => <p key={index}>{line}</p>)}</div>
+                   </button>;
+                 })}
+               </div>
+--- a/public/sw.js
++++ b/public/sw.js
+@@ -1,7 +1,7 @@
+ // Offline shell for Kage Life. Ninja portraits are external PNG assets,
+ // so pre-cache the 340 approved portraits as well as the app shell.
+ // Previous cache: shadow-village-bingo-book-v7-physical-dossier
+-const CACHE = "kage-life-v7-phone-safe-area"; // previous: shadow-village-main-polish-v1, kage-life-v1-village-identity
++const CACHE = "kage-life-v8-jutsu-mechanics"; // previous: shadow-village-main-polish-v1, kage-life-v1-village-identity
+ const NINJA_ART = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 57, 59, 60, 61, 62, 63, 64, 65, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 163, 164, 165, 166, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 194, 195, 196, 197, 198, 199, 200, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 214, 215, 216, 217, 218, 219, 220, 222, 223, 224, 226, 228, 230, 231, 232, 233, 235, 236, 237, 238, 240, 241, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255, 256, 257, 258, 259, 260, 261, 262, 263, 264, 265, 266, 267, 268, 269, 270, 271, 272, 273, 274, 277, 278, 279, 280, 281, 282, 283, 284, 285, 286, 287, 288, 289, 290, 291, 292, 293, 294, 295, 296, 299, 300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311, 312, 313, 314, 315, 316, 317, 318, 319, 320, 321, 322, 323, 324, 325, 326, 329, 330, 331, 332, 333, 334, 335, 336, 337, 338, 339, 340, 341, 342, 343, 344, 345, 346, 347, 348, 349, 350, 352, 353, 354, 355, 356, 357, 358, 359, 360, 361, 362, 363, 364, 365, 366, 367, 368, 369].map((id) => `/ninjas/ninja_${String(id).padStart(3, "0")}.png`);
+ const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
+ const BLD_ART = ["/buildings/bld_anbu.webp", "/buildings/bld_dojo.webp", "/buildings/bld_embassy.webp", "/buildings/bld_farm.webp", "/buildings/bld_hall.webp", "/buildings/bld_hospital.webp", "/buildings/bld_intel.webp", "/buildings/bld_shrine.webp", "/buildings/bld_tea.webp", "/buildings/bld_tower.webp"];
+--- /dev/null
++++ b/src/game/jutsuDescription.ts
+@@ -0,0 +1,86 @@
++import type { JutsuDef, JutsuPassive } from './jutsu';
++import type { Unit } from './types';
++import { jutsuAttackStat, jutsuStatusPreview, isDamageOverTime } from './statusDamage';
++
++const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n));
++const number = (n: number) => Number(n.toFixed(2)).toString();
++const percent = (n: number) => `${number(n * 100)}%`;
++const rounds = (n: number) => `${n} round${n === 1 ? '' : 's'}`;
++const targets = { foe: 'one enemy', all_foes: 'all enemies', ally: 'one ally (including yourself)', all_allies: 'all living allies (including yourself)', self: 'yourself' };
++const stats = { atk: 'ATK (Attack; mainly Taijutsu)', nin: 'NIN (Ninjutsu)', gen: 'GEN (Genjutsu)', ken: 'KEN (Kenjutsu)', tac: 'TAC (Battlefield Tactics)', doj: 'DŌJ (Dōjutsu)', med: 'MED (Medical)', spd: 'SPD (combat Speed)', ste: 'STE (Stealth)' };
++
++const passiveLabels: Record<keyof JutsuPassive, string> = {
++  hp: 'Max HP', cp: 'Max chakra', atk: 'Attack', def: 'Defence', spd: 'Speed', jutsuPower: 'Jutsu power',
++  crit: 'Critical-hit chance', dodge: 'Dodge chance', counter: 'Counter damage returned', burnAmp: 'Burn damage',
++  burnRounds: 'Burn duration', guardAmp: 'Barrier strength', regenAmp: 'Regeneration healing',
++  pierceBonus: 'Piercing defence bypass', stunBonus: 'Jutsu stun chance', chakraCost: 'Chakra cost',
++  shredBonus: 'Armour shred', braceAmp: 'Brace strength', tauntBonus: 'Taunt strength',
++  retaliationBonus: 'Retaliation damage fraction', extraTurnBonus: 'Bonus-turn chance',
++};
++const additive = new Set<keyof JutsuPassive>(['crit', 'dodge', 'counter', 'pierceBonus', 'stunBonus', 'shredBonus', 'tauntBonus', 'retaliationBonus', 'extraTurnBonus']);
++
++/** Reads the final technique data and current combat stats; never changes a save. */
++export function describeJutsu(u: Unit, j: JutsuDef, cost = j.chakra): { scaling: string; lines: string[] } {
++  if (j.passive) {
++    const lines = ['Permanent while learned. No chakra cost and no equipped-jutsu slot.'];
++    for (const [key, value] of Object.entries(j.passive) as [keyof JutsuPassive, number][]) {
++      if (key === 'burnRounds') lines.push(`${passiveLabels[key]}: +${rounds(value)}.`);
++      else if (additive.has(key)) lines.push(`${passiveLabels[key]}: +${number(value * 100)} percentage points.`);
++      else lines.push(`${passiveLabels[key]}: ${value >= 1 ? '+' : '−'}${percent(Math.abs(value - 1))}.`);
++    }
++    return { scaling: 'Passive mastery · fixed bonuses', lines };
++  }
++  const hostile = j.target === 'foe' || j.target === 'all_foes';
++  const damaging = hostile && (j.power > 0 || isDamageOverTime(j.effect));
++  const healing = !hostile && (j.power > 0 || j.effect === 'regen');
++  const stat = j.stat ?? 'nin';
++  const scaling = damaging ? `Scales with ${stats[stat]} · current ${number(jutsuAttackStat(u, j))}`
++    : healing ? `Healing scales with NIN ${number(u.nin)} + MED ${number(u.med)}`
++      : 'Support · fixed effects / max HP or chakra; no damage-stat scaling';
++  const lines = [`Target: ${targets[j.target]}. Cost: ${cost} chakra.`];
++  if (j.power > 0 && hostile) {
++    const hits = Math.max(1, j.hits ?? 1);
++    const base = jutsuAttackStat(u, j) * 1.65 * u.jutsuPower * j.power;
++    lines.push(`Damage: ${stat.toUpperCase()} × 1.65 × Jutsu power × ${number(j.power)} per hit. ${hits} hit${hits === 1 ? '' : 's'} per target.`);
++    lines.push(`Base hit: ${Math.round(base * .9)}–${Math.round(base * 1.16)} before defence, guards, critical hits, elements and other combat bonuses.`);
++  } else if (j.power > 0) {
++    const heal = Math.max(1, Math.round((u.nin * .55 + u.med * .65) * j.power));
++    lines.push(`Immediate heal: ${heal} HP per target, capped at missing HP. Formula: (NIN × 0.55 + MED × 0.65) × ${number(j.power)}.`);
++  }
++  if (hostile && isDamageOverTime(j.effect)) lines.push(jutsuStatusPreview(u, j)!);
++  switch (j.effect) {
++    case 'slow': if (hostile) lines.push(`Slow: −${percent(Math.min(.35, .08 + (j.effectValue ?? 1) * .06))} Speed for ${rounds(Math.max(1, j.effectValue ?? 1))}.`); break;
++    case 'guard': if (!hostile) lines.push(`Barrier: ${percent(clamp(.30 * (u.jutsuGuardAmp ?? 1), .30, .62))} less non-piercing hit damage for ${rounds(j.effectValue ?? 2)}. Only the strongest guard, brace or barrier applies.`); break;
++    case 'brace': if (!hostile) lines.push(`Brace: ${percent(clamp((j.braceStrength ?? .22) * (u.jutsuBraceAmp ?? 1), .12, .52))} less non-piercing hit damage for ${rounds(j.braceRounds ?? j.effectValue ?? 2)}. Only the strongest guard, brace or barrier applies.`); break;
++    case 'shred': if (hostile) lines.push(`Armour shred: −${percent(clamp((j.shredPct ?? .10) + (u.jutsuShredBonus ?? 0), .05, .45))} Defence for ${rounds(j.shredRounds ?? 2)}.`); break;
++    case 'stun': if (hostile) lines.push(`Stun: ${percent(clamp((j.target === 'all_foes' ? .32 : .58) + (u.jutsuStunBonus ?? 0), 0, .88))} chance per target for ${rounds(j.effectValue ?? 1)}.`); break;
++    case 'pierce': if (hostile) {
++      const amount = clamp((j.effectValue ?? 0) / 100 + (u.jutsuPierceBonus ?? 0), 0, .85);
++      lines.push(`Piercing: ignores ${percent(amount)} of the defence deduction${amount > 0 ? ' and bypasses guard, brace and jutsu barriers' : ''}.`);
++    } break;
++    case 'crit': if (hostile) lines.push(`This attack adds ${number(j.effectValue ?? 0)} percentage points to critical-hit chance (total capped at 92%).`);
++      else if (j.power <= 0) lines.push(`Each target gains +${number(j.effectValue ?? 10)} percentage points critical-hit chance and +18% Speed for 2 rounds.`); break;
++    case 'cleanse': if (!hostile) lines.push('Clears stun, burn, poison, bleed, slow, armour shred, fear, confusion, illusion miss chance and chakra lock.'); break;
++    case 'regen': if (!hostile) {
++      const regen = Math.max(2, Math.round((u.med * .42 + u.nin * .18) * (u.jutsuRegenAmp ?? 1)));
++      lines.push(`Regeneration: ${regen} HP per target each round for ${rounds(j.effectValue ?? 2)}, capped at missing HP. Uses (MED × 0.42 + NIN × 0.18) × regeneration mastery.`);
++      lines.push(`Also grants a ${percent(clamp(.18 * (u.jutsuGuardAmp ?? 1), .18, .45))} barrier against non-piercing hits for 1 round.`);
++    } break;
++    case 'flow': case 'tempo': if ((j.speedBuffPct ?? 0) > 0) lines.push(`${hostile ? 'You gain' : 'Each target gains'} +${percent(j.speedBuffPct!)} Speed for ${rounds(j.speedBuffRounds ?? 2)}.`); break;
++  }
++  if (j.ranged && hostile) lines.push('Ranged: bypasses guard, brace and jutsu barriers. Summon shields still apply.');
++  if ((j.tauntRounds ?? 0) > 0) lines.push(`Taunt: multiplies your AI target-selection weight by ${number(1 + 14 * clamp((j.tauntStrength ?? .55) + (u.jutsuTauntBonus ?? 0), .35, .98))} for ${rounds(j.tauntRounds!)}; does not force targeting.`);
++  if ((j.retaliationRounds ?? 0) > 0) lines.push(`Retaliation: returns ${percent(clamp((j.retaliationPct ?? .20) + (u.jutsuRetaliationBonus ?? 0), .10, .65))} of damage taken to the attacker for ${rounds(j.retaliationRounds!)} while you survive the hit; replaces your ordinary counter.`);
++  if ((j.extraTurnChance ?? 0) > 0) lines.push(`Bonus turn: ${percent(clamp(j.extraTurnChance! + (u.jutsuExtraTurnBonus ?? 0), 0, .60))} chance after casting.`);
++  if ((j.cpDrainPct ?? 0) > 0 && hostile) lines.push(`Drains ${percent(j.cpDrainPct!)} of each surviving target's max chakra, limited by their current chakra. It is not transferred to you.`);
++  if ((j.cpRestorePct ?? 0) > 0) lines.push(`Restores ${percent(j.cpRestorePct!)} of your max chakra (${Math.max(1, Math.round(u.maxCp * j.cpRestorePct!))} CP), capped at missing chakra.`);
++  if ((j.allyCpRestorePct ?? 0) > 0) {
++    const who = j.target === 'all_allies' || j.target === 'all_foes' ? 'every living ally' : j.target === 'ally' ? 'the chosen ally' : 'you';
++    lines.push(`Restores ${percent(j.allyCpRestorePct!)} of max chakra to ${who}, capped at missing chakra.`);
++  }
++  if ((j.selfHealPct ?? 0) > 0) lines.push(`Heals you for ${percent(j.selfHealPct!)} of your max HP (${Math.max(1, Math.round(u.maxHp * j.selfHealPct!))} HP), capped at missing HP.`);
++  if ((j.allyHealPct ?? 0) > 0) lines.push(`Heals every living ally for ${percent(j.allyHealPct!)} of their own max HP, capped at missing HP.`);
++  if ((j.executeBelow ?? 0) > 0 && hostile) lines.push(`After the hit, executes each target left at ${percent(j.executeBelow!)} max HP or less.`);
++  if ((j.recoilPct ?? 0) > 0) lines.push(`Recoil: you lose ${percent(j.recoilPct!)} of your max HP (${Math.max(1, Math.round(u.maxHp * j.recoilPct!))} HP) after casting. This can knock you out.`);
++  return { scaling, lines };
++}
+--- /dev/null
++++ b/src/game/jutsuFlavour.ts
+@@ -0,0 +1,264 @@
++import type { JutsuDef } from './jutsu';
++
++// Narrative only. Rules and numbers live in describeJutsu, using final combat data.
++const paths: Record<string, Record<string, string>> = {
++  sealingExpert: {
++    binding: 'Ink crawls across the ground, closing a forbidden script around its prey.',
++    barrier: 'A circle of luminous characters stands between the squad and disaster.',
++    suppression: 'A precise stroke interrupts the rhythm of an enemy’s chakra.',
++    support: 'Old sealing formulas restore order to a battlefield coming apart.',
++  },
++  boneBloodline: {
++    lance: 'Living bone sharpens into a weapon forged within the wielder’s own body.',
++    armour: 'Beneath the skin, a second skeleton prepares to meet the blow.',
++    forest: 'Ivory spires turn open ground into a killing field.',
++    dance: 'Every step hides a blade; every turn completes another deadly pattern.',
++  },
++  shadowBinder: {
++    snare: 'A thin shadow slips across the earth, searching for the moment two silhouettes touch.',
++    stitch: 'Dark threads rise from the ground like needles pulled through cloth.',
++    strangle: 'The shadow at the enemy’s feet climbs toward their throat.',
++    feint: 'The obvious silhouette is a distraction. The real threat moves at its edge.',
++  },
++  swarmHost: {
++    attrition: 'A patient swarm settles into the gaps where steel and vigilance cannot reach.',
++    screen: 'Thousands of wings gather into a living screen around their host.',
++    tracking: 'The hive remembers a scent long after its owner has vanished.',
++    devour: 'Hungry insects converge on the richest current of chakra.',
++  },
++  crystalRelease: {
++    spear: 'A glittering point grows from nothing, its beauty ending in a lethal edge.',
++    prison: 'Facets close around the enemy like the petals of a glass flower.',
++    dome: 'Crystal arches rise to catch the light and the coming assault.',
++    shatter: 'Perfect geometry breaks into a storm of glittering fragments.',
++  },
++  mindLinkClan: {
++    lock: 'A quiet thought crosses the distance and presses against another mind.',
++    network: 'For a heartbeat, separate minds share the same battlefield.',
++    probe: 'Behind every feint lies an intention waiting to be heard.',
++    clarity: 'A familiar mental voice cuts through the noise and calls the mind home.',
++  },
++  inuzukaClan: {
++    fang: 'Shinobi and hound carve matching spirals through the enemy’s guard.',
++    pack: 'No member of the pack fights alone; one movement answers another.',
++    scent: 'Dust, sweat and fear draw a trail that eyes could never follow.',
++    beast: 'The hunter drops low, letting instinct set the pace of the pursuit.',
++  },
++  hozukiClan: {
++    liquid: 'Flesh loses its shape and flows around the force that would break it.',
++    pistol: 'Water gathers at a fingertip, compressed into a deceptively small threat.',
++    fish: 'The body swells with surging water and the weight of a breaking wave.',
++    fluid: 'Scattered droplets remember their shape and flow back together.',
++  },
++  yukiClan: {
++    mirror: 'A figure vanishes into ice, leaving the enemy surrounded by reflections.',
++    senbon: 'Needles of frost catch the light only after they have left the hand.',
++    freeze: 'Breath whitens as the cold creeps into every unguarded movement.',
++    armor: 'Frost gathers in patient layers until winter itself becomes armour.',
++  },
++  uzumakiClan: {
++    chains: 'Adamantine chains flare from the caster, each link carrying a stubborn will.',
++    seal: 'Spiralling script folds power into a prison of carefully chosen strokes.',
++    vital: 'The clan’s fierce vitality refuses to yield when ordinary strength runs dry.',
++    reservoir: 'Deep reserves answer the call like water rising from a hidden well.',
++  },
++  jugoClan: {
++    transform: 'Natural energy reshapes the body into something barely contained.',
++    piston: 'Living flesh forms a driving weapon, then releases its stored force.',
++    absorb: 'The body drinks in power with an appetite its owner must keep in check.',
++    rage: 'Restraint cracks, and the creature beneath the skin answers.',
++  },
++  kuramaClan: {
++    nightmare: 'An imagined horror casts a shadow that feels far too real.',
++    reality: 'The line between a painted lie and the waking world begins to blur.',
++    hallucination: 'One false detail spreads until the enemy can trust none of their senses.',
++    break: 'A hidden fracture opens inside the illusion, just where the mind is weakest.',
++  },
++  iburiClan: {
++    smoke: 'The caster’s outline loosens into smoke and slips beyond a grasping hand.',
++    infiltrate: 'A trail of smoke finds the opening a solid body could never use.',
++    choke: 'The haze thickens until even a clear breath becomes a struggle.',
++    ash: 'Grey wisps gather again around a will that refuses to scatter.',
++  },
++  senjuClan: {
++    vital: 'Deep-rooted vitality gives the body the patience of an ancient tree.',
++    adapt: 'A broad shinobi tradition turns hard lessons into instinct.',
++    recover: 'Steady chakra coaxes exhausted flesh back toward life.',
++    command: 'A calm command carries through the clash and steadies the whole formation.',
++  },
++  kamizuruClan: {
++    hive: 'A low hum becomes a cloud of wings moving with a single purpose.',
++    honey: 'Golden resin stretches across the battlefield in deceptively delicate strands.',
++    queen: 'The hive closes ranks around the presence at its heart.',
++    sting: 'A flash of wings delivers the hive’s smallest and sharpest warning.',
++  },
++  tsuchigumoClan: {
++    web: 'Threads of chakra cross and tighten into a pattern the enemy notices too late.',
++    core: 'A forbidden reservoir stirs behind the seal that keeps it contained.',
++    thread: 'Fine chakra threads carry more weight than their fragile appearance suggests.',
++    destroy: 'Stored power strains against its final boundary, hungry to be released.',
++  },
++  kedoinClan: {
++    copy: 'A borrowed face turns familiarity into a dangerous assumption.',
++    infiltrate: 'The stranger has already passed the guard before suspicion takes shape.',
++    counterfeit: 'A remembered movement returns from an unexpected pair of hands.',
++    ambush: 'Recognition comes a heartbeat after the hidden strike.',
++  },
++  woodReleaseBloodline: {
++    forest: 'Roots answer the caster’s will and force the battlefield to grow around the enemy.',
++    woodgolem: 'Timber bends into a guardian with the weight and patience of a forest.',
++    drain: 'Living vines wind around the enemy’s power and tighten their hold.',
++    life: 'New leaves unfurl where the fighting has left only broken earth.',
++  },
++  sharinganEye: {
++    insight: 'The crimson eye follows the movement before the body commits to it.',
++    copy: 'A single glance preserves the shape of a technique for another encounter.',
++    gen: 'Eye contact opens a door the enemy never meant to leave unguarded.',
++    mangekyo: 'A deeper pattern turns in the eye, carrying a terrible inherited power.',
++  },
++  byakuganEye: {
++    vision: 'The pale eye reads a battlefield written in flowing chakra.',
++    gentle: 'A light touch seeks the hidden point where a body’s power changes course.',
++    rotation: 'Chakra pours outward as the fighter turns within a flawless circle.',
++    trigram: 'The world narrows to a measured circle and a sequence of precise palms.',
++  },
++  ketsuryuganEye: {
++    blood: 'A crimson gaze follows the iron pulse beneath the enemy’s skin.',
++    gen: 'The red eye leaves an image that lingers after the victim looks away.',
++    burst: 'Crimson pressure gathers around a violent point of release.',
++    eye: 'Every pulse reveals another opening to the patient red gaze.',
++  },
++  rinneganEye: {
++    deva: 'An unseen force bends distance itself around the outstretched hand.',
++    preta: 'The enemy’s gathered chakra meets a hunger deeper than their attack.',
++    asura: 'An impossible arsenal unfolds with cold, deliberate precision.',
++    outer: 'The ringed eye looks beyond ordinary boundaries of life and power.',
++  },
++  tenseiganEye: {
++    mode: 'A luminous mantle gathers around the bearer of the moon’s inheritance.',
++    gravity: 'The pull of a distant moon seems to settle over the battlefield.',
++    truth: 'Dark orbs drift in perfect silence before the caster gives them purpose.',
++    lunar: 'Pale light closes around the squad like a watchful lunar halo.',
++  },
++  otsutsukiClan: {
++    absorb: 'An ancient hunger reaches for the chakra of a younger world.',
++    space: 'The familiar horizon folds, revealing an impossible angle of approach.',
++    fruit: 'Power gathered across generations takes root within an inhuman vessel.',
++    god: 'A gesture carries the terrible ease of a being accustomed to obedience.',
++  },
++  jinchuriki: {
++    mantle: 'Behind the seal, a vast heartbeat lends its rhythm to the host.',
++    beast: 'The beast’s chakra takes shape beyond the limits of a human body.',
++    roar: 'A voice too large for its vessel rolls across the battlefield.',
++    recovery: 'Warm chakra seeps through the seal and knits the host back together.',
++  },
++  doujutsu: {
++    insight: 'A gifted eye notices the tiny decision that comes before the strike.',
++    illusion: 'One glance plants a convincing lie inside the enemy’s senses.',
++    reflection: 'The eye finds the shape of an attack and turns its lesson outward.',
++    assault: 'Perfect perception becomes a sudden, merciless line of attack.',
++  },
++  sannin: {
++    summon: 'An old pact answers a call backed by a lifetime of dangerous journeys.',
++    medicine: 'Hands that have seen countless battlefields work with unhurried certainty.',
++    venom: 'A veteran’s subtle poison leaves the enemy fighting a battle within.',
++    mastery: 'Decades of survival leave no wasted movement in the master’s craft.',
++  },
++  puppeteer: {
++    poison: 'A hidden compartment opens, revealing the puppet’s quietest weapon.',
++    strings: 'Nearly invisible threads turn a distant twitch into precise violence.',
++    fortress: 'Lacquered panels lock together around the puppeteer’s carefully chosen position.',
++    trap: 'The harmless mechanism has already clicked into place.',
++  },
++  swordsman: {
++    execution: 'The blade waits for the instant an enemy can no longer recover their stance.',
++    mist: 'Steel disappears into the haze before the wielder follows.',
++    bloodblade: 'The edge carries the grim memory of every wound it has opened.',
++    forms: 'Each practiced form begins exactly where the last cut ends.',
++  },
++  sage: {
++    energy: 'Stillness draws the living world into harmony with the caster’s chakra.',
++    arts: 'Natural energy gives a familiar technique an unfamiliar weight.',
++    kata: 'The sage’s measured movements carry the strength of the world around them.',
++    sense: 'A ripple in the world’s energy reveals what ordinary senses miss.',
++  },
++  beast_sage: {
++    covenant: 'An ancient covenant joins human resolve to the patience of a wild guardian.',
++    predator: 'The sage studies the opening with a hunter’s absolute focus.',
++    renewal: 'The wilderness lends its stubborn habit of growing back.',
++    territory: 'The battlefield becomes hunting ground marked by the sage’s presence.',
++  },
++  storm_caller: {
++    bolt: 'A gathered charge chooses the shortest and most violent path to earth.',
++    step: 'The caster moves with the restless rhythm of an approaching storm.',
++    chain: 'Lightning searches for another path through the broken formation.',
++    overcharge: 'More power gathers than the body can comfortably contain.',
++  },
++  masked_assassin: {
++    ambush: 'The mask reveals nothing until the weapon has already moved.',
++    venom: 'A shallow wound conceals a patient, lethal intention.',
++    misdirection: 'The enemy commits to the wrong silhouette.',
++    vanish: 'A moment of broken attention is all the assassin needs.',
++  },
++  gate_master: {
++    release: 'Discipline teaches the body to approach the limits it was built to obey.',
++    barrage: 'Relentless strikes leave barely a breath between one impact and the next.',
++    speed: 'The fighter’s outline struggles to keep pace with their movement.',
++    sacrifice: 'The body pays for a moment of strength it was never meant to sustain.',
++  },
++  seal_bearer: {
++    binding: 'Forbidden characters unfold into a sentence the enemy cannot escape.',
++    barrier: 'Interlocking scripts form a shelter written against the coming blow.',
++    suppression: 'A forbidden formula closes around the enemy’s chakra network.',
++    reversal: 'The final stroke turns a hostile formula back toward its beginning.',
++  },
++};
++
++const akimichi: Record<string, string[]> = {
++  expand: [
++    'Careful expansion teaches the body to carry the clan’s formidable bulk.',
++    'The fighter curls into a massive human boulder and braces for the impact.',
++    'Expansion spreads through the whole frame, turning familiar muscle into towering strength.',
++    'A colossal palm descends across the enemy line like a falling gate.',
++  ],
++  calorie: [
++    'Every hearty meal becomes another reserve held for the day the village needs it.',
++    'A food pill sparks through the body, clearing exhaustion from the fighter’s stance.',
++    'Precise conversion draws chakra from the clan’s carefully stored reserves.',
++    'Butterfly chakra settles through the body, gathering its scattered strength.',
++  ],
++  roll: [
++    'The Akimichi tucks into a rolling charge, turning body weight into momentum.',
++    'A bristling human boulder grinds through its target in a series of heavy impacts.',
++    'The rolling fighter crashes home with enough force to rattle an enemy’s footing.',
++    'A mountain of spinning muscle barrels through the opposing formation.',
++  ],
++  butterfly: [
++    'Stored energy begins to unfurl as the first shimmering outline of butterfly wings.',
++    'Butterfly chakra surges into one punishing fist, straining the body that delivers it.',
++    'Luminous wings flare behind a flurry of blows too fierce to sustain for long.',
++    'The wings fold into a final concentrated strike, carrying the clan’s resolve in one fist.',
++  ],
++};
++const elements: Record<string, string> = {
++  'earth+fire': 'Molten stone glows beneath a crust of cooling rock.',
++  'earth+light': 'Invisible magnetic lines guide iron through the caster’s field.',
++  'earth+water': 'Water and earth answer together in the patient language of roots and leaves.',
++  'earth+wind': 'Cutting grit rides a current of wind across the broken ground.',
++  'fire+light': 'A fierce plasma glow traces the meeting of flame and lightning.',
++  'fire+water': 'Steam curls from the meeting of searing heat and flowing water.',
++  'fire+wind': 'A breath of wind feeds the flame and gives it direction.',
++  'light+water': 'Lightning follows the gleaming paths laid down by moving water.',
++  'light+wind': 'Thunder and wind gather into the sharp edge of a storm.',
++  'water+wind': 'Cold wind draws glittering ice from the water in its path.',
++};
++export function jutsuFlavour(j: JutsuDef): string {
++  if (j.requiresTrait === 'akimichiClan') return akimichi[j.path]?.[j.tier] ?? j.desc;
++  const lore = paths[j.requiresLegend ?? j.requiresTrait ?? '']?.[j.path];
++  if (lore) return lore;
++  if (j.requiresKekkei) return elements[j.requiresKekkei];
++  if (j.id === 'water_leviathan') return 'A rising current crashes across the enemy line and carries fresh momentum to its caster.';
++  // New expansion clans already have authored narrative descriptions.
++  if (/^PASSIVE:|^Passive /i.test(j.desc)) return `Patient practice turns ${j.name.toLowerCase()} from a lesson into instinct.`;
++  return j.desc;
++}

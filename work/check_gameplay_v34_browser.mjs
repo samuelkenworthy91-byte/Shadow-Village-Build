@@ -35,8 +35,8 @@ try {
     state.summons = { inventory: Object.fromEntries(SUMMONS.map(x => [x.id, 1])), recent: [], totalPulls: 10, sinceEpic: 11 };
     state.ninjas.forEach((n, i) => Object.assign(n, {
       name: ['Paper Tester', 'Sound Tester', 'Venom Tester'][i] ?? n.name,
-      traits: [['kamioriClan'], ['hibikiClan'], ['kasumoriClan']][i % 3].concat('kekkeiTalent'),
-      nature: 'fire', secondaryNature: 'water', level: 80, rank: 'jonin', legend: null, sp: 5,
+      traits: [['kamioriClan'], ['akimichiClan'], []][i % 3].concat('kekkeiTalent'),
+      nature: 'fire', secondaryNature: 'water', level: 80, rank: 'jonin', legend: i === 2 ? 'jinchuriki' : null, sp: 5,
       summonId: null, status: 'ready', jutsuKnown: [], jutsuGranted: [], jutsuEquipped: [],
       genjutsuKnown: [], genjutsuEquipped: [], perks: [], techniqueTree: undefined,
     }));
@@ -103,6 +103,59 @@ try {
   await page.screenshot({ path: `${out}/phone-safe-area-close.png` });
   await close.click();
   assert.equal(await page.getByRole('dialog', { name: 'Paper Tester details' }).count(), 0);
+  await page.getByText('Sound Tester', { exact: true }).click();
+  await page.getByRole('button', { name: 'JUTSU', exact: true }).click();
+  const akimichi = page.getByRole('dialog', { name: 'Sound Tester details' });
+  assert.match(await akimichi.innerText(), /ATK .*Taijutsu/);
+  assert.match(await akimichi.innerText(), /rolling charge, turning body weight into momentum/);
+  assert.match(await akimichi.innerText(), /Heals you for 18.84%/);
+  await akimichi.getByText('Which stats improve my jutsu?', { exact: true }).click();
+  await akimichi.getByText('Rolling Tackle', { exact: true }).scrollIntoViewIfNeeded();
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: `${out}/akimichi-scaling-flavour.png` });
+  await close.click();
+  await page.getByText('Venom Tester', { exact: true }).click();
+  await page.getByRole('button', { name: 'JUTSU', exact: true }).click();
+  const legend = page.getByRole('dialog', { name: 'Venom Tester details' });
+  assert.match(await legend.innerText(), /PERSONAL LEGEND ARTS/);
+  assert.match(await legend.innerText(), /Healing scales with NIN .*MED/);
+  assert.match(await legend.innerText(), /Behind the seal, a vast heartbeat/);
+  await legend.getByText('Chakra Arm', { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${out}/legend-scaling-flavour.png` });
+  await close.click();
+
+  // Resume an existing battle and verify long jutsu cards remain selectable on a small phone.
+  await page.close();
+  page = await browser.newPage({ viewport: { width: 360, height: 740 } });
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto('http://127.0.0.1:4184', { waitUntil: 'networkidle' });
+  await page.evaluate(async key => {
+    const { createState } = await import('/src/game/engine.ts');
+    const { startExamBattle } = await import('/src/game/battle.ts');
+    const state = createState('playing', 'Battle Upgrade QC');
+    const n = state.ninjas[0];
+    Object.assign(n, { traits: ['akimichiClan'], legend: null, level: 80, rank: 'jonin', jutsuKnown: ['clan_akimichiClan_roll_1', 'clan_akimichiClan_expand_1', 'clan_akimichiClan_calorie_1'],
+      jutsuEquipped: ['clan_akimichiClan_roll_0', 'clan_akimichiClan_roll_1', 'clan_akimichiClan_expand_1', 'clan_akimichiClan_calorie_1'] });
+    const b = startExamBattle(state, n, state.ninjas[1], 'chunin');
+    const u = b.units.find(x => !x.foe);
+    u.cp = u.maxCp = 1000;
+    b.order = [u.uid, ...b.units.filter(x => x.foe).map(x => x.uid)]; b.idx = 0; b.state = 'choose';
+    state.battle = b; state.phase = 'battle';
+    localStorage.setItem(key, JSON.stringify({ version: 3, savedAt: Date.now(), state }));
+  }, key);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: /Battle Upgrade QC.*CONTINUE/ }).click();
+  await page.keyboard.press('2');
+  await page.getByText('EQUIPPED JUTSU', { exact: true }).waitFor();
+  const food = page.getByRole('button', { name: /^Food Pill Surge/ });
+  await food.scrollIntoViewIfNeeded();
+  assert.match(await food.innerText(), /18.84%/);
+  const foodBounds = await food.boundingBox();
+  assert(foodBounds && foodBounds.y >= 0 && foodBounds.y + foodBounds.height <= 740);
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  await page.screenshot({ path: `${out}/battle-jutsu-descriptions.png` });
+  await food.click();
+  await page.getByText('EQUIPPED JUTSU', { exact: true }).waitFor({ state: 'hidden' });
   assert.deepEqual(errors, []);
   console.log('PASS mobile: 360/412px; ten artworks; five-pull reveal and pity; costs; copy locks; bond/release/save reload; clan + Kekkei tree, DoT preview and learning');
 } catch (e) {
