@@ -35,7 +35,7 @@ try {
     state.ninjas.forEach((n, i) => Object.assign(n, {
       name: ['Paper Tester', 'Sound Tester', 'Venom Tester'][i] ?? n.name,
       traits: [['kamioriClan'], ['hibikiClan'], ['kasumoriClan']][i % 3].concat('kekkeiTalent'),
-      nature: 'fire', secondaryNature: 'water', level: 80, rank: 'jonin', legend: null,
+      nature: 'fire', secondaryNature: 'water', level: 80, rank: 'jonin', legend: null, sp: 5,
       summonId: null, status: 'ready', jutsuKnown: [], jutsuGranted: [], jutsuEquipped: [],
       genjutsuKnown: [], genjutsuEquipped: [], perks: [], techniqueTree: undefined,
     }));
@@ -90,6 +90,12 @@ try {
   await page.getByRole('button', { name: 'LEARN · 1 JP', exact: true }).first().click();
   assert.equal((await saved()).ninjas[0].jutsuKnown.length, knownBefore + 1);
   await page.screenshot({ path: `${out}/clan-and-kekkei-jutsu.png` });
+  // The scrollable details dialog must not clip its point-spend overlay.
+  await page.getByRole('button', { name: 'Train Ninjutsu', exact: true }).click();
+  await page.getByText('CONFIRM POINT SPEND', { exact: true }).waitFor();
+  await page.getByRole('button', { name: 'CANCEL', exact: true }).click();
+  await page.getByRole('button', { name: 'Close ninja details', exact: true }).click();
+  assert.equal(await page.getByRole('dialog', { name: 'Paper Tester details' }).count(), 0);
   assert.deepEqual(errors, []);
   console.log('PASS mobile: 360/412px; ten artworks; five-pull reveal and pity; costs; copy locks; bond/release/save reload; clan + Kekkei tree, DoT preview and learning');
 } catch (e) {

@@ -17,7 +17,7 @@
   },
   "src/components/NinjaDetail.tsx": {
     "before": "9da19a9951f1ae48fb20d3a52c7bab7bdcd2e3888315e3b846e2606eb1bf89c2",
-    "after": "c8b6428993f043dca19df50b6d6f8ed1312902858d9671e8f6f5ebb394defa3d"
+    "after": "243d9cfb24ba83eefb5c2e491f622795945f390dbf57e92868e3c364d23d8ba2"
   },
   "src/components/SummonScreen.tsx": {
     "before": null,
