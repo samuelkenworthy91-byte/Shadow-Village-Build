@@ -300,7 +300,7 @@ jobs:
           KAGE_LIFE_KEYSTORE_BASE64: ${{ secrets.KAGE_LIFE_KEYSTORE_BASE64 }}
           # User authorised this one build despite the missing legacy key.
           # Later pushes must restore the retained key, never silently rotate it.
-          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == 'a61d142d99ed925e3a3ca79c8f581105aac657ce' }}
+          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == 'd6ac2a3acd4b18b5b46df31f8af7b825e5ed9c31' }}
         run: python work/restore_android_signing_v36.py
 
       - name: Build APK
@@ -311,7 +311,7 @@ jobs:
 
       - name: Verify APK and report update compatibility
         env:
-          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == 'a61d142d99ed925e3a3ca79c8f581105aac657ce' }}
+          ALLOW_NEW_SIGNING_KEY: ${{ github.event.before == 'd6ac2a3acd4b18b5b46df31f8af7b825e5ed9c31' }}
         run: python work/check_apk_upgrade_v36.py
 
       - name: Upload update compatibility report
