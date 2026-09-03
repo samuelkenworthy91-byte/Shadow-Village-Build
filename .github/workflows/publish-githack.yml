@@ -1,0 +1,155 @@
+name: Publish Kage Life GitHack
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Build Kage Life APK
+    types:
+      - completed
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-githack:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout publishing tools
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Resolve verified Kage Life build
+        id: build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          else
+            RUN_ID=$(gh run list --workflow build-apk.yml --branch main --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Publishing browser build from verified APK run $RUN_ID"
+
+      - name: Download verified patched source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          rm -rf app
+          mkdir -p app
+          gh run download "$RUN_ID" -n Kage-Life-Patched-Source -D app
+          test -f app/package.json
+          test -f app/src/App.tsx
+          test -d app/public/ninjas
+
+      - name: Build browser version
+        working-directory: app
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare GitHack-compatible paths
+        run: |
+          set -euo pipefail
+          rm -rf site
+          mkdir -p site
+          cp -a app/dist/. site/
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          site = Path('site')
+          index = site / 'index.html'
+          text = index.read_text(encoding='utf-8')
+
+          # The game historically uses root-absolute asset URLs for the APK/PWA.
+          # GitHack hosts a project under /owner/repo/branch/, so make those URLs
+          # relative without changing the canonical Android build.
+          prefixes = ['ninjas/', 'raiders/', 'buildings/', 'summons/']
+          files = [
+              'bg-village.jpg', 'bg-raid-field.jpg', 'bg-exam-arena.jpg',
+              'icon.png', 'logo.png', 'manifest.webmanifest', 'sw.js'
+          ]
+          for prefix in prefixes:
+              text = text.replace('/' + prefix, './' + prefix)
+          for name in files:
+              text = text.replace('/' + name, './' + name)
+          index.write_text(text, encoding='utf-8')
+
+          manifest_path = site / 'manifest.webmanifest'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          manifest['id'] = './'
+          manifest['start_url'] = './'
+          manifest['scope'] = './'
+          for icon in manifest.get('icons', []):
+              src = icon.get('src')
+              if isinstance(src, str) and src.startswith('/'):
+                  icon['src'] = '.' + src
+          manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          sw_path = site / 'sw.js'
+          sw = sw_path.read_text(encoding='utf-8')
+          sw = re.sub(r'(["\'`])/(?=[A-Za-z])', r'\1./', sw)
+          sw = sw.replace('"/"', '"./"').replace("'/'", "'./'").replace('`/`', '`./`')
+          sw_path.write_text(sw, encoding='utf-8')
+
+          required = [
+              site / 'index.html', site / 'manifest.webmanifest', site / 'sw.js',
+              site / 'ninjas', site / 'raiders', site / 'buildings', site / 'summons'
+          ]
+          missing = [str(p) for p in required if not p.exists()]
+          if missing:
+              raise SystemExit('GitHack package missing: ' + ', '.join(missing))
+
+          final = index.read_text(encoding='utf-8')
+          forbidden = ['/ninjas/', '/raiders/', '/buildings/', '/summons/', '"/sw.js"', '"/icon.png"']
+          leftovers = [x for x in forbidden if x in final]
+          if leftovers:
+              raise SystemExit('Root-absolute GitHack paths remain in index: ' + ', '.join(leftovers))
+
+          print('GitHack package ready:', sum(1 for p in site.rglob('*') if p.is_file()), 'files')
+          PY
+
+      - name: Publish githack branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ steps.build.outputs.run_id }}
+        run: |
+          set -euo pipefail
+          cd site
+          git init
+          git checkout -b githack
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf 'Kage Life browser build\nSource workflow run: %s\n' "$RUN_ID" > GITHACK_BUILD.txt
+          git add -A
+          git commit -m "Publish Kage Life browser build from run $RUN_ID"
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push --force origin githack
+
+      - name: Verify published entry point
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5 6; do
+            if gh api "repos/${GITHUB_REPOSITORY}/contents/index.html?ref=githack" --jq '.sha' >/dev/null 2>&1; then
+              echo "GitHack branch published successfully"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Published branch did not become readable in time" >&2
+          exit 1
