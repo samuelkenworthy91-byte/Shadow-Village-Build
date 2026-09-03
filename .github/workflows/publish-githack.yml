@@ -2,6 +2,11 @@ name: Publish Kage Life GitHack
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/publish-githack.yml
   workflow_run:
     workflows:
       - Build Kage Life APK
@@ -14,7 +19,7 @@ permissions:
 
 jobs:
   publish-githack:
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout publishing tools
@@ -74,9 +79,8 @@ jobs:
           index = site / 'index.html'
           text = index.read_text(encoding='utf-8')
 
-          # The game historically uses root-absolute asset URLs for the APK/PWA.
-          # GitHack hosts a project under /owner/repo/branch/, so make those URLs
-          # relative without changing the canonical Android build.
+          # APK/PWA builds use root-absolute URLs. GitHack serves this branch
+          # below /owner/repo/githack/, so make only the browser copy relative.
           prefixes = ['ninjas/', 'raiders/', 'buildings/', 'summons/']
           files = [
               'bg-village.jpg', 'bg-raid-field.jpg', 'bg-exam-arena.jpg',
@@ -114,10 +118,10 @@ jobs:
               raise SystemExit('GitHack package missing: ' + ', '.join(missing))
 
           final = index.read_text(encoding='utf-8')
-          forbidden = ['/ninjas/', '/raiders/', '/buildings/', '/summons/', '"/sw.js"', '"/icon.png"']
-          leftovers = [x for x in forbidden if x in final]
-          if leftovers:
-              raise SystemExit('Root-absolute GitHack paths remain in index: ' + ', '.join(leftovers))
+          leftovers = re.findall(r'(?<!\.)/(?:ninjas|raiders|buildings|summons)/', final)
+          exact_root = [x for x in ['"/sw.js"', '"/icon.png"', '"/manifest.webmanifest"'] if x in final]
+          if leftovers or exact_root:
+              raise SystemExit('Root-absolute GitHack asset paths remain')
 
           print('GitHack package ready:', sum(1 for p in site.rglob('*') if p.is_file()), 'files')
           PY
