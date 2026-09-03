@@ -1,0 +1,34 @@
+{
+  "name": "Kage Life — Ninja Village Management",
+  "short_name": "Kage Life",
+  "description": "Become the Kage, lead a hidden ninja village, train shinobi, and hunt dangerous missing-nin through the Bingo Book.",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
+  "orientation": "any",
+  "background_color": "#0d0e1a",
+  "theme_color": "#0d0e1a",
+  "categories": [
+    "games",
+    "strategy"
+  ],
+  "icons": [
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+--- public/sw.js
++++ public/sw.js
+@@ -1,8 +1,9 @@
+ // Offline shell for Shadow Village. Ninja portraits are external PNG assets,
+ // so pre-cache the complete 80-character art library as well as the app shell.
+-const CACHE = "shadow-village-v3-art80";
++const CACHE = "shadow-village-v5-raiders10-field";
+ const NINJA_ART = Array.from({ length: 80 }, (_, i) => `/ninjas/ninja_${String(i + 1).padStart(3, "0")}.png`);
+-const ASSETS = ["/", "/index.html", "/icon.png", "/bg-village.jpg", "/manifest.webmanifest", ...NINJA_ART];
++const RAIDER_ART = ["rogue_genin","bandit_scout","war_monk","ash_bowman","oni_brawler","mist_assassin","clan_guard","torch_saboteur","clan_captain","dread_veteran"].map((n) => `/raiders/${n}.webp`);
++const ASSETS = ["/", "/index.html", "/icon.png", "/logo.png", "/bg-village.jpg", "/bg-raid-field.jpg", "/manifest.webmanifest", ...NINJA_ART, ...RAIDER_ART];
+ 
+ self.addEventListener("install", (e) => {
+   self.skipWaiting();
